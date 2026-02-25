@@ -1,0 +1,16 @@
+.env
+/vendor/
+*.log
+assets/video/*.webm
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+.settings/
+.buildpath
+.project
+sql/zipcodes.sql
+sql/googleOauthInserts.sql
+/public/uploads/profiles/
+README.md
+assets/video/Fireball-orig.webm

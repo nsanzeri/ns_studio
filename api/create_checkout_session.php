@@ -1,42 +1,54 @@
 <?php
-// api/create_checkout_session.php
+require_once __DIR__ . '/../_core/bootstrap.php';
 require_once __DIR__ . '/../config/stripe.php';
 
-header('Content-Type: application/json');
-
-$product_key = $_POST['product_key'] ?? '';
-$products = product_file_map();
-$SITE_URL = site_url();
-
-if (!isset($products[$product_key])) {
-	http_response_code(400);
-	echo json_encode(['error' => 'Invalid product']);
-	exit;
-}
-
-$priceId = $products[$product_key]['price_id'] ?? '';
-if (!$priceId || str_contains($priceId, 'REPLACE_ME')) {
-	http_response_code(500);
-	echo json_encode(['error' => 'Stripe price_id not configured']);
-	exit;
-}
+header('Content-Type: application/json; charset=utf-8');
 
 try {
+	if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+		http_response_code(405);
+		echo json_encode(['error' => 'Method not allowed']);
+		exit;
+	}
+	
+	$productKey = $_POST['product_key'] ?? '';
+	$products = product_file_map();
+	
+	if (!$productKey || !isset($products[$productKey])) {
+		http_response_code(400);
+		echo json_encode(['error' => 'Invalid product_key']);
+		exit;
+	}
+	
+	$p = $products[$productKey];
+	
+	if (empty($p['price_id'])) {
+		throw new RuntimeException('Missing Stripe price_id for product.');
+	}
+	
+	// Where Stripe should send the customer after payment
+	$successUrl = SITE_URL . "/shop/success.php?session_id={CHECKOUT_SESSION_ID}&product_key=" . urlencode($productKey);
+	
+	// Where Stripe should send them if they cancel
+	$cancelUrl  = SITE_URL . "/shop/blueprint.php?canceled=1";
+	
 	$session = \Stripe\Checkout\Session::create([
 			'mode' => 'payment',
 			'line_items' => [[
-					'price' => $priceId,
+					'price' => $p['price_id'],
 					'quantity' => 1,
 			]],
-			// ✅ Patched params: sid + p (avoid mod_security rules on "session_id")
-			'success_url' => $SITE_URL . '/shop/success.php?sid={CHECKOUT_SESSION_ID}&p=' . urlencode($product_key),
-			'cancel_url'  => $SITE_URL . '/shop/cancel.php',
-			'allow_promotion_codes' => true,
-			'billing_address_collection' => 'auto',
+			'success_url' => $successUrl,
+			'cancel_url'  => $cancelUrl,
+			// Optional, but helpful for tracking:
+			'metadata' => [
+					'product_key' => $productKey,
+			],
 	]);
 	
 	echo json_encode(['url' => $session->url]);
-} catch (Exception $e) {
+} catch (Throwable $e) {
 	http_response_code(500);
-	echo json_encode(['error' => 'Checkout session failed']);
+	// Don’t leak full details in production
+	echo json_encode(['error' => 'Checkout session failed', 'detail' => $e->getMessage()]);
 }

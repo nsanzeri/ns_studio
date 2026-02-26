@@ -47,36 +47,45 @@ $p = $products['btb'];
     </section>
   </main>
 
-  <script>
-  const btn = document.getElementById('buyBtn');
-  const err = document.getElementById('buyErr');
+<script>
+const btn = document.getElementById('buyBtn');
+const errEl = document.getElementById('buyErr');
+const checkoutUrl = "<?= base_url('api/create_checkout_session.php') ?>";
 
-	const checkoutUrl = "<?= base_url('api/create_checkout_session.php') ?>";
-	
-	async function go() {
-	  try {
-	    const response = await fetch(checkoutUrl, {
-	      method: 'POST',
-	      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-	      body: new URLSearchParams({ product_key: 'btb' })
-	    });
-	
-	    const data = await response.json();
-	
-	    if (data.url) {
-	      window.location = data.url;
-	    } else {
-	      alert('Checkout error.');
-	      console.error(data);
-	    }
-	  } catch (err) {
-	    console.error(err);
-	    alert('Something went wrong.');
-	  }
-	}
+async function go() {
+  errEl.style.display = 'none';
+  errEl.textContent = '';
 
+  try {
+    const response = await fetch(checkoutUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Accept': 'application/json' },
+      body: new URLSearchParams({ product_key: 'btb' })
+    });
 
-  btn.addEventListener('click', go);
-  </script>
+    const contentType = response.headers.get('content-type') || '';
+    const text = await response.text();
+
+    if (!contentType.includes('application/json')) {
+      throw new Error('Expected JSON but got: ' + text.slice(0, 200));
+    }
+
+    const data = JSON.parse(text);
+
+    if (data.url) {
+      window.location = data.url;
+      return;
+    }
+
+    throw new Error(data.error || 'Checkout error');
+  } catch (e) {
+    console.error(e);
+    errEl.style.display = 'block';
+    errEl.textContent = e.message || 'Something went wrong.';
+  }
+}
+
+btn.addEventListener('click', go);
+</script>
 </body>
 </html>

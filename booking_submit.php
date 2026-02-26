@@ -1,16 +1,19 @@
 <?php
+
+require __DIR__ . '/bootstrap.php';
+
 // --------------------------------------------
 // CONFIGURATION
 // --------------------------------------------
-$recipient = "nsanzeri@gmail.com";   // <-- replace with your real email
+$recipient = env('BOOKING_RECIPIENT', 'nsanzeri@gmail.com');
 $subject   = "New Booking Inquiry from nicksanzeri.com";
 
 // --------------------------------------------
 // Basic spam trap (honeypot)
 // --------------------------------------------
-if (!empty($_POST["website"])) {
+if (!empty($_POST['website'])) {
     // If this hidden field is filled, it's a bot
-    header("Location: thank_you.html");
+    header('Location: thank_you.html');
     exit;
 }
 
@@ -18,7 +21,7 @@ if (!empty($_POST["website"])) {
 // Helper to safely fetch fields
 // --------------------------------------------
 function field($key) {
-    return isset($_POST[$key]) ? htmlspecialchars(trim($_POST[$key])) : "";
+    return isset($_POST[$key]) ? htmlspecialchars(trim((string)$_POST[$key])) : "";
 }
 
 // --------------------------------------------
@@ -46,7 +49,8 @@ $needs_list = implode(", ", array_map("htmlspecialchars", $needs));
 // Basic required validation
 // --------------------------------------------
 if (!$name || !$email || !$phone) {
-    die("Missing required fields. Please go back and complete all required fields.");
+    http_response_code(400);
+    die('Missing required fields. Please go back and complete all required fields.');
 }
 
 // --------------------------------------------
@@ -85,17 +89,49 @@ $other_details
 // --------------------------------------------
 // Prepare headers
 // --------------------------------------------
-$headers = "From: Booking Form <no-reply@nicksanzeri.com>\r\n";
-$headers .= "Reply-To: $email\r\n";
+// --------------------------------------------
+// Send the email (SMTP via PHPMailer)
+// --------------------------------------------
 
-// --------------------------------------------
-// Send the email
-// --------------------------------------------
-mail($recipient, $subject, $body, $headers);
+// Optional env vars with sensible defaults
+$smtpHost = env('SMTP_HOST');
+$smtpUser = env('SMTP_USERNAME');
+$smtpPass = env('SMTP_PASSWORD');
+$smtpPort = (int) env('SMTP_PORT', 587);
+
+$fromEmail = env('SMTP_FROM', 'no-reply@nicksanzeri.com');
+$fromName  = env('SMTP_FROM_NAME', 'Booking Form');
+
+if (!$smtpHost || !$smtpUser || !$smtpPass) {
+    error_log('booking_submit missing SMTP env vars.');
+    header('Location: thank_you.html');
+    exit;
+}
+
+try {
+    $mail = new PHPMailer\PHPMailer\PHPMailer(true);
+    $mail->isSMTP();
+    $mail->Host = $smtpHost;
+    $mail->SMTPAuth = true;
+    $mail->Username = $smtpUser;
+    $mail->Password = $smtpPass;
+    $mail->SMTPSecure = PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
+    $mail->Port = $smtpPort;
+
+    $mail->setFrom($fromEmail, $fromName);
+    $mail->addAddress($recipient);
+    $mail->addReplyTo($email, $name);
+
+    $mail->Subject = $subject;
+    $mail->Body = $body;
+    $mail->send();
+} catch (Throwable $e) {
+    // Don't leak details to the user.
+    error_log('booking_submit mail error: ' . $e->getMessage());
+}
 
 // --------------------------------------------
 // Redirect to Thank You page
 // --------------------------------------------
-header("Location: thank_you.html");
+header('Location: thank_you.html');
 exit;
-?>

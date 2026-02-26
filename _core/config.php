@@ -10,9 +10,9 @@ return [
 		],
 		'db' => [
 				'host' => 'localhost',
-				'name' => 'YOUR_DB_NAME',
-				'user' => 'YOUR_DB_USER',
-				'pass' => 'YOUR_DB_PASS',
+				'name' => 'ns_studio',
+				'user' => 'root',
+				'pass' => '',
 				'charset' => 'utf8mb4',
 		],
 ];

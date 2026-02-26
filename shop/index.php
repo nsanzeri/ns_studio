@@ -1,7 +1,10 @@
 <?php
 // shop/index.php
-require_once __DIR__ . '/../config/stripe.php';
+// Load core bootstrap first (sessions, helpers, DB, env, composer autoload)
 require_once __DIR__ . '/../_core/bootstrap.php';
+// Then load Stripe + product configuration
+require_once __DIR__ . '/../config/stripe.php';
+
 $products = product_file_map();
 ?>
 <!doctype html>

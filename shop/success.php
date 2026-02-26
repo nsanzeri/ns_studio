@@ -70,7 +70,7 @@ try {
   <meta charset="utf-8">
   <title>Success | Download</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="stylesheet" href="/assets/css/style.css">
+  <link rel="stylesheet" href="<?= htmlspecialchars(base_url('assets/css/style.css')) ?>">
 </head>
 <body>
   <div class="container" style="padding:80px 20px; text-align:center;">

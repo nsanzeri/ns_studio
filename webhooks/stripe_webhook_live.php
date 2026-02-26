@@ -2,12 +2,8 @@
 require_once __DIR__ . '/../_core/bootstrap.php';
 require_once __DIR__ . '/../config/stripe.php';
 
-$secret = env('STRIPE_WEBHOOK_SECRET_LIVE');   // for test endpoint use STRIPE_WEBHOOK_SECRET_TEST
-if (!$secret) {
-	http_response_code(500);
-	echo "Missing webhook secret";
-	exit;
-}
+$secret = env('STRIPE_WEBHOOK_SECRET_LIVE');
+if (!$secret) { http_response_code(500); echo "Missing webhook secret"; exit; }
 
 $payload = file_get_contents('php://input');
 $sig = $_SERVER['HTTP_STRIPE_SIGNATURE'] ?? '';
@@ -22,14 +18,14 @@ try {
 
 $livemode = !empty($event->livemode) ? 1 : 0;
 
-// Hard stop if wrong endpoint is receiving the wrong mode (safety net)
-if ($livemode !== 1) { // this is LIVE endpoint
+// LIVE endpoint must only accept live events
+if ($livemode !== 1) {
 	http_response_code(400);
 	echo "Wrong mode for live endpoint";
 	exit;
 }
 
-// Idempotency: record the event first (unique on stripe_event_id + livemode)
+// Idempotency: record event first (unique on stripe_event_id + livemode)
 try {
 	$stmt = $pdo->prepare("
     INSERT INTO stripe_webhook_events
@@ -37,17 +33,8 @@ try {
     VALUES
       (?, ?, ?, ?, ?, ?, 'received')
   ");
-	$stmt->execute([
-			$event->id,
-			$livemode,
-			$event->type,
-			$event->api_version ?? null,
-			$payload,
-			$sig
-	]);
+	$stmt->execute([$event->id, $livemode, $event->type, $event->api_version ?? null, $payload, $sig]);
 } catch (\PDOException $e) {
-	// Duplicate event -> already handled (or being handled)
-	// Return 200 so Stripe stops retrying
 	http_response_code(200);
 	echo "Duplicate";
 	exit;
@@ -62,7 +49,6 @@ function mark_event(PDO $pdo, string $eventId, int $livemode, string $status, ?s
 }
 
 try {
-	// Only act on the key event you care about
 	if ($event->type !== 'checkout.session.completed') {
 		mark_event($pdo, $event->id, $livemode, 'ignored', 'Unhandled type');
 		http_response_code(200);
@@ -73,7 +59,6 @@ try {
 	/** @var \Stripe\Checkout\Session $session */
 	$session = $event->data->object;
 	
-	// Make sure money actually moved
 	if (($session->payment_status ?? '') !== 'paid') {
 		mark_event($pdo, $event->id, $livemode, 'ignored', 'Not paid');
 		http_response_code(200);
@@ -81,8 +66,8 @@ try {
 		exit;
 	}
 	
-	$sessionId = (string)$session->id;
-	$email = $session->customer_details->email ?? null;
+	$sessionId  = (string)$session->id;
+	$email      = $session->customer_details->email ?? null;
 	$productKey = $session->metadata->product_key ?? '';
 	
 	$products = product_file_map();
@@ -98,7 +83,7 @@ try {
 	
 	$pdo->beginTransaction();
 	
-	// Record purchase (idempotent by unique session id + livemode if you created that constraint)
+	// Purchase row (optional but recommended)
 	$pdo->prepare("
     INSERT INTO purchases
       (stripe_checkout_session_id, purchaser_email, amount_total, currency, livemode, status, paid_at)
@@ -114,26 +99,30 @@ try {
   		$livemode
   ]);
 	
-	// Mint token (idempotent thanks to uniq_session_product on download_tokens)
+	// Mint token (idempotent on uniq_session_product)
 	$token = bin2hex(random_bytes(32));
-	$ins = $pdo->prepare("
-    INSERT INTO download_tokens
-      (token, checkout_session_id, purchaser_email, product_key, file_path, expires_at, uses_remaining)
-    VALUES
-      (?, ?, ?, ?, ?, ?, ?)
-  ");
+	
 	try {
-		$ins->execute([
-				$token,
-				$sessionId,
-				$email,
-				$productKey,
-				$meta['file_path'],
-				$expires_at->format('Y-m-d H:i:s'),
-				(int)$meta['uses'],
-		]);
+		$pdo->prepare("
+      INSERT INTO download_tokens
+        (token, checkout_session_id, purchaser_email, product_key, file_path, expires_at, uses_remaining)
+      VALUES
+        (?, ?, ?, ?, ?, ?, ?)
+    ")->execute([
+    		$token,
+    		$sessionId,
+    		$email,
+    		$productKey,
+    		$meta['file_path'],
+    		$expires_at->format('Y-m-d H:i:s'),
+    		(int)$meta['uses']
+    ]);
 	} catch (\PDOException $e) {
-		// likely duplicate (refresh/replay) — do nothing
+		// Duplicate token already exists: fetch it so downstream is consistent
+		$stmt = $pdo->prepare("SELECT token FROM download_tokens WHERE checkout_session_id=? AND product_key=? LIMIT 1");
+		$stmt->execute([$sessionId, $productKey]);
+		$existing = $stmt->fetch(PDO::FETCH_ASSOC);
+		$token = $existing['token'] ?? $token;
 	}
 	
 	$pdo->commit();
@@ -144,6 +133,6 @@ try {
 } catch (\Throwable $e) {
 	if ($pdo->inTransaction()) $pdo->rollBack();
 	mark_event($pdo, $event->id, $livemode, 'failed', substr($e->getMessage(), 0, 240));
-	http_response_code(200); // still 200 to stop retries while you debug using logs
+	http_response_code(200);
 	echo "Failed";
 }

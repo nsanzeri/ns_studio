@@ -1,10 +1,12 @@
 <?php
 // shop/success.php
+require_once __DIR__ . '/../_core/bootstrap.php';
+
 require_once __DIR__ . '/../db_connect.php';
 require_once __DIR__ . '/../stripe_config.php';
 
-$session_id = $_GET['session_id'] ?? '';
-$product_key = $_GET['product'] ?? '';
+$session_id  = $_GET['sid'] ?? '';
+$product_key = $_GET['p'] ?? '';
 
 $products = product_file_map();
 if (!$session_id || !isset($products[$product_key])) {
@@ -25,6 +27,7 @@ try {
 
   // Create token only once (safe on refresh)
   $token = null;
+  
 
   $stmt = $pdo->prepare("SELECT token FROM download_tokens WHERE checkout_session_id = ? AND product_key = ? LIMIT 1");
   $stmt->execute([$session_id, $product_key]);
@@ -55,8 +58,7 @@ try {
     ]);
   }
 
-  $downloadUrl = SITE_URL . '/download.php?t=' . urlencode($token);
-
+  $downloadUrl = base_url('download.php') . '?t=' . urlencode($token);
 } catch (Exception $e) {
   http_response_code(500);
   echo "Could not verify your purchase. Please contact support.";
@@ -84,7 +86,7 @@ try {
       <p class="muted small" style="margin-bottom:10px;">
         Want this saved in <strong>My Library</strong>? Create your Studio login (15 sec).
       </p>
-      <a class="btn btn-outline" href="/studio/signup.php?save=1&session_id=<?= urlencode($session_id) ?>&product=<?= urlencode($product_key) ?>">
+      <a class="btn btn-outline" href="<?= htmlspecialchars(base_url('studio/signup.php')) ?>?save=1&sid=<?= urlencode($session_id) ?>&p=<?= urlencode($product_key) ?>">
         Create Login &amp; Save to Library
       </a>
     </div>

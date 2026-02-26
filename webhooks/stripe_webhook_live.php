@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../_core/bootstrap.php';
 require_once __DIR__ . '/../config/stripe.php';
+require_once __DIR__ . '/../_core/email.php';
 
 $secret = env('STRIPE_WEBHOOK_SECRET_LIVE');
 if (!$secret) { http_response_code(500); echo "Missing webhook secret"; exit; }
@@ -126,6 +127,43 @@ try {
 	}
 	
 	$pdo->commit();
+	
+	
+	// send email reciept
+	// send email receipt
+	if ($email) {
+		$downloadUrl = base_url('download.php') . '?t=' . urlencode($token);
+		$successUrl  = base_url('success.php') . '?sid=' . urlencode($sessionId);
+		
+		$subject = "Your Backing Track Blueprint download link";
+		
+		$body =
+		"Hey there,\n\n" .
+		"Your purchase is confirmed. Here are your links:\n\n" .
+		"Download link:\n" . $downloadUrl . "\n\n" .
+		"Success page (backup):\n" . $successUrl . "\n\n" .
+		"Notes:\n" .
+		"- This link expires and has limited uses (to protect the product).\n" .
+		"- If you have any trouble, reply to this email.\n\n" .
+		"Thanks!\n" .
+		"Nick Sanzeri\n";
+		
+		// One email per session+product+mode
+		$idemKey = "dl_link:" . ($livemode ? "live" : "test") . ":" . $sessionId . ":" . $productKey;
+		
+		send_and_log_email($pdo, [
+				'message_type' => 'download_link',
+				'recipient' => $email,
+				'subject' => $subject,
+				'body' => $body,
+				'from_email' => 'no-reply@nicksanzeri.com',
+				'from_name' => 'Nick Sanzeri',
+				'reply_to' => 'nsanzeri@gmail.com',
+				'idempotency_key' => $idemKey,
+				'related_table' => 'purchases',
+				'related_id' => null,
+		]);
+	}
 	
 	mark_event($pdo, $event->id, $livemode, 'processed', null);
 	http_response_code(200);

@@ -1,137 +1,204 @@
 <?php
+// booking_submit.php
+// - Honeypot
+// - Validation + length caps
+// - Basic file-based rate limiting
+// - Basic logging
+// - Sends admin email + confirmation email to requester
 
-require __DIR__ . '/bootstrap.php';
+// -----------------------------
+// CONFIG
+// -----------------------------
+$adminRecipient = "nsanzeri@gmail.com";
+$adminSubject   = "New Booking Inquiry from nicksanzeri.com";
 
-// --------------------------------------------
-// CONFIGURATION
-// --------------------------------------------
-$recipient = env('BOOKING_RECIPIENT', 'nsanzeri@gmail.com');
-$subject   = "New Booking Inquiry from nicksanzeri.com";
+// Where to write logs (make sure this folder is writable)
+$logDir  = __DIR__ . '/_logs';
+$logFile = $logDir . '/booking.log';
 
-// --------------------------------------------
-// Basic spam trap (honeypot)
-// --------------------------------------------
-if (!empty($_POST['website'])) {
-    // If this hidden field is filled, it's a bot
-    header('Location: thank_you.html');
-    exit;
+// Rate limit: max submissions per IP in window
+$rateMax   = 5;
+$rateMins  = 30;
+$rateStore = $logDir . '/booking_rate.json';
+
+// -----------------------------
+// Helpers
+// -----------------------------
+function ensure_dir($dir) {
+	if (!is_dir($dir)) @mkdir($dir, 0755, true);
 }
 
-// --------------------------------------------
-// Helper to safely fetch fields
-// --------------------------------------------
-function field($key) {
-    return isset($_POST[$key]) ? htmlspecialchars(trim((string)$_POST[$key])) : "";
+function log_line($file, $msg) {
+	$ts = date('Y-m-d H:i:s');
+	@file_put_contents($file, "[$ts] $msg\n", FILE_APPEND);
 }
 
-// --------------------------------------------
+function field($key, $maxLen = 5000) {
+	$val = isset($_POST[$key]) ? trim((string)$_POST[$key]) : "";
+	// Collapse weird whitespace
+	$val = preg_replace('/\s+/', ' ', $val);
+	if (mb_strlen($val) > $maxLen) $val = mb_substr($val, 0, $maxLen);
+	// For display inside email body (not HTML output), we still strip control chars
+	$val = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/u', '', $val);
+	return $val;
+}
+
+function valid_email($email) {
+	if (!$email) return false;
+	if (strlen($email) > 190) return false;
+	return (bool)filter_var($email, FILTER_VALIDATE_EMAIL);
+}
+
+function safe_header_value($s) {
+	// prevent header injection
+	return trim(str_replace(["\r", "\n"], '', (string)$s));
+}
+
+function get_ip() {
+	// If you're behind Cloudflare/etc you can enhance this later.
+	return $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
+}
+
+function rate_limit_ok($storeFile, $ip, $max, $windowSeconds) {
+	$now = time();
+	$data = [];
+	if (is_file($storeFile)) {
+		$json = @file_get_contents($storeFile);
+		$data = json_decode($json, true);
+		if (!is_array($data)) $data = [];
+	}
+	if (!isset($data[$ip]) || !is_array($data[$ip])) $data[$ip] = [];
+	
+	// prune old
+	$data[$ip] = array_values(array_filter($data[$ip], function($t) use ($now, $windowSeconds) {
+		return is_int($t) && ($now - $t) <= $windowSeconds;
+	}));
+		
+		if (count($data[$ip]) >= $max) {
+			// save pruned
+			@file_put_contents($storeFile, json_encode($data));
+			return false;
+		}
+		
+		// record new hit
+		$data[$ip][] = $now;
+		@file_put_contents($storeFile, json_encode($data));
+		return true;
+}
+
+// -----------------------------
+// Init
+// -----------------------------
+ensure_dir($logDir);
+
+// Honeypot
+if (!empty($_POST["website"])) {
+	log_line($logFile, "SPAM honeypot triggered ip=" . get_ip());
+	header("Location: thank_you.html");
+	exit;
+}
+
+// Rate limit
+$ip = get_ip();
+if (!rate_limit_ok($rateStore, $ip, $rateMax, $rateMins * 60)) {
+	log_line($logFile, "RATE_LIMIT ip=$ip");
+	// Still redirect so bots don't learn anything
+	header("Location: thank_you.html");
+	exit;
+}
+
 // Collect fields
-// --------------------------------------------
-$name          = field("name");
-$email         = field("email");
-$phone         = field("phone");
-$event_type    = field("event_type");
-$event_date    = field("event_date");
-$event_time    = field("event_time");
-$venue_name    = field("venue_name");
-$venue_loc     = field("venue_location");
-$guest_count   = field("guest_count");
-$budget_range  = field("budget_range");
-$vibe          = field("vibe");
-$heard_about   = field("heard_about");
-$other_details = field("other_details");
+$name          = field("name", 120);
+$email         = field("email", 190);
+$phone         = field("phone", 64);
+$event_type    = field("event_type", 120);
+$event_date    = field("event_date", 64);
+$event_time    = field("event_time", 64);
+$venue_name    = field("venue_name", 190);
+$venue_loc     = field("venue_location", 255);
+$guest_count   = field("guest_count", 64);
+$budget_range  = field("budget_range", 64);
+$vibe          = field("vibe", 4000);
+$heard_about   = field("heard_about", 190);
+$other_details = field("other_details", 4000);
 
-// Multiple checkbox options
-$needs = isset($_POST["needs"]) ? $_POST["needs"] : [];
-$needs_list = implode(", ", array_map("htmlspecialchars", $needs));
+// Needs (checkbox)
+$needs = isset($_POST["needs"]) && is_array($_POST["needs"]) ? $_POST["needs"] : [];
+$needs = array_map(fn($x) => preg_replace('/[\r\n]/', '', trim((string)$x)), $needs);
+$needs_list = implode(", ", array_slice($needs, 0, 20));
 
-// --------------------------------------------
-// Basic required validation
-// --------------------------------------------
+// Validation
 if (!$name || !$email || !$phone) {
-    http_response_code(400);
-    die('Missing required fields. Please go back and complete all required fields.');
+	log_line($logFile, "INVALID missing_required ip=$ip name=" . ($name ?: '-') . " email=" . ($email ?: '-'));
+	http_response_code(400);
+	echo "Missing required fields. Please go back and complete all required fields.";
+	exit;
+}
+if (!valid_email($email)) {
+	log_line($logFile, "INVALID bad_email ip=$ip email=$email");
+	http_response_code(400);
+	echo "Please enter a valid email address.";
+	exit;
 }
 
-// --------------------------------------------
-// Build the email body
-// --------------------------------------------
-$body = "
-A new booking inquiry has been submitted:
-
-Name: $name
-Email: $email
-Phone: $phone
-
-Event Type: $event_type
-Event Date: $event_date
-Event Time: $event_time
-
-Venue Name: $venue_name
-Venue Location: $venue_loc
-Guest Count: $guest_count
-Budget Range: $budget_range
-
-Needs: $needs_list
-
-Vibe / Vision:
-$vibe
-
-How they heard about Nick:
-$heard_about
-
-Other Details:
-$other_details
-
--- End of message --
-";
-
-// --------------------------------------------
-// Prepare headers
-// --------------------------------------------
-// --------------------------------------------
-// Send the email (SMTP via PHPMailer)
-// --------------------------------------------
-
-// Optional env vars with sensible defaults
-$smtpHost = env('SMTP_HOST');
-$smtpUser = env('SMTP_USERNAME');
-$smtpPass = env('SMTP_PASSWORD');
-$smtpPort = (int) env('SMTP_PORT', 587);
-
-$fromEmail = env('SMTP_FROM', 'no-reply@nicksanzeri.com');
-$fromName  = env('SMTP_FROM_NAME', 'Booking Form');
-
-if (!$smtpHost || !$smtpUser || !$smtpPass) {
-    error_log('booking_submit missing SMTP env vars.');
-    header('Location: thank_you.html');
-    exit;
-}
-
-try {
-    $mail = new PHPMailer\PHPMailer\PHPMailer(true);
-    $mail->isSMTP();
-    $mail->Host = $smtpHost;
-    $mail->SMTPAuth = true;
-    $mail->Username = $smtpUser;
-    $mail->Password = $smtpPass;
-    $mail->SMTPSecure = PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
-    $mail->Port = $smtpPort;
-
-    $mail->setFrom($fromEmail, $fromName);
-    $mail->addAddress($recipient);
-    $mail->addReplyTo($email, $name);
-
-    $mail->Subject = $subject;
-    $mail->Body = $body;
-    $mail->send();
-} catch (Throwable $e) {
-    // Don't leak details to the user.
-    error_log('booking_submit mail error: ' . $e->getMessage());
-}
-
-// --------------------------------------------
-// Redirect to Thank You page
-// --------------------------------------------
-header('Location: thank_you.html');
-exit;
+// Build admin email
+$body = "A new booking inquiry has been submitted:\n\n"
+		. "Name: $name\n"
+		. "Email: $email\n"
+		. "Phone: $phone\n\n"
+		. "Event Type: $event_type\n"
+		. "Event Date: $event_date\n"
+		. "Event Time: $event_time\n\n"
+		. "Venue Name: $venue_name\n"
+		. "Venue Location: $venue_loc\n"
+		. "Guest Count: $guest_count\n"
+		. "Budget Range: $budget_range\n\n"
+		. "Needs: $needs_list\n\n"
+		. "Vibe / Vision:\n$vibe\n\n"
+		. "How they heard about Nick:\n$heard_about\n\n"
+		. "Other Details:\n$other_details\n\n"
+		. "--\n"
+				. "Meta:\n"
+						. "IP: $ip\n"
+						. "UA: " . ($_SERVER['HTTP_USER_AGENT'] ?? '-') . "\n";
+						
+						$fromName  = "NickSanzeri.com Booking";
+						$fromEmail = "no-reply@nicksanzeri.com";
+						
+						// Headers (safe)
+						$headers  = "From: " . safe_header_value($fromName) . " <" . safe_header_value($fromEmail) . ">\r\n";
+						$headers .= "Reply-To: " . safe_header_value($email) . "\r\n";
+						$headers .= "Content-Type: text/plain; charset=UTF-8\r\n";
+						
+						// Send admin email
+						$adminOk = @mail($adminRecipient, $adminSubject, $body, $headers);
+						
+						// Send confirmation email (simple)
+						$confirmSubject = "Got it — your booking inquiry was received";
+						$confirmBody = "Hey $name,\n\n"
+						. "Thanks for reaching out — I got your booking inquiry.\n"
+								. "I’ll reply as soon as I can (usually within 24 hours).\n\n"
+										. "Quick summary of what you sent:\n"
+												. "Event Type: $event_type\n"
+												. "Event Date: $event_date\n"
+												. "Event Time: $event_time\n"
+												. "Location: $venue_loc\n\n"
+												. "Talk soon,\n"
+														. "Nick Sanzeri\n"
+																. "NickSanzeri.com\n";
+																
+																$confirmHeaders  = "From: " . safe_header_value("Nick Sanzeri") . " <" . safe_header_value($fromEmail) . ">\r\n";
+																$confirmHeaders .= "Reply-To: " . safe_header_value($adminRecipient) . "\r\n";
+																$confirmHeaders .= "Content-Type: text/plain; charset=UTF-8\r\n";
+																
+																$confirmOk = @mail($email, $confirmSubject, $confirmBody, $confirmHeaders);
+																
+																// Log outcome
+																log_line(
+																		$logFile,
+																		"SUBMIT ip=$ip email=$email adminOk=" . ($adminOk ? "1" : "0") . " confirmOk=" . ($confirmOk ? "1" : "0")
+																		);
+																
+																// Always redirect (don’t leak info to bots)
+																header("Location: thank_you.html");
+																exit;

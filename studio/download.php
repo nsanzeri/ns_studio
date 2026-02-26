@@ -1,6 +1,6 @@
 <?php
 // download.php
-require_once __DIR__ . '/db_connect.php';
+require_once __DIR__ . '/../_core/db_connect.php';
 require_once __DIR__ . '/../config/stripe.php';
 
 $token = $_GET['t'] ?? '';

@@ -1,10 +1,10 @@
 <?php
-// download.php?t=...  (token-gated file download)
-
 require_once __DIR__ . '/_core/bootstrap.php';
-require_once __DIR__ . '/config/stripe.php'; // provides product_file_map()
+require_once __DIR__ . '/config/stripe.php';
 
-// ---------- helpers ----------
+// -----------------------------
+// Helpers
+// -----------------------------
 function ip_to_bin(?string $ip): ?string {
 	if (!$ip) return null;
 	$bin = @inet_pton($ip);
@@ -12,13 +12,14 @@ function ip_to_bin(?string $ip): ?string {
 }
 
 function log_download(PDO $pdo, array $data): void {
-	// Expected columns (from the table we created):
-	// token_id, purchase_id, checkout_session_id, purchaser_email, product_key, file_path, ip, user_agent, result, note
-	$sql = "INSERT INTO download_log
-    (token_id, purchase_id, checkout_session_id, purchaser_email, product_key, file_path, ip, user_agent, result, note)
-    VALUES
-    (:token_id, :purchase_id, :checkout_session_id, :purchaser_email, :product_key, :file_path, :ip, :user_agent, :result, :note)";
-	$stmt = $pdo->prepare($sql);
+	$stmt = $pdo->prepare("
+        INSERT INTO download_log
+        (token_id, purchase_id, checkout_session_id, purchaser_email,
+         product_key, file_path, ip, user_agent, result, note)
+        VALUES
+        (:token_id, :purchase_id, :checkout_session_id, :purchaser_email,
+         :product_key, :file_path, :ip, :user_agent, :result, :note)
+    ");
 	$stmt->execute([
 			':token_id' => $data['token_id'] ?? null,
 			':purchase_id' => $data['purchase_id'] ?? null,
@@ -33,7 +34,9 @@ function log_download(PDO $pdo, array $data): void {
 	]);
 }
 
-// ---------- input ----------
+// -----------------------------
+// Validate token format
+// -----------------------------
 $token = $_GET['t'] ?? '';
 if (!$token || !preg_match('/^[a-f0-9]{64}$/', $token)) {
 	http_response_code(400);
@@ -42,32 +45,30 @@ if (!$token || !preg_match('/^[a-f0-9]{64}$/', $token)) {
 }
 
 $ipBin = ip_to_bin($_SERVER['REMOTE_ADDR'] ?? null);
-$ua = isset($_SERVER['HTTP_USER_AGENT']) ? substr((string)$_SERVER['HTTP_USER_AGENT'], 0, 255) : null;
+$ua = isset($_SERVER['HTTP_USER_AGENT']) ? substr($_SERVER['HTTP_USER_AGENT'], 0, 255) : null;
 
 $products = product_file_map();
 
-// ---------- transactional validation + decrement ----------
 try {
 	$pdo->beginTransaction();
 	
-	// Lock the token row so concurrent requests can't both decrement
-	$stmt = $pdo->prepare("SELECT * FROM download_tokens WHERE token = ? LIMIT 1 FOR UPDATE");
+	// LOCK the row (prevents race conditions)
+	$stmt = $pdo->prepare("
+        SELECT *
+        FROM download_tokens
+        WHERE token = ?
+        LIMIT 1
+        FOR UPDATE
+    ");
 	$stmt->execute([$token]);
 	$row = $stmt->fetch(PDO::FETCH_ASSOC);
 	
 	if (!$row) {
-		// log + commit (no row lock to hold anyway, but keep symmetry)
 		log_download($pdo, [
-				'token_id' => null,
-				'purchase_id' => null,
-				'checkout_session_id' => null,
-				'purchaser_email' => null,
-				'product_key' => '',
-				'file_path' => '',
+				'result' => 'not_found',
 				'ip' => $ipBin,
 				'user_agent' => $ua,
-				'result' => 'not_found',
-				'note' => 'Token not found',
+				'note' => 'Token not found'
 		]);
 		$pdo->commit();
 		http_response_code(404);
@@ -75,20 +76,15 @@ try {
 		exit;
 	}
 	
-	$product_key = (string)$row['product_key'];
+	$product_key = $row['product_key'];
 	
 	if (!isset($products[$product_key])) {
 		log_download($pdo, [
-				'token_id' => (int)$row['id'],
-				'purchase_id' => $row['purchase_id'] ?? null,
-				'checkout_session_id' => $row['stripe_checkout_session_id'] ?? null,
-				'purchaser_email' => $row['purchaser_email'] ?? null,
-				'product_key' => $product_key,
-				'file_path' => (string)($row['file_path'] ?? ''),
+				'token_id' => $row['id'],
+				'result' => 'invalid',
 				'ip' => $ipBin,
 				'user_agent' => $ua,
-				'result' => 'invalid',
-				'note' => 'Unknown product_key',
+				'note' => 'Unknown product_key'
 		]);
 		$pdo->commit();
 		http_response_code(400);
@@ -96,41 +92,17 @@ try {
 		exit;
 	}
 	
-	// Optional: enforce revoked_at if you added it
-	if (!empty($row['revoked_at'])) {
-		log_download($pdo, [
-				'token_id' => (int)$row['id'],
-				'purchase_id' => $row['purchase_id'] ?? null,
-				'checkout_session_id' => $row['stripe_checkout_session_id'] ?? null,
-				'purchaser_email' => $row['purchaser_email'] ?? null,
-				'product_key' => $product_key,
-				'file_path' => (string)($row['file_path'] ?? ''),
-				'ip' => $ipBin,
-				'user_agent' => $ua,
-				'result' => 'revoked',
-				'note' => 'Token revoked',
-		]);
-		$pdo->commit();
-		http_response_code(410);
-		echo 'This download link is no longer valid.';
-		exit;
-	}
-	
 	// Expiration enforcement
-	$now = new DateTimeImmutable('now');
-	$expiresAt = new DateTimeImmutable((string)$row['expires_at']);
-	if ($now >= $expiresAt) {
+	if (new DateTimeImmutable() >= new DateTimeImmutable($row['expires_at'])) {
 		log_download($pdo, [
-				'token_id' => (int)$row['id'],
+				'token_id' => $row['id'],
 				'purchase_id' => $row['purchase_id'] ?? null,
-				'checkout_session_id' => $row['stripe_checkout_session_id'] ?? null,
-				'purchaser_email' => $row['purchaser_email'] ?? null,
+				'checkout_session_id' => $row['checkout_session_id'],
+				'purchaser_email' => $row['purchaser_email'],
 				'product_key' => $product_key,
-				'file_path' => (string)($row['file_path'] ?? ''),
-				'ip' => $ipBin,
-				'user_agent' => $ua,
 				'result' => 'expired',
-				'note' => 'Token expired',
+				'ip' => $ipBin,
+				'user_agent' => $ua
 		]);
 		$pdo->commit();
 		http_response_code(410);
@@ -140,16 +112,14 @@ try {
 	
 	if ((int)$row['uses_remaining'] <= 0) {
 		log_download($pdo, [
-				'token_id' => (int)$row['id'],
+				'token_id' => $row['id'],
 				'purchase_id' => $row['purchase_id'] ?? null,
-				'checkout_session_id' => $row['stripe_checkout_session_id'] ?? null,
-				'purchaser_email' => $row['purchaser_email'] ?? null,
+				'checkout_session_id' => $row['checkout_session_id'],
+				'purchaser_email' => $row['purchaser_email'],
 				'product_key' => $product_key,
-				'file_path' => (string)($row['file_path'] ?? ''),
-				'ip' => $ipBin,
-				'user_agent' => $ua,
 				'result' => 'exhausted',
-				'note' => 'No uses remaining',
+				'ip' => $ipBin,
+				'user_agent' => $ua
 		]);
 		$pdo->commit();
 		http_response_code(410);
@@ -157,22 +127,16 @@ try {
 		exit;
 	}
 	
-	// Resolve file mapping ONLY from server-side product map
-	$expectedPath = $products[$product_key]['file_path'];
+	$filePath = $products[$product_key]['file_path'];
 	$downloadName = $products[$product_key]['download_name'];
 	
-	if (!is_file($expectedPath)) {
+	if (!is_file($filePath)) {
 		log_download($pdo, [
-				'token_id' => (int)$row['id'],
-				'purchase_id' => $row['purchase_id'] ?? null,
-				'checkout_session_id' => $row['stripe_checkout_session_id'] ?? null,
-				'purchaser_email' => $row['purchaser_email'] ?? null,
-				'product_key' => $product_key,
-				'file_path' => $expectedPath,
-				'ip' => $ipBin,
-				'user_agent' => $ua,
+				'token_id' => $row['id'],
 				'result' => 'error',
-				'note' => 'File missing on disk',
+				'note' => 'File missing',
+				'ip' => $ipBin,
+				'user_agent' => $ua
 		]);
 		$pdo->commit();
 		http_response_code(404);
@@ -180,94 +144,50 @@ try {
 		exit;
 	}
 	
-	// Decrement uses + update last_used_at atomically while holding the row lock
-	$upd = $pdo->prepare("
-    UPDATE download_tokens
-    SET uses_remaining = uses_remaining - 1,
-        last_used_at = NOW()
-    WHERE id = ? AND uses_remaining > 0
-  ");
-	$upd->execute([(int)$row['id']]);
+	// Atomic decrement
+	$update = $pdo->prepare("
+        UPDATE download_tokens
+        SET uses_remaining = uses_remaining - 1,
+            last_used_at = NOW()
+        WHERE id = ? AND uses_remaining > 0
+    ");
+	$update->execute([$row['id']]);
 	
-	if ($upd->rowCount() !== 1) {
-		// Another request raced and spent the last use
-		log_download($pdo, [
-				'token_id' => (int)$row['id'],
-				'purchase_id' => $row['purchase_id'] ?? null,
-				'checkout_session_id' => $row['stripe_checkout_session_id'] ?? null,
-				'purchaser_email' => $row['purchaser_email'] ?? null,
-				'product_key' => $product_key,
-				'file_path' => $expectedPath,
-				'ip' => $ipBin,
-				'user_agent' => $ua,
-				'result' => 'exhausted',
-				'note' => 'Race: no uses remaining at update time',
-		]);
+	if ($update->rowCount() !== 1) {
 		$pdo->commit();
 		http_response_code(410);
-		echo 'This download link has already been used.';
+		echo 'Download link already used.';
 		exit;
 	}
 	
-	// Success log (before streaming)
 	log_download($pdo, [
-			'token_id' => (int)$row['id'],
+			'token_id' => $row['id'],
 			'purchase_id' => $row['purchase_id'] ?? null,
-			'checkout_session_id' => $row['stripe_checkout_session_id'] ?? null,
-			'purchaser_email' => $row['purchaser_email'] ?? null,
+			'checkout_session_id' => $row['checkout_session_id'],
+			'purchaser_email' => $row['purchaser_email'],
 			'product_key' => $product_key,
-			'file_path' => $expectedPath,
-			'ip' => $ipBin,
-			'user_agent' => $ua,
+			'file_path' => $filePath,
 			'result' => 'success',
-			'note' => null,
+			'ip' => $ipBin,
+			'user_agent' => $ua
 	]);
 	
 	$pdo->commit();
 	
-	// ---------- stream file ----------
-	$size = filesize($expectedPath);
+	// Stream file
+	while (ob_get_level()) ob_end_clean();
 	
-	// Use a safer content-type fallback
-	$mime = 'application/octet-stream';
-	if (function_exists('mime_content_type')) {
-		$detected = @mime_content_type($expectedPath);
-		if ($detected) $mime = $detected;
-	}
-	
-	header('Content-Description: File Transfer');
-	header('Content-Type: ' . $mime);
+	header('Content-Type: application/pdf');
 	header('Content-Disposition: attachment; filename="' . basename($downloadName) . '"');
-	header('Content-Length: ' . $size);
-	header('Cache-Control: no-store, no-cache, must-revalidate');
-	header('Pragma: no-cache');
+	header('Content-Length: ' . filesize($filePath));
+	header('Cache-Control: no-store');
 	
-	// Clean output buffers to avoid corruption
-	while (ob_get_level()) { ob_end_clean(); }
-	
-	readfile($expectedPath);
+	readfile($filePath);
 	exit;
 	
 } catch (Throwable $e) {
 	if ($pdo->inTransaction()) $pdo->rollBack();
-	
-	// Best-effort log (may fail if DB is down)
-	try {
-		log_download($pdo, [
-				'token_id' => null,
-				'purchase_id' => null,
-				'checkout_session_id' => null,
-				'purchaser_email' => null,
-				'product_key' => '',
-				'file_path' => '',
-				'ip' => $ipBin ?? null,
-				'user_agent' => $ua ?? null,
-				'result' => 'error',
-				'note' => 'Exception: ' . substr($e->getMessage(), 0, 240),
-		]);
-	} catch (Throwable $ignored) {}
-	
 	http_response_code(500);
 	echo 'An error occurred. Please contact support.';
 	exit;
-}	
+}

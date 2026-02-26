@@ -1,7 +1,7 @@
 <?php
 // download.php
 require_once __DIR__ . '/db_connect.php';
-require_once __DIR__ . '/stripe_config.php';
+require_once __DIR__ . '/../config/stripe.php';
 
 $token = $_GET['t'] ?? '';
 if (!$token || !preg_match('/^[a-f0-9]{64}$/', $token)) {

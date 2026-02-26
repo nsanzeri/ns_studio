@@ -1,6 +1,6 @@
 <?php
 // shop/index.php
-require_once __DIR__ . '/../stripe_config.php';
+require_once __DIR__ . '/../config/stripe.php';
 require_once __DIR__ . '/../_core/bootstrap.php';
 $products = product_file_map();
 ?>

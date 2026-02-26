@@ -4,7 +4,7 @@ NS Studio - Hybrid Shop Download Setup
    composer require stripe/stripe-php
 
 2) Configure keys + price id
-   Edit /stripe_config.php
+   Edit /stripe.php
    - sk_live_REPLACE_ME (or sk_test_...)
    - price_REPLACE_ME (Stripe Price ID for Backing Track Blueprint)
    - Optionally set app.base_url in /_core/config.php (else uses https://nicksanzeri.com)

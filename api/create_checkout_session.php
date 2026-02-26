@@ -1,6 +1,6 @@
 <?php
 // api/create_checkout_session.php
-require_once __DIR__ . '/../stripe_config.php';
+require_once __DIR__ . '/../config/stripe.php';
 
 header('Content-Type: application/json');
 

@@ -1,5 +1,5 @@
 <?php
-// stripe_config.php
+// stripe.php
 // Requires Composer dependency: stripe/stripe-php
 
 require __DIR__ . '/bootstrap.php';

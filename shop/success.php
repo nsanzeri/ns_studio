@@ -3,7 +3,7 @@
 require_once __DIR__ . '/../_core/bootstrap.php';
 
 require_once __DIR__ . '/../db_connect.php';
-require_once __DIR__ . '/../stripe_config.php';
+require_once __DIR__ . '/../config/stripe.php';
 
 $session_id  = $_GET['sid'] ?? '';
 $product_key = $_GET['p'] ?? '';

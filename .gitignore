@@ -1,16 +1,35 @@
+# Environment
 .env
+.env.*
+!.env.example
+
+# Dependencies
 /vendor/
+
+# Logs
 *.log
-assets/video/*.webm
+
+# OS junk
 .DS_Store
 Thumbs.db
+
+# IDE
 .idea/
 .vscode/
 .settings/
 .buildpath
 .project
+
+# SQL seeds
 sql/zipcodes.sql
 sql/googleOauthInserts.sql
+
+# Uploads
 /public/uploads/profiles/
-README.md
+
+# Large videos
+assets/video/*.webm
 assets/video/Fireball-orig.webm
+
+# Docs (optional)
+README.md

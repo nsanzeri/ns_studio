@@ -1,6 +1,6 @@
 <?php
 // /_core/database.php
-
+$config = require __DIR__ . '/config.php';
 function db(array $config): PDO {
   static $pdo = null;
   if ($pdo) return $pdo;

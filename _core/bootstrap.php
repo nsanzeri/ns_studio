@@ -32,6 +32,19 @@ if (!function_exists('env')) {
         return $_ENV[$key] ?? $_SERVER[$key] ?? $default;
     }
 }
+if (!function_exists('app_env')) {
+	function app_env(): string {
+		return env('APP_ENV', 'production');
+	}
+}
+
+if (!function_exists('is_local')) {
+	function is_local(): bool {
+		ini_set('display_errors', 1);
+		error_reporting(E_ALL);
+		return app_env() === 'local';
+	}
+}
 
 // ---- Existing app bootstrap ----
 

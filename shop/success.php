@@ -2,7 +2,6 @@
 // shop/success.php
 require_once __DIR__ . '/../_core/bootstrap.php';
 
-require_once __DIR__ . '/../_core/db_connect.php';
 require_once __DIR__ . '/../config/stripe.php';
 
 $session_id  = $_GET['sid'] ?? '';

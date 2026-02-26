@@ -26,10 +26,7 @@ try {
 		throw new RuntimeException('Missing Stripe price_id for product.');
 	}
 	
-	// Where Stripe should send the customer after payment
-	$successUrl = SITE_URL . "/shop/success.php?session_id={CHECKOUT_SESSION_ID}&product_key=" . urlencode($productKey);
-	
-	// Where Stripe should send them if they cancel
+	$successUrl = SITE_URL . "/shop/success.php?sid={CHECKOUT_SESSION_ID}&p=" . urlencode($productKey);
 	$cancelUrl  = SITE_URL . "/shop/blueprint.php?canceled=1";
 	
 	$session = \Stripe\Checkout\Session::create([

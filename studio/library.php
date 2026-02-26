@@ -54,7 +54,7 @@ $items = $stmt->fetchAll();
           </div>
 
           <?php if ($it['kind'] === 'digital'): ?>
-            <a class="btn btn-primary" href="/studio/download.php?product_id=<?php echo (int)$it['id']; ?>">Download</a>
+            <a class="btn btn-primary" href="/download.php?product_id=<?php echo (int)$it['id']; ?>">Download</a>
           <?php else: ?>
             <a class="btn btn-outline" href="/studio/order.php?product_id=<?php echo (int)$it['id']; ?>">View</a>
           <?php endif; ?>

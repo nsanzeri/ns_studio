@@ -27,7 +27,7 @@ try {
 	if ($key) {
 		\Stripe\Stripe::setApiKey($key);
 	}
-
+	
 	// 1) Verify payment with Stripe (authoritative)
 	$session = \Stripe\Checkout\Session::retrieve($session_id);
 	if (($session->payment_status ?? '') !== 'paid') {
@@ -35,7 +35,7 @@ try {
 		echo "Payment not confirmed yet. Refresh in a moment.";
 		exit;
 	}
-
+	
 	// 2) Determine product
 	$product_key = $session->metadata->product_key ?? '';
 	if (!$product_key) {
@@ -46,17 +46,17 @@ try {
 		echo "Missing or invalid product.";
 		exit;
 	}
-
+	
 	$email = $session->customer_details->email ?? null;
 	$meta = $products[$product_key];
-
+	
 	$expires_at = (new DateTimeImmutable('now'))
-		->add(new DateInterval('PT' . max(1, (int)$meta['expires_minutes']) . 'M'))
-		->format('Y-m-d H:i:s');
-
+	->add(new DateInterval('PT' . max(1, (int)$meta['expires_minutes']) . 'M'))
+	->format('Y-m-d H:i:s');
+	
 	// 3) Mint token immediately (idempotent)
 	$pdo->beginTransaction();
-
+	
 	// Token mint (idempotent via uniq_session_product on download_tokens)
 	$token = bin2hex(random_bytes(32));
 	try {
@@ -66,13 +66,13 @@ try {
 			VALUES
 				(?, ?, ?, ?, ?, ?, ?)
 		")->execute([
-			$token,
-			$session_id,
-			$email,
-			$product_key,
-			$meta['file_path'],
-			$expires_at,
-			(int)$meta['uses'],
+				$token,
+				$session_id,
+				$email,
+				$product_key,
+				$meta['file_path'],
+				$expires_at,
+				(int)$meta['uses'],
 		]);
 	} catch (PDOException $e) {
 		// Only treat duplicate-key errors as "already minted"
@@ -87,11 +87,18 @@ try {
 			throw $e;
 		}
 	}
-
+	
 	$pdo->commit();
-
+	
 	$downloadUrl = base_url('download.php') . '?t=' . urlencode($token);
-
+	
+	// Optional signed link (enabled when DOWNLOAD_SECRET exists)
+	$downloadSecret = $_ENV['DOWNLOAD_SECRET'] ?? getenv('DOWNLOAD_SECRET') ?: null;
+	if ($downloadSecret) {
+		$sig = hash_hmac('sha256', $token, $downloadSecret);
+		$downloadUrl .= '&s=' . urlencode($sig);
+	}
+	
 } catch (Throwable $e) {
 	if ($pdo instanceof PDO && $pdo->inTransaction()) {
 		$pdo->rollBack();
@@ -127,7 +134,7 @@ try {
 
     <p style="margin-top:22px;">Your payment is confirmed.</p>
 
-    <a class="btn btn-primary" href="<?= htmlspecialchars($downloadUrl) ?>" style="margin-top:18px; display:inline-block;">
+    <a class="btn btn-primary" href="<?= htmlspecialchars($downloadUrl) ?>" style="margin-top:18px; display:inline-block;" download>
       Download Now
     </a>
 

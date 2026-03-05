@@ -1,6 +1,6 @@
 <?php
-require_once __DIR__ . '/_core/bootstrap.php';
-require_once __DIR__ . '/config/stripe.php';
+require_once __DIR__ . '/_private/_core/bootstrap.php';
+require_once __DIR__ . '/_private/config/stripe.php';
 
 // -----------------------------
 // Helpers

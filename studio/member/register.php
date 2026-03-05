@@ -1,5 +1,5 @@
 <?php
-require __DIR__ . '/../_core/bootstrap.php';
+require __DIR__ . '/../_private/_core/bootstrap.php';
 
 $email_prefill = isset($_GET['email']) ? trim((string)$_GET['email']) : '';
 $err = null;

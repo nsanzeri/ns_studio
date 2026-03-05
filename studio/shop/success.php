@@ -1,6 +1,6 @@
 <?php
-require_once dirname(__DIR__) . '/_core/bootstrap.php';
-require_once dirname(__DIR__) . '/config/stripe.php';
+require_once dirname(__DIR__) . '/_private/_core/bootstrap.php';
+require_once dirname(__DIR__) . '/_private/config/stripe.php';
 
 $session_id = $_GET['sid'] ?? '';
 if (!$session_id) {

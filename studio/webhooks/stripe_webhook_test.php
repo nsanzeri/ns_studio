@@ -1,7 +1,7 @@
 <?php
-require_once __DIR__ . '/../_core/bootstrap.php';
-require_once __DIR__ . '/../config/stripe.php';
-require_once __DIR__ . '/../_core/email.php';
+require_once __DIR__ . '/../_private/_core/bootstrap.php';
+require_once __DIR__ . '/../_private/config/stripe.php';
+require_once __DIR__ . '/../_private/_core/email.php';
 
 $secret = env('STRIPE_WEBHOOK_SECRET_TEST');
 if (!$secret) { http_response_code(500); echo "Missing webhook secret"; exit; }

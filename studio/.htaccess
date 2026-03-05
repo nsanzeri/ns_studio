@@ -1,0 +1,9 @@
+Options -Indexes
+
+# Block access to dotfiles (just in case)
+<FilesMatch "^\.(?!well-known)">
+  Require all denied
+</FilesMatch>
+
+# Basic hardening
+ServerSignature Off

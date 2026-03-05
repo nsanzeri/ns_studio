@@ -8,10 +8,12 @@ build/*
 /test/simpletest/
 
 # Ignore the /vendor/ directory for people using composer
-/vendor/
-vendor/
-studio/vendor/
 /studio/vendor/
+.env
+.settings/
+.idea/
+.project
+.buildpath
 
 # If the vendor directory isn't being commited the composer.lock file should also be ignored
 composer.lock

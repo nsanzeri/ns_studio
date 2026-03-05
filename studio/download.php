@@ -78,6 +78,37 @@ try {
 	
 	$product_key = $row['product_key'];
 	
+	// -----------------------------
+	// Anti-link-sharing: bind token to first IP that uses it
+	// Requires:
+	//   ALTER TABLE download_tokens ADD COLUMN first_ip VARBINARY(16) NULL;
+	// -----------------------------
+	if (!empty($row['first_ip'])) {
+		if ($ipBin === null || $row['first_ip'] !== $ipBin) {
+			log_download($pdo, [
+					'token_id' => $row['id'],
+					'purchase_id' => $row['purchase_id'] ?? null,
+					'checkout_session_id' => $row['checkout_session_id'],
+					'purchaser_email' => $row['purchaser_email'],
+					'product_key' => $product_key,
+					'result' => 'blocked',
+					'ip' => $ipBin,
+					'user_agent' => $ua,
+					'note' => 'IP mismatch'
+			]);
+			$pdo->commit();
+			http_response_code(403);
+			echo 'Download link cannot be used from this location.';
+			exit;
+		}
+	} else {
+		// First use binds the token to this IP (best-effort; row is already locked).
+		$bind = $pdo->prepare("UPDATE download_tokens SET first_ip = ? WHERE id = ? AND first_ip IS NULL");
+		$bind->execute([$ipBin, $row['id']]);
+		$row['first_ip'] = $ipBin; // keep local copy consistent for logging/debugging
+	}
+	
+	
 	if (!isset($products[$product_key])) {
 		log_download($pdo, [
 				'token_id' => $row['id'],
@@ -177,10 +208,11 @@ try {
 	// Stream file
 	while (ob_get_level()) ob_end_clean();
 	
-	header('Content-Type: application/pdf');
+	header('Content-Type: ' . (function_exists('mime_content_type') ? (mime_content_type($filePath) ?: 'application/octet-stream') : 'application/octet-stream'));
 	header('Content-Disposition: attachment; filename="' . basename($downloadName) . '"');
 	header('Content-Length: ' . filesize($filePath));
 	header('Cache-Control: no-store');
+	header('X-Content-Type-Options: nosniff');
 	
 	readfile($filePath);
 	exit;

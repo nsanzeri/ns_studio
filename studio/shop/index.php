@@ -13,7 +13,7 @@ $products = product_file_map();
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Shop | Nick Sanzeri</title>
- <link rel="stylesheet" href="<?= htmlspecialchars(base_url('assets/css/style.css')) ?>">
+ <link rel="stylesheet" href="<?= htmlspecialchars(base_url('../assets/css/style.css')) ?>">
 </head>
 <body>
   <header class="site-header">

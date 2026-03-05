@@ -127,7 +127,7 @@ try {
 	}
 	
 	$pdo->commit();
-	
+	mark_event($pdo, $event->id, $livemode, 'processed', null);
 	
 	// send email reciept
 	// send email receipt
@@ -151,21 +151,27 @@ try {
 		// One email per session+product+mode
 		$idemKey = "dl_link:" . ($livemode ? "live" : "test") . ":" . $sessionId . ":" . $productKey;
 		
-		send_and_log_email($pdo, [
-				'message_type' => 'download_link',
-				'recipient' => $email,
-				'subject' => $subject,
-				'body' => $body,
-				'from_email' => 'no-reply@nicksanzeri.com',
-				'from_name' => 'Nick Sanzeri',
-				'reply_to' => 'nsanzeri@gmail.com',
-				'idempotency_key' => $idemKey,
-				'related_table' => 'purchases',
-				'related_id' => null,
-		]);
+		
+		try {
+			send_and_log_email($pdo, [
+					'message_type' => 'download_link',
+					'recipient' => $email,
+					'subject' => $subject,
+					'body' => $body,
+					'from_email' => 'no-reply@nicksanzeri.com',
+					'from_name' => 'Nick Sanzeri',
+					'reply_to' => 'nsanzeri@gmail.com',
+					'idempotency_key' => $idemKey,
+					'related_table' => 'purchases',
+					'related_id' => null,
+			]);
+		} catch (Throwable $e) {
+			// optional: write to stripe_webhook_events error_message or error_log()
+		}
+		
 	}
 	
-	mark_event($pdo, $event->id, $livemode, 'processed', null);
+
 	http_response_code(200);
 	echo "OK";
 } catch (\Throwable $e) {

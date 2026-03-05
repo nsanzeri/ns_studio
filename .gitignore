@@ -5,6 +5,8 @@
 
 # Dependencies
 /vendor/
+/studio/vendor/
+
 
 # Logs
 *.log

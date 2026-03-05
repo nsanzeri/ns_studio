@@ -106,25 +106,40 @@ try {
 	
 	try {
 		$pdo->prepare("
-      INSERT INTO download_tokens
-        (token, checkout_session_id, purchaser_email, product_key, file_path, expires_at, uses_remaining)
-      VALUES
-        (?, ?, ?, ?, ?, ?, ?)
-    ")->execute([
-    		$token,
-    		$sessionId,
-    		$email,
-    		$productKey,
-    		$meta['file_path'],
-    		$expires_at->format('Y-m-d H:i:s'),
-    		(int)$meta['uses']
-    ]);
+    INSERT INTO download_tokens
+      (token, checkout_session_id, purchaser_email, product_key, file_path, expires_at, uses_remaining)
+    VALUES
+      (?, ?, ?, ?, ?, ?, ?)
+  ")->execute([
+  		$token,
+  		$sessionId,
+  		$email,
+  		$productKey,
+  		$meta['file_path'],
+  		$expires_at->format('Y-m-d H:i:s'),
+  		(int)$meta['uses']
+  ]);
+		
 	} catch (\PDOException $e) {
-		// Token already exists: fetch existing token
-		$stmt = $pdo->prepare("SELECT token FROM download_tokens WHERE checkout_session_id=? AND product_key=? LIMIT 1");
-		$stmt->execute([$sessionId, $productKey]);
-		$existing = $stmt->fetch(PDO::FETCH_ASSOC);
-		$token = $existing['token'] ?? $token;
+		
+		// Only treat as "already exists" on duplicate-key errors
+		$sqlState = $e->getCode();                 // often "23000" for integrity constraint violation
+		$driverCode = $e->errorInfo[1] ?? null;    // MySQL duplicate key is usually 1062
+		
+		if ($sqlState === '23000' || $driverCode === 1062) {
+			$stmt = $pdo->prepare("
+      SELECT token
+      FROM download_tokens
+      WHERE checkout_session_id=? AND product_key=?
+      LIMIT 1
+    ");
+			$stmt->execute([$sessionId, $productKey]);
+			$existing = $stmt->fetch(PDO::FETCH_ASSOC);
+			$token = $existing['token'] ?? $token;
+		} else {
+			// Real DB error: bubble up
+			throw $e;
+		}
 	}
 	
 	$pdo->commit();

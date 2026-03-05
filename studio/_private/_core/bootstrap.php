@@ -1,37 +1,34 @@
 <?php
 /**
  * _core/bootstrap.php
- *
- * Loads:
- * - Composer autoload (vendor/autoload.php)
- * - .env variables (vlucas/phpdotenv) into $_ENV
- * - Existing app bootstrap (sessions, helpers, db, auth)
  */
 
-$ROOT = dirname(__DIR__); // project root (e.g. C:\xampp\htdocs\ns_studio)
+// Studio app root (…/studio)
+$APP_ROOT     = dirname(__DIR__, 2);   // studio
+$PRIVATE_ROOT = dirname(__DIR__);      // studio/_private
 
-// Composer autoload
-$autoload = $ROOT . '/vendor/autoload.php';
+// Composer autoload (lives in studio/vendor)
+$autoload = $APP_ROOT . '/vendor/autoload.php';
 if (file_exists($autoload)) {
-    require_once $autoload;
+	require_once $autoload;
 } else {
-    // If you haven't installed deps yet, you'll see this immediately.
-    // Run: composer install
-    // (We don't hard-fail here because some pages might not need Composer.)
+	throw new RuntimeException("Missing Composer autoload at: $autoload (run composer install in /studio)");
 }
 
-// Load environment variables from project root
+// Load environment variables
+// If you want .env inside _private, keep this:
 if (class_exists(\Dotenv\Dotenv::class)) {
-    $dotenv = \Dotenv\Dotenv::createImmutable($ROOT);
-    $dotenv->safeLoad();
+	$dotenv = \Dotenv\Dotenv::createImmutable($PRIVATE_ROOT);
+	$dotenv->safeLoad();
 }
 
 // env() helper
 if (!function_exists('env')) {
-    function env(string $key, $default = null) {
-        return $_ENV[$key] ?? $_SERVER[$key] ?? $default;
-    }
+	function env(string $key, $default = null) {
+		return $_ENV[$key] ?? $_SERVER[$key] ?? $default;
+	}
 }
+
 if (!function_exists('app_env')) {
 	function app_env(): string {
 		return env('APP_ENV', 'production');

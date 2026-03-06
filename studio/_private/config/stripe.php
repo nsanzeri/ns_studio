@@ -31,7 +31,7 @@ function product_file_map(): array {
 	
 	return [
 			'btb' => [
-					'file_path' => $ROOT . '/private_downloads/Backing-Track-Blueprint.pdf',
+					'file_path' => $ROOT . '/private_downloads/backing-track-blueprint.pdf',
 					'download_name' => 'Backing-Track-Blueprint.pdf',
 					'expires_minutes' => 60,
 					'uses' => 3,

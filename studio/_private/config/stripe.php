@@ -1,6 +1,6 @@
 <?php
 
-$mode = env('STRIPE_MODE') ?: 'live'; // 'test' or 'live'
+$mode = env('STRIPE_MODE') ?: 'test'; // 'test' or 'live'
 
 if ($mode === 'test') {
 	$stripeKey = env('STRIPE_SECRET_KEY_TEST') ?: env('STRIPE_SECRET_KEY');
@@ -23,7 +23,7 @@ function product_file_map(): array {
 	
 	// Price ID can also be mode-specific if you want it
 	$priceBtb = env('STRIPE_PRICE_BTB');
-	if ((env('STRIPE_MODE') ?: 'live') === 'test') {
+	if ((env('STRIPE_MODE') ?: 'test') === 'test') {
 		$priceBtb = env('STRIPE_PRICE_BTB_TEST') ?: $priceBtb;
 	} else {
 		$priceBtb = env('STRIPE_PRICE_BTB_LIVE') ?: $priceBtb;

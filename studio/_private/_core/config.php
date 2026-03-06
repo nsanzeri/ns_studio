@@ -1,18 +1,22 @@
-
 <?php
 // /_core/config.php
-// NS STUDIO configuration
+// Reads configuration from environment variables (.env)
 
 return [
+		
 		'app' => [
-				'base_url' => '', // optional, can leave blank if same domain
-				'session_name' => 'ns_studio',
+				'base_url'     => env('BASE_URL', ''),
+				'session_name' => env('SESSION_NAME', 'ns_studio'),
+				'env'          => env('APP_ENV', 'production'),
 		],
+		
 		'db' => [
-				'host' => 'localhost',
-				'name' => 'ns_studio',
-				'user' => 'root',
-				'pass' => '',
-				'charset' => 'utf8mb4',
+				'host'    => env('DB_HOST', 'localhost'),
+				'port'    => env('DB_PORT', 3306),
+				'name'    => env('DB_NAME', 'ns_studio'),
+				'user'    => env('DB_USER', 'root'),
+				'pass'    => env('DB_PASS', ''),
+				'charset' => env('DB_CHARSET', 'utf8mb4'),
 		],
+		
 ];

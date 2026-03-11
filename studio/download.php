@@ -250,8 +250,11 @@ try {
 		exit;
 	}
 	
-	$filePath = $products[$product_key]['file_path'];
-	$downloadName = $products[$product_key]['download_name'];
+	$filePath = !empty($row['file_path'])
+	? $row['file_path']
+	: $products[$product_key]['file_path'];
+	
+	$downloadName = $products[$product_key]['download_name'] ?? basename($filePath);
 	
 	// -----------------------------
 	// "Signed streaming" / direct-access prevention:

@@ -96,32 +96,10 @@
 
 </head>
 <body id="top">
-        <header class="site-header">
-            <div class="container header-inner">
-                <a href="index.html" class="brand">
-                    <span class="brand-mark">NS</span>
-                    <span class="brand-text">
-                        <span class="brand-name">Nick Sanzeri</span>
-                        <span class="brand-tagline">One Man · Full‑Band Experience</span>
-                    </span>
-                </a>
-                <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
-                    <span></span><span></span><span></span>
-                </button>
-                <nav class="main-nav" id="mainNav">
-                    <ul>
-                        <li><a href="index.html">Home</a></li>
-                        <li><a href="shows.html">Shows</a></li>
-                        <li><a href="media.html">Media</a></li>
-                        <li><a href="about.html">About</a></li>
-                        <li><a href="testimonials.html">Testimonials</a></li>
-                        <li><a href="booking.html">Booking</a></li>
-                        <li><a href="contact.html">Contact</a></li>
-                        <li><a href="payments.html">Payments</a></li>
-                    </ul>
-                </nav>
-            </div>
-        </header>
+<?php 
+include __DIR__ . '/includes/header.php';
+?>
+
 
     <main>
         <section class="page-hero">

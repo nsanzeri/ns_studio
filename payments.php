@@ -3,17 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>About | Nick Sanzeri</title>
+    <title>Payments | Nick Sanzeri</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;700&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="assets/css/style.css">
-	<link rel="icon" type="image/png" sizes="32x32" href="assets/favicons/favicon-32.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="assets/favicons/favicon-32.png">
 	<link rel="icon" type="image/png" sizes="16x16" href="assets/favicons/favicon-16.png">
 	<link rel="apple-touch-icon" sizes="180x180" href="assets/favicons/favicon-180.png">
 	<link rel="manifest" href="site.webmanifest">
-	<link rel="shortcut icon" href="favicons/favicon.ico">    
+	<link rel="shortcut icon" href="favicons/favicon.ico">
+    
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script type="application/ld+json">
 {
@@ -92,88 +93,82 @@
   }
 }
 </script>
-    
 
 </head>
 <body id="top">
-        <header class="site-header">
-            <div class="container header-inner">
-                <a href="index.html" class="brand">
-                    <span class="brand-mark">NS</span>
-                    <span class="brand-text">
-                        <span class="brand-name">Nick Sanzeri</span>
-                        <span class="brand-tagline">One Man · Full‑Band Experience</span>
-                    </span>
-                </a>
-                <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
-                    <span></span><span></span><span></span>
-                </button>
-                <nav class="main-nav" id="mainNav">
-                    <ul>
-                        <li><a href="index.html">Home</a></li>
-                        <li><a href="shows.html">Shows</a></li>
-                        <li><a href="media.html">Media</a></li>
-                        <li><a href="about.html">About</a></li>
-                        <li><a href="testimonials.html">Testimonials</a></li>
-                        <li><a href="booking.html">Booking</a></li>
-                        <li><a href="contact.html">Contact</a></li>
-                        <li><a href="payments.html">Payments</a></li>
-                    </ul>
-                </nav>
-            </div>
-        </header>
+<?php 
+include __DIR__ . '/includes/header.php';
+?>
 
     <main>
         <section class="page-hero">
             <div class="container">
-                <p class="eyebrow">About</p>
-                <h1>One man. Full‑band experience.</h1>
+                <p class="eyebrow">Payments</p>
+                <h1>Easy, cash‑free tipping &amp; payments.</h1>
                 <p class="page-intro">
-                    A seasoned frontman, singing bassist, and lifelong music‑maker — crafting unforgettable nights, one show at a time.
+                    No cash? No problem. Use Venmo, Zelle, or card for tips and event payments.
                 </p>
             </div>
         </section>
 
         <section class="section">
-            <div class="container grid-2">
-                <div class="about-image-wrap">
-                    <img src="assets/img/paint.png" alt="Nick Sanzeri performing" class="about-image">
+            <div class="container payments-layout">
+                <div class="payments-column">
+                    <h2>Venmo</h2>
+                    <p>Quick and easy mobile payments.</p>
+                    <a href="https://venmo.com/nsanzeri" target="_blank" rel="noopener noreferrer" class="venmo-link">
+                        <img src="venmo-logo.png" alt="Venmo" width="20" height="20">
+                        Venmo Me
+                    </a>
                 </div>
-                <div>
-                    <h2>The best of both worlds.</h2>
-                    <p>
-                        Whatever the mood, energy, or ambiance of your club, party, wedding, or corporate event, Nick can match it — and then take it to another level.
-                        As a lead vocalist and bass player, he brings serious musicianship and skill to every performance, but refuses to take himself too seriously.
-                        Your eyes won’t believe your ears.
-                    </p>
-                    <p>
-                        A founding member of <strong>Libido Funk Circus</strong> and the frontman of <strong>Hooked On Sonics</strong> for 17 years,
-                        Nick has played over <strong>1,500 shows</strong>, including more than <strong>100 weddings</strong> and <strong>300 private events</strong>.
-                    </p>
-                    <p>
-                        Armed with a degree in Music Composition from Columbia College, Nick is not only respected by his peers but beloved by audiences for his
-                        ability to inject new life into every song — from deep‑cut favorites to crowd‑pleasing classics.
-                    </p>
+                <div class="payments-column">
+                    <h2>Zelle®</h2>
+                    <div class="zelle-widget">
+                        <div class="zelle-header">
+                            <div class="zelle-logo">Zelle®</div>
+                            <h3>Fast &amp; secure</h3>
+                        </div>
+                        <div class="zelle-content">
+                            <div class="payment-method">
+                                <div class="method-option">
+                                    <strong>Email:</strong>
+                                    <span id="zelleEmail">nsanzeri@gmail.com</span>
+                                    <button type="button" onclick="copyToClipboard('zelleEmail')" class="copy-btn">Copy</button>
+                                </div>
+                                <div class="method-option">
+                                    <strong>Phone:</strong>
+                                    <span id="zellePhone">(224) 535‑0104</span>
+                                    <button type="button" onclick="copyToClipboard('zellePhone')" class="copy-btn">Copy</button>
+                                </div>
+                            </div>
+                            <div class="zelle-features">
+                                <div class="feature"><span>⚡</span><span>Instant transfers</span></div>
+                                <div class="feature"><span>🔒</span><span>Bank‑level security</span></div>
+                                <div class="feature"><span>💙</span><span>No fees</span></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="payments-column">
+                    <h2>Credit / Debit</h2>
+                    <p>Use your card via Stripe’s secure checkout.</p>
+						<script async
+						  src="https://js.stripe.com/v3/buy-button.js">
+						</script>
+						
+						<stripe-buy-button
+						  buy-button-id="buy_btn_1SPzAPI8bUVPaxrek8BvkH3S"
+						  publishable-key="pk_live_51SPyZ2I8bUVPaxre0Y6kVs8A7UTEJWzIUOplW24CYQVMklvlnVrzcNTgYvygSyoFySSJmApsS6b5y1qen4XWw0RE00EcojUBal">
+						</stripe-buy-button>
                 </div>
             </div>
         </section>
 
-        <section class="section section-dark">
-            <div class="container grid-3">
-                <div class="pill">
-                    <h3>Clubs &amp; Restaurants</h3>
-                    <p>Keep people in seats and at the bar all night with engaging sets, impeccable delivery, and a sound that feels bigger than it looks.</p>
-                </div>
-                <div class="pill">
-                    <h3>Weddings &amp; Corporate</h3>
-                    <p>From cocktail hour to the last dance, Nick builds a soundtrack that feels tailored to your guests and your story.</p>
-                </div>
-                <div class="pill">
-                    <h3>Private Parties</h3>
-                    <p>Backyard, lake house, driveway, or rooftop — Nick brings the atmosphere, the AV horsepower, and the vibe.</p>
-                </div>
-            </div>
-        </section>
+        <div class="floating-venmo">
+            <a href="https://venmo.com/nsanzeri" target="_blank" rel="noopener noreferrer" class="floating-btn">
+                <span>Venmo</span>
+            </a>
+        </div>
     </main>
         <footer class="site-footer">
             <div class="container footer-inner">
@@ -196,5 +191,22 @@
         </a>
         <script src="assets/js/main.js"></script>
 
+    <script>
+    function copyToClipboard(elementId) {
+        const element = document.getElementById(elementId);
+        const text = element.textContent;
+        navigator.clipboard.writeText(text).then(() => {
+            const original = element.textContent;
+            element.textContent = 'Copied!';
+            element.style.color = '#d4af37';
+            element.style.fontWeight = '600';
+            setTimeout(() => {
+                element.textContent = original;
+                element.style.color = '';
+                element.style.fontWeight = '';
+            }, 1800);
+        });
+    }
+    </script>
 </body>
 </html>

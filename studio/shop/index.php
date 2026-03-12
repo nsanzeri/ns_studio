@@ -16,28 +16,7 @@ $products = product_file_map();
  <link rel="stylesheet" href="<?= htmlspecialchars(base_url('../assets/css/style.css')) ?>">
 </head>
 <body>
-  <header class="site-header">
-    <div class="container header-inner">
-      <a href="/index.html" class="brand">
-        <span class="brand-mark">NS</span>
-        <span class="brand-text">
-          <span class="brand-name">Nick Sanzeri</span>
-          <span class="brand-tagline">One Man · Full‑Band Experience</span>
-        </span>
-      </a>
-      <nav class="main-nav open" id="mainNav">
-        <ul>
-          <li><a href="/index.html">Home</a></li>
-          <li><a href="/shows.html">Shows</a></li>
-          <li><a href="/media.html">Media</a></li>
-          <li><a href="/about.html">About</a></li>
-          <li><a href="/testimonials.html">Testimonials</a></li>
-          <li><a href="/booking.html">Booking</a></li>
-          <li><a href="/shop/index.php">Shop</a></li>
-        </ul>
-      </nav>
-    </div>
-  </header>
+<?php include __DIR__ . '/../../includes/header.php'; ?>
 
   <main>
     <section class="page-hero">

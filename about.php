@@ -3,16 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Contact | Nick Sanzeri</title>
+    <title>About | Nick Sanzeri</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;700&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="assets/css/style.css">
-    <link rel="icon" type="image/png" sizes="32x32" href="assets/favicons/favicon-32.png">
+	<link rel="icon" type="image/png" sizes="32x32" href="assets/favicons/favicon-32.png">
 	<link rel="icon" type="image/png" sizes="16x16" href="assets/favicons/favicon-16.png">
 	<link rel="apple-touch-icon" sizes="180x180" href="assets/favicons/favicon-180.png">
-    
+	<link rel="manifest" href="site.webmanifest">
+	<link rel="shortcut icon" href="favicons/favicon.ico">    
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script type="application/ld+json">
 {
@@ -91,100 +92,63 @@
   }
 }
 </script>
+    
 
 </head>
 <body id="top">
-        <header class="site-header">
-            <div class="container header-inner">
-                <a href="index.html" class="brand">
-                    <span class="brand-mark">NS</span>
-                    <span class="brand-text">
-                        <span class="brand-name">Nick Sanzeri</span>
-                        <span class="brand-tagline">One Man · Full‑Band Experience</span>
-                    </span>
-                </a>
-                <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
-                    <span></span><span></span><span></span>
-                </button>
-                <nav class="main-nav" id="mainNav">
-                    <ul>
-                        <li><a href="index.html">Home</a></li>
-                        <li><a href="shows.html">Shows</a></li>
-                        <li><a href="media.html">Media</a></li>
-                        <li><a href="about.html">About</a></li>
-                        <li><a href="testimonials.html">Testimonials</a></li>
-                        <li><a href="booking.html">Booking</a></li>
-                        <li><a href="contact.html">Contact</a></li>
-                        <li><a href="payments.html">Payments</a></li>
-                    </ul>
-                </nav>
-            </div>
-        </header>
+<?php 
+include __DIR__ . '/includes/header.php';
+?>
+
 
     <main>
         <section class="page-hero">
             <div class="container">
-                <p class="eyebrow">Contact</p>
-                <h1>Get in touch.</h1>
+                <p class="eyebrow">About</p>
+                <h1>One man. Full‑band experience.</h1>
                 <p class="page-intro">
-                    Questions, special requests, or just want to say hi? Reach out anytime.
+                    A seasoned frontman, singing bassist, and lifelong music‑maker — crafting unforgettable nights, one show at a time.
                 </p>
             </div>
         </section>
 
         <section class="section">
-            <div class="container grid-2 contact-layout">
-                <div class="contact-info-block">
-                    <div class="contact-row">
-                        <div class="contact-icon"><i class="fas fa-envelope"></i></div>
-                        <div>
-                            <h3>Email</h3>
-                            <p><a href="mailto:nsanzeri@gmail.com">nsanzeri@gmail.com</a></p>
-                        </div>
-                    </div>
-                    <div class="contact-row">
-                        <div class="contact-icon"><i class="fas fa-phone"></i></div>
-                        <div>
-                            <h3>Phone / Text</h3>
-                            <p><a href="tel:+12245350104">(224) 535‑0104</a></p>
-                        </div>
-                    </div>
-                    <div class="contact-row">
-                        <div class="contact-icon"><i class="fas fa-map-marker-alt"></i></div>
-                        <div>
-                            <h3>Location</h3>
-                            <p>Chicagoland &amp; beyond</p>
-                        </div>
-                    </div>
-                    <p class="muted small">
-                        Prefer a more detailed quote? Head over to the <a href="booking.html">Booking</a> page for a full event questionnaire.
-                    </p>
+            <div class="container grid-2">
+                <div class="about-image-wrap">
+                    <img src="assets/img/paint.png" alt="Nick Sanzeri performing" class="about-image">
                 </div>
                 <div>
-                    <div class="newsletter-block">
-                        <h2>Never miss a show.</h2>
-                        <p>Get gig announcements, new music, and the occasional behind‑the‑scenes story — no spam.</p>
-                        <!-- Mailchimp embed kept from existing site -->
-                        <link href="//cdn-images.mailchimp.com/embedcode/classic-061523.css" rel="stylesheet" type="text/css">
-                        <div id="mc_embed_signup">
-                            <form action="https://nicksanzeri.us2.list-manage.com/subscribe/post?u=758e0b12aa6b2c9e1c489b5f1&amp;id=fa36f06ccb&amp;f_id=002cfae3f0" method="post" target="_blank" novalidate>
-                                <div id="mc_embed_signup_scroll">
-                                    <div class="mc-field-group">
-                                        <label for="mce-EMAIL">Email address <span class="asterisk">*</span></label>
-                                        <input type="email" name="EMAIL" class="required email" id="mce-EMAIL" required>
-                                    </div>
-                                    <div class="optionalParent">
-                                        <div class="clear foot">
-                                            <input type="submit" value="Subscribe" name="subscribe" class="btn btn-primary">
-                                        </div>
-                                    </div>
-                                    <div style="position: absolute; left: -5000px;" aria-hidden="true">
-                                        <input type="text" name="b_758e0b12aa6b2c9e1c489b5f1_fa36f06ccb" tabindex="-1" value="">
-                                    </div>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
+                    <h2>The best of both worlds.</h2>
+                    <p>
+                        Whatever the mood, energy, or ambiance of your club, party, wedding, or corporate event, Nick can match it — and then take it to another level.
+                        As a lead vocalist and bass player, he brings serious musicianship and skill to every performance, but refuses to take himself too seriously.
+                        Your eyes won’t believe your ears.
+                    </p>
+                    <p>
+                        A founding member of <strong>Libido Funk Circus</strong> and the frontman of <strong>Hooked On Sonics</strong> for 17 years,
+                        Nick has played over <strong>1,500 shows</strong>, including more than <strong>100 weddings</strong> and <strong>300 private events</strong>.
+                    </p>
+                    <p>
+                        Armed with a degree in Music Composition from Columbia College, Nick is not only respected by his peers but beloved by audiences for his
+                        ability to inject new life into every song — from deep‑cut favorites to crowd‑pleasing classics.
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <section class="section section-dark">
+            <div class="container grid-3">
+                <div class="pill">
+                    <h3>Clubs &amp; Restaurants</h3>
+                    <p>Keep people in seats and at the bar all night with engaging sets, impeccable delivery, and a sound that feels bigger than it looks.</p>
+                </div>
+                <div class="pill">
+                    <h3>Weddings &amp; Corporate</h3>
+                    <p>From cocktail hour to the last dance, Nick builds a soundtrack that feels tailored to your guests and your story.</p>
+                </div>
+                <div class="pill">
+                    <h3>Private Parties</h3>
+                    <p>Backyard, lake house, driveway, or rooftop — Nick brings the atmosphere, the AV horsepower, and the vibe.</p>
                 </div>
             </div>
         </section>

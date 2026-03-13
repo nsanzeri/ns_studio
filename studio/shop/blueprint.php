@@ -404,7 +404,15 @@ img{max-width:100%;display:block;}
   <section class="section">
     <div class="section-head">
       <h2>Why this guide exists</h2>
-      <p>If you perform live, you already know how frustrating it is when the songs are good but the overall sound still doesn’t hit like a full production.</p>
+      <p>I play 140+ shows a year as a solo musician. Almost every night someone asks the same question: “How are you getting that sound?”
+		The answer is my backing tracks.  <br>After explaining it over and over to musicians at gigs, I finally wrote the entire system down.</p><br>
+      <p>Playing for friends or a rowdy bar crowd is one thing.</p><br>
+		<p>
+		But when you're walking into a room full of strangers and you need to sound great right away, you don't want to leave anything to chance.</p><br>
+		<p>
+		It also opens the door to a whole new category of gigs — the kind where a guy quietly strumming an acoustic in the corner just isn’t going to cut it.</p><br>
+<p>
+Because if you're honest… you probably didn’t start playing music just to be background noise.</p>
     </div>
 
     <div class="story-grid">
@@ -466,7 +474,7 @@ img{max-width:100%;display:block;}
       <div class="shot"><img src="<?= htmlspecialchars($galleryImages[1]) ?>" alt="Packed dance floor at live event"></div>
       <div class="shot"><img src="<?= htmlspecialchars($galleryImages[2]) ?>" alt="Private party dance floor during live performance"></div>
       <div class="shot"><img src="<?= htmlspecialchars($galleryImages[3]) ?>" alt="Crowded ballroom event with live music"></div>
-      <div class="shot"><img src="<?= htmlspecialchars($coverImage) ?>" alt="Backing Track Blueprint cover"></div>
+      <div class="shot"><img src="<?= htmlspecialchars($heroImage) ?>" alt="Nick Sanzeri performing live with bass and microphone"></div>
     </div>
   </section>
 

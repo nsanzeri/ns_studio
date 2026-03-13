@@ -1050,6 +1050,22 @@ a:hover {
     padding: 0.4rem 1.2rem 0.9rem;
   }
 }
+.main-nav a.active{
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.main-nav a.active::after{
+  width: 100%;
+}
+
+.main-nav a{
+    transition:all .2s ease;
+}
+
+.main-nav a:hover{
+    color:#d4a64a;
+}
 
 @media (max-width: 640px) {
   .grid-3 {
@@ -1083,19 +1099,6 @@ a:hover {
     bottom: 16px;
   }
   
-.main-nav a.active{
-    color:#d4a64a;
-    font-weight:700;
-    border-bottom:2px solid #d4a64a;
-}
-
-.main-nav a{
-    transition:all .2s ease;
-}
-
-.main-nav a:hover{
-    color:#d4a64a;
-}
   
   /* ===== Studio Pricing ===== */
 .pricing-grid{

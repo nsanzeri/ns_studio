@@ -135,7 +135,7 @@ include __DIR__ . '/includes/header.php';
                         </div>
                     </div>
                     <p class="muted small">
-                        Prefer a more detailed quote? Head over to the <a href="booking.html">Booking</a> page for a full event questionnaire.
+                        Prefer a more detailed quote? Head over to the <a href="booking.php">Booking</a> page for a full event questionnaire.
                     </p>
                 </div>
                 <div>

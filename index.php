@@ -140,8 +140,8 @@ include __DIR__ . '/includes/header.php';
 				A proven choice for private parties, corporate events, and venues that expect more.
 				</p>
                     <div class="hero-actions">
-                        <a href="booking.html" class="btn btn-primary">Book Nick for Your Event</a>
-                        <a href="media.html" class="btn btn-outline">Watch &amp; Listen</a>
+                        <a href="booking.php" class="btn btn-primary">Book Nick for Your Event</a>
+                        <a href="media.php" class="btn btn-outline">Watch &amp; Listen</a>
                     </div>
                     <div class="hero-meta">
                         <span>Trusted at 1,600+ events across Chicagoland and beyond.</span>
@@ -156,7 +156,7 @@ include __DIR__ . '/includes/header.php';
                     <div id="nextShows" class="next-shows">
                         <!-- Populated by events.js -->
                     </div>
-                    <a href="shows.html" class="hero-card-link">View full show calendar</a>
+                    <a href="shows.php" class="hero-card-link">View full show calendar</a>
                 </div>
             </div>
         </section>
@@ -220,7 +220,7 @@ include __DIR__ . '/includes/header.php';
                 <div>
                     <h2>Hear the difference.</h2>
                     <p>See and hear Nick in action with a curated selection of live and studio performances.</p>
-                    <a href="media.html" class="btn btn-primary">Explore videos &amp; original music</a>
+                    <a href="media.php" class="btn btn-primary">Explore videos &amp; original music</a>
                 </div>
                 <div class="video-embed-ratio">
                     <iframe src="https://www.youtube.com/embed/xkAh-Np-aIE" 
@@ -240,7 +240,7 @@ include __DIR__ . '/includes/header.php';
                     “Nick is simply outstanding — as a singer he’s superb, as an entertainer he’s electric, and as a bass player he’s dangerous. Our wedding wouldn’t have been the same without him.”
                 </blockquote>
                 <p class="quote-attrib">— Mark R., groom</p>
-                <a href="testimonials.html" class="btn btn-outline">Read more rave reviews</a>
+                <a href="testimonials.php" class="btn btn-outline">Read more rave reviews</a>
             </div>
         </section>
 
@@ -252,8 +252,8 @@ include __DIR__ . '/includes/header.php';
                     <p>Share a few details about your date, vibe, and vision — Nick will follow up personally.</p>
                 </div>
                 <div class="cta-actions">
-                    <a href="booking.html" class="btn btn-primary">Start a Booking Inquiry</a>
-                    <a href="shows.html" class="text-link">Or come see a show first</a>
+                    <a href="booking.php" class="btn btn-primary">Start a Booking Inquiry</a>
+                    <a href="shows.php" class="text-link">Or come see a show first</a>
                 </div>
             </div>
         </section>

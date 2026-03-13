@@ -180,8 +180,8 @@ Nick is simply, outstanding!!! As a singer he’s superb, performing in a variet
                     <p>Come to a show or reach out about your date. Either way, you’ll get a personal response from Nick.</p>
                 </div>
                 <div class="cta-actions">
-                    <a href="shows.html" class="btn btn-outline">View shows</a>
-                    <a href="booking.html" class="btn btn-primary">Start a booking inquiry</a>
+                    <a href="shows.php" class="btn btn-outline">View shows</a>
+                    <a href="booking.php" class="btn btn-primary">Start a booking inquiry</a>
                 </div>
             </div>
         </section>

@@ -330,6 +330,64 @@ img{max-width:100%;display:block;}
   color:var(--muted);
   font-size:14px;
 }
+
+.trust-strip{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:16px;
+  margin:8px 0 2px;
+}
+.trust-pill{
+  background:rgba(255,255,255,.03);
+  border:1px solid var(--line);
+  border-radius:18px;
+  padding:16px 18px;
+  box-shadow:var(--shadow);
+}
+.trust-pill strong{
+  display:block;
+  font-size:18px;
+  margin-bottom:4px;
+}
+.trust-pill span{
+  color:var(--muted);
+  font-size:14px;
+}
+.center-cta{
+  display:flex;
+  flex-direction:column;
+  align-items:flex-start;
+  gap:12px;
+  margin-top:24px;
+}
+.center-cta .note{margin-top:0;}
+.not-for-grid,
+.faq-grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:18px;
+}
+.faq-item{
+  background:var(--panel);
+  border:1px solid var(--line);
+  border-radius:22px;
+  padding:22px;
+}
+.faq-item strong{
+  display:block;
+  font-size:18px;
+  margin-bottom:8px;
+}
+.faq-item p{
+  margin:0;
+  color:var(--muted);
+}
+.offer-kicker{
+  color:#f8e6b7;
+  font-weight:700;
+  margin:-2px 0 16px;
+}
+
 @media (max-width: 980px){
   .hero,
   .story-grid,
@@ -338,7 +396,10 @@ img{max-width:100%;display:block;}
   .testimonial-grid,
   .gallery-grid,
   .learn-grid,
-  .fit-grid{
+  .fit-grid,
+  .trust-strip,
+  .not-for-grid,
+  .faq-grid{
     grid-template-columns:1fr;
   }
   .hero-card{min-height:420px; order:-1;}
@@ -368,9 +429,9 @@ img{max-width:100%;display:block;}
 
   <section class="hero">
     <div class="hero-copy">
-      <div class="eyebrow">For Solo Artists and Bands</div>
-      <h1>Sound <span class="accent">Bigger</span>. Feel Tighter. Perform More Professionally.</h1>
-      <p class="sub">The practical system Nick Sanzeri uses to make solo acts and bands sound fuller, hit harder, and keep crowds engaged with backing tracks that actually work live.</p>
+      <div class="eyebrow">For Solo Musicians, Duos, and Bands</div>
+      <h1>Sound Like a <span class="accent">Full Band</span> — Even When You Play Small</h1>
+      <p class="sub">The backing track system Nick Sanzeri uses across 140+ shows a year to make solo acts and small bands sound bigger, tighter, and more professional.</p>
 
       <div class="hero-points">
         <div>✔ Built from real-world gigs, not bedroom theory</div>
@@ -387,15 +448,37 @@ img{max-width:100%;display:block;}
 
     <div class="hero-card">
       <img src="<?= htmlspecialchars($heroImage) ?>" alt="Nick Sanzeri performing live with bass and microphone">
-      <div class="hero-badge">These are the same performance concepts used in real shows that fill rooms, lift energy, and make one act sound much bigger.</div>
+      <div class="hero-badge">Used in real rooms, in front of real crowds, when the first song actually matters.</div>
+    </div>
+  </section>
+
+  <section class="section" style="padding-top:8px;">
+    <div class="trust-strip">
+      <div class="trust-pill">
+        <strong>140+ shows a year</strong>
+        <span>Built from real gigs, not theory.</span>
+      </div>
+      <div class="trust-pill">
+        <strong>Instant digital access</strong>
+        <span>Buy it now, start using it tonight.</span>
+      </div>
+      <div class="trust-pill">
+        <strong>For solo acts and bands</strong>
+        <span>Use it whether you play alone or with a group.</span>
+      </div>
+    </div>
+
+    <div class="center-cta">
+      <button class="btn-gold" id="buyBtnMid">Jump to Checkout – $27</button>
+      <div class="note">You do not need new gear to start applying these ideas.</div>
     </div>
   </section>
 
   <section class="section">
     <div class="mini-proof">
       <div>
-        <strong>Some nights the playing is solid... but the sound still feels small.</strong>
-        <p>That’s the gap this guide closes.</p>
+        <strong>Great playing isn't always enough if the sound still feels small.</strong>
+        <p>This guide shows how to close that gap.</p>
       </div>
       <div class="eyebrow" style="margin:0;">Battle-tested on stage</div>
     </div>
@@ -404,15 +487,15 @@ img{max-width:100%;display:block;}
   <section class="section">
     <div class="section-head">
       <h2>Why this guide exists</h2>
-      <p>I play 140+ shows a year as a solo musician. Almost every night someone asks the same question: “How are you getting that sound?”
-		The answer is my backing tracks.  <br>After explaining it over and over to musicians at gigs, I finally wrote the entire system down.</p><br>
+      <p>I play over <strong>140 shows a year</strong> as a solo musician.</p><br>
+      <p>Almost every night someone asks the same question:</p><br>
+      <p><strong>“How are you getting that sound?”</strong></p><br>
+      <p>The answer is my backing tracks.</p><br>
+      <p>After explaining the system to musicians over and over at gigs, I finally wrote the whole process down.</p><br>
       <p>Playing for friends or a rowdy bar crowd is one thing.</p><br>
-		<p>
-		But when you're walking into a room full of strangers and you need to sound great right away, you don't want to leave anything to chance.</p><br>
-		<p>
-		It also opens the door to a whole new category of gigs — the kind where a guy quietly strumming an acoustic in the corner just isn’t going to cut it.</p><br>
-<p>
-Because if you're honest… you probably didn’t start playing music just to be background noise.</p>
+      <p>But when you're walking into a room full of strangers and you need to sound great in the first song, you don't want to leave anything to chance.</p><br>
+      <p>It also opens the door to a whole new category of gigs — the kind where a guy quietly strumming an acoustic in the corner just isn’t going to cut it.</p><br>
+      <p>Because if you're honest… you probably didn’t start playing music just to be background music.</p>
     </div>
 
     <div class="story-grid">
@@ -432,7 +515,7 @@ Because if you're honest… you probably didn’t start playing music just to be
   <section class="section" id="inside">
     <div class="section-head">
       <h2>Inside the Backing Track Blueprint</h2>
-      <p>A practical guide built for live players who want more impact without more chaos.</p>
+      <p>A practical guide for working musicians who want their live show to hit harder without adding more chaos.</p>
     </div>
 
     <div class="learn-grid">
@@ -494,6 +577,22 @@ Because if you're honest… you probably didn’t start playing music just to be
         <p>If your band wants to add support parts, tighten arrangements, or create a fuller modern sound without adding more musicians, these concepts apply to you too.</p>
       </div>
     </div>
+
+    <div class="section-head" style="margin-top:28px;">
+      <h2>This is probably not for you if...</h2>
+      <p>A little objection-handling helps the right people feel more confident and the wrong people self-select out.</p>
+    </div>
+
+    <div class="not-for-grid">
+      <div class="fit-card">
+        <strong>You want a giant theory course</strong>
+        <p>This is practical, working-musician stuff. It is meant to help you sound better fast, not bury you in information.</p>
+      </div>
+      <div class="fit-card">
+        <strong>You refuse to use any support tracks at all</strong>
+        <p>This is for musicians who want to use tracks tastefully and professionally, not for proving a philosophical point.</p>
+      </div>
+    </div>
   </section>
 
   <section class="section">
@@ -502,8 +601,8 @@ Because if you're honest… you probably didn’t start playing music just to be
         <img src="<?= htmlspecialchars($coverImage) ?>" alt="Backing Track Blueprint ebook cover">
       </div>
       <div>
-        <div class="eyebrow">Instant Digital Download</div>
-        <h2 style="font-size:clamp(30px,4vw,46px);line-height:1.03;margin:0 0 14px;letter-spacing:-.03em;">A field-tested guide for musicians who want their show to hit harder.</h2>
+        <div class="eyebrow">Instant Access — Start Using It Tonight</div>
+        <h2 style="font-size:clamp(30px,4vw,46px);line-height:1.03;margin:0 0 14px;letter-spacing:-.03em;">The exact system used in 140+ live shows a year</h2>
         <p class="sub" style="font-size:19px;margin-bottom:0;">No fluff. No theory dump. Just the practical concepts that help a solo act or band sound bigger, tighter, and more professional.</p>
         <ul class="feature-list">
           <li>Instant access after purchase</li>
@@ -542,6 +641,37 @@ Because if you're honest… you probably didn’t start playing music just to be
         <span class="quote-source">— Fellow musician</span>
       </div>
     </div>
+
+    <div class="center-cta">
+      <button class="btn-gold" id="buyBtnAfterTestimonials">Get the Guide for $27</button>
+      <div class="note">If the proof makes sense, the next step is easy.</div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="section-head">
+      <h2>Quick questions musicians usually have</h2>
+      <p>These answers remove friction without forcing people to guess.</p>
+    </div>
+
+    <div class="faq-grid">
+      <div class="faq-item">
+        <strong>Do I need fancy gear?</strong>
+        <p>No. The goal is to use smart concepts and a repeatable system with the tools you already have or can easily access.</p>
+      </div>
+      <div class="faq-item">
+        <strong>Is this only for solo acts?</strong>
+        <p>No. Solo musicians, duos, and bands can all use these ideas to sound fuller, tighter, and more intentional live.</p>
+      </div>
+      <div class="faq-item">
+        <strong>Can I actually use this fast?</strong>
+        <p>Yes. This was written to help you apply ideas quickly, not someday. You should be able to pull useful moves from it right away.</p>
+      </div>
+      <div class="faq-item">
+        <strong>What am I really buying?</strong>
+        <p>You are buying a field-tested framework from a working musician who has already put these ideas through real rooms, real crowds, and real gigs.</p>
+      </div>
+    </div>
   </section>
 
   <section class="section">
@@ -551,6 +681,7 @@ Because if you're honest… you probably didn’t start playing music just to be
         <h2 style="font-size:clamp(32px,4vw,48px);line-height:1.02;margin:0 0 10px;letter-spacing:-.03em;">Backing Track Blueprint</h2>
         <p class="sub" style="font-size:20px;margin-bottom:0;">How solo musicians and bands sound bigger, tighter, and more professional.</p>
         <div class="price-tag">$27</div>
+        <p class="offer-kicker">Used every week on stage in real gigs.</p>
         <ul class="quick-list">
           <li>Secure Stripe checkout</li>
           <li>Instant access after purchase</li>
@@ -563,7 +694,7 @@ Because if you're honest… you probably didn’t start playing music just to be
         <p class="note" style="margin-top:0;">Buy now and you’ll be taken to secure checkout. After purchase you’ll see your download button right away.</p>
         <button class="btn-gold" id="buyBtn">Get Instant Access</button>
         <p id="buyErr"></p>
-        <p class="footer-note">This is a digital product. Nothing ships. The goal is simple: give you practical ideas you can use to level up your next show fast.</p>
+        <p class="footer-note">This guide was written for musicians who want their live show to sound bigger, feel tighter, and make a stronger first impression in any room.</p>
       </div>
     </div>
   </section>
@@ -573,6 +704,8 @@ Because if you're honest… you probably didn’t start playing music just to be
 <script>
 const buyButtons = [
   document.getElementById('buyBtnTop'),
+  document.getElementById('buyBtnMid'),
+  document.getElementById('buyBtnAfterTestimonials'),
   document.getElementById('buyBtn')
 ].filter(Boolean);
 const errEl = document.getElementById('buyErr');
@@ -616,9 +749,16 @@ async function go(){
       errEl.textContent = e.message || 'Something went wrong';
     }
 
-    buyButtons.forEach((btn, index) => {
+    const resetLabels = {
+      buyBtnTop: 'Get Instant Access – $27',
+      buyBtnMid: 'Jump to Checkout – $27',
+      buyBtnAfterTestimonials: 'Get the Guide for $27',
+      buyBtn: 'Get Instant Access'
+    };
+
+    buyButtons.forEach((btn) => {
       btn.disabled = false;
-      btn.textContent = index === 0 ? 'Get Instant Access – $27' : 'Get Instant Access';
+      btn.textContent = resetLabels[btn.id] || 'Get Instant Access';
     });
   }
 }

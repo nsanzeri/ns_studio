@@ -444,30 +444,51 @@ fbq('track', 'PageView');
     <div class="flash">No problem — your checkout was canceled. Your spot is still here whenever you’re ready.</div>
   <?php endif; ?>
 
-  <section class="hero">
-    <div class="hero-copy">
-      <div class="eyebrow">For Solo Musicians, Duos, and Bands</div>
-      <h1>Sound Like a <span class="accent">Full Band</span> — Even When You Play Small</h1>
-      <p class="sub">The backing track system Nick Sanzeri uses across 140+ shows a year to make solo acts and small bands sound bigger, tighter, and more professional.</p>
+<section class="hero">
+  <div class="hero-copy">
 
-      <div class="hero-points">
-        <div>✔ Built from real-world gigs, not bedroom theory</div>
-        <div>✔ Designed for solo performers <em>and</em> bands</div>
-        <div>✔ Works with your current DAW and playback setup</div>
-      </div>
+    <div class="eyebrow">For Solo Musicians, Duos, and Bands</div>
 
-      <div class="btn-row">
-        <button class="btn-gold" id="buyBtnTop">Get Instant Access – $27</button>
-        <a class="btn-secondary" href="#inside">See What’s Inside</a>
-      </div>
-      <div class="note">Instant digital download. Secure checkout via Stripe.</div>
+<h1>Sound Like a <span class="accent">Full Band</span> — Even If You Show Up Alone</h1>
+
+<p class="sub">
+The exact system I use for <strong>140+ paid gigs a year</strong> to turn a solo act or small band into a room-filling live show — without adding more people or more chaos.
+</p>
+
+<p class="sub">
+This 66-page PDF shows you exactly how I build and run my backing tracks, the gear that makes it reliable night after night, and the key decisions that separate a decent show from a standout one. It also includes video examples of two different approaches, plus real-world clips of the tracks in action.
+</p>
+
+    <div style="background:rgba(212,166,74,.10); border:1px solid rgba(212,166,74,.25); padding:16px 18px; border-radius:16px; margin:18px 0 20px;">
+      <strong>✔ Instant PDF download</strong><br>
+      <strong>✔ Real gig-tested workflow</strong><br>
+      <strong>✔ Price: $27</strong>
     </div>
 
-    <div class="hero-card">
-      <img src="<?= htmlspecialchars($heroImage) ?>" alt="Nick Sanzeri performing live with bass and microphone">
-      <div class="hero-badge">Used in real rooms, in front of real crowds, when the first song actually matters.</div>
+    <div class="hero-points">
+      <div>✔ Built from real-world gigs, not bedroom theory</div>
+      <div>✔ Designed for solo performers <em>and</em> bands</div>
+      <div>✔ Works with your current DAW and playback setup</div>
     </div>
-  </section>
+
+    <div class="btn-row">
+      <button class="btn-gold" id="buyBtnTop">Get Instant Access – $27</button>
+      <a class="btn-secondary" href="#inside">See What’s Inside</a>
+    </div>
+
+    <div class="note">
+      Instant digital download. Secure checkout via Stripe.
+    </div>
+
+  </div>
+
+  <div class="hero-card">
+    <img src="<?= htmlspecialchars($heroImage) ?>" alt="Nick Sanzeri performing live with bass and microphone">
+    <div class="hero-badge">
+      Used in real rooms, in front of real crowds, when the first song actually matters.
+    </div>
+  </div>
+</section>
 
   <section class="section" style="padding-top:8px;">
     <div class="trust-strip">
@@ -494,8 +515,8 @@ fbq('track', 'PageView');
   <section class="section">
     <div class="mini-proof">
       <div>
-        <strong>Great playing isn't always enough if the sound still feels small.</strong>
-        <p>This guide shows how to close that gap.</p>
+     <strong>You can play everything right… and still sound small.</strong>
+<p>And in a real room, small doesn’t get remembered — or rebooked.</p>
       </div>
       <div class="eyebrow" style="margin:0;">Battle-tested on stage</div>
     </div>
@@ -504,15 +525,31 @@ fbq('track', 'PageView');
   <section class="section">
     <div class="section-head">
       <h2>Why this guide exists</h2>
-      <p>I play over <strong>140 shows a year</strong> as a solo musician.</p><br>
-      <p>Almost every night someone asks the same question:</p><br>
-      <p><strong>“How are you getting that sound?”</strong></p><br>
-      <p>The answer is my backing tracks.</p><br>
-      <p>After explaining the system to musicians over and over at gigs, I finally wrote the whole process down.</p><br>
-      <p>Playing for friends or a rowdy bar crowd is one thing.</p><br>
-      <p>But when you're walking into a room full of strangers and you need to sound great in the first song, you don't want to leave anything to chance.</p><br>
-      <p>It also opens the door to a whole new category of gigs — the kind where a guy quietly strumming an acoustic in the corner just isn’t going to cut it.</p><br>
-      <p>Because if you're honest… you probably didn’t start playing music just to be background music.</p>
+<p>I play over <strong>140 shows a year</strong> as a solo musician.</p><br>
+
+<p>And almost every night, someone asks the same thing:</p><br>
+
+<p><strong>“How are you getting that sound?”</strong></p><br>
+
+<p>Because what they’re hearing doesn’t match what they’re seeing.</p><br>
+
+<p>One guy.<br>But it sounds like a full band.</p><br>
+
+<p>That’s not talent.<br>That’s a system.</p><br>
+
+<p>Once I figured it out, everything changed:</p>
+
+<ul style="margin:10px 0 18px 18px;">
+  <li>Better reactions</li>
+  <li>Better gigs</li>
+  <li>Better money</li>
+</ul>
+
+<p>This guide shows you exactly how to do the same thing.</p><br>
+
+<p><strong>Most musicians are using backing tracks… wrong.</strong></p><br>
+
+<p>Not because they’re bad players — but because nobody showed them how to use them for a live room.</p>
     </div>
 
     <div class="story-grid">
@@ -536,31 +573,40 @@ fbq('track', 'PageView');
     </div>
 
     <div class="learn-grid">
-      <div class="learn-item">
-        <strong>Create backing tracks that actually work live</strong>
-        <p>Not overbuilt, not fragile, and not a mess to run on stage.</p>
-      </div>
-      <div class="learn-item">
-        <strong>Edit songs for energy and flow</strong>
-        <p>Keep momentum up so the set feels intentional instead of stitched together.</p>
-      </div>
-      <div class="learn-item">
-        <strong>Use medleys and transitions intelligently</strong>
-        <p>Make your show feel bigger, smoother, and more modern.</p>
-      </div>
-      <div class="learn-item">
-        <strong>Layer vocals and instruments for a fuller sound</strong>
-        <p>Create more width, excitement, and authority without adding more people.</p>
-      </div>
-      <div class="learn-item">
-        <strong>Build a playback system that works every night</strong>
-        <p>Simple enough to repeat. Strong enough to trust.</p>
-      </div>
-      <div class="learn-item">
-        <strong>Apply it whether you’re solo or in a band</strong>
-        <p>This isn’t just for one-man acts. Bands can use these ideas too.</p>
-      </div>
-    </div>
+<div class="learn-item">
+  <strong>How to build backing tracks that actually hold up live</strong>
+  <p>Not fragile. Not overbuilt. Something you can trust on a real stage.</p>
+</div>
+
+<div class="learn-item">
+  <strong>Why most songs lose energy — and how to fix it</strong>
+  <p>Simple arrangement tweaks that keep momentum high and the room engaged.</p>
+</div>
+
+<div class="learn-item">
+  <strong>The medley/transition trick that makes a solo act feel like a show</strong>
+  <p>Keep people leaning in instead of resetting between songs.</p>
+</div>
+
+<div class="learn-item">
+  <strong>The vocal layering move that makes people look for the “rest of the band”</strong>
+  <p>A simple approach that instantly adds width and power.</p>
+</div>
+
+<div class="learn-item">
+  <strong>Why the right track pulls your performance up</strong>
+  <p>When the foundation is strong, your playing tightens and your confidence rises.</p>
+</div>
+
+<div class="learn-item">
+  <strong>How to build a playback system that doesn’t fall apart live</strong>
+  <p>Simple, repeatable, and reliable when it actually matters.</p>
+</div>
+
+<div class="learn-item">
+  <strong>How bands use these ideas too</strong>
+  <p>These concepts also tighten and modernize full bands without adding more people.</p>
+</div>
   </section>
 
   <section class="section">
@@ -597,19 +643,23 @@ fbq('track', 'PageView');
 
     <div class="section-head" style="margin-top:28px;">
       <h2>This is probably not for you if...</h2>
-      <p>A little objection-handling helps the right people feel more confident and the wrong people self-select out.</p>
     </div>
 
     <div class="not-for-grid">
-      <div class="fit-card">
-        <strong>You want a giant theory course</strong>
-        <p>This is practical, working-musician stuff. It is meant to help you sound better fast, not bury you in information.</p>
-      </div>
-      <div class="fit-card">
-        <strong>You refuse to use any support tracks at all</strong>
-        <p>This is for musicians who want to use tracks tastefully and professionally, not for proving a philosophical point.</p>
-      </div>
-    </div>
+<div class="fit-card">
+  <strong>You’re fine sounding like background music</strong>
+  <p>This is for musicians who want the show to land — not just fill space.</p>
+</div>
+
+<div class="fit-card">
+  <strong>You want theory instead of results</strong>
+  <p>This is practical, working-musician stuff meant to improve your sound fast.</p>
+</div>
+
+<div class="fit-card">
+  <strong>You refuse to use backing tracks on principle</strong>
+  <p>This is for musicians who want to use tracks tastefully and professionally.</p>
+</div>
   </section>
 
   <section class="section">
@@ -686,7 +736,8 @@ fbq('track', 'PageView');
       </div>
       <div class="faq-item">
         <strong>What am I really buying?</strong>
-        <p>You are buying a field-tested framework from a working musician who has already put these ideas through real rooms, real crowds, and real gigs.</p>
+        <p>You are buying my field-tested framework for building tracks and running a show.  A 66 page pdf, with two video walk-throughs and various other example videos of the tracks in action. This from a working musician who has already put these ideas through real rooms, real crowds, and real gigs.</p>
+        
       </div>
     </div>
   </section>
@@ -711,7 +762,10 @@ fbq('track', 'PageView');
         <p class="note" style="margin-top:0;">Buy now and you’ll be taken to secure checkout. After purchase you’ll see your download button right away.</p>
         <button class="btn-gold" id="buyBtn">Get Instant Access</button>
         <p id="buyErr"></p>
-        <p class="footer-note">This guide was written for musicians who want their live show to sound bigger, feel tighter, and make a stronger first impression in any room.</p>
+       <p class="footer-note">
+If you’ve got gigs coming up, this isn’t something you want to “get to eventually.”<br><br>
+Because the difference shows up immediately — in the first song.  And that could lead to immediate further bookings.
+</p>
       </div>
     </div>
   </section>

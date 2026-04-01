@@ -44,13 +44,12 @@ function nav_active(bool $condition): string
 
         <nav class="main-nav" id="mainNav">
             <ul>
-                <li><a href="<?= htmlspecialchars($siteBase . '/shows.php') ?>" class="<?= nav_active($currentPage === 'shows.php') ?>">Shows</a></li>
-                <li><a href="<?= htmlspecialchars($siteBase . '/media.php') ?>" class="<?= nav_active($currentPage === 'media.php') ?>">Media</a></li>
-                <li><a href="<?= htmlspecialchars($siteBase . '/about.php') ?>" class="<?= nav_active($currentPage === 'about.php') ?>">About</a></li>
-                <li><a href="<?= htmlspecialchars($siteBase . '/testimonials.php') ?>" class="<?= nav_active($currentPage === 'testimonials.php') ?>">Testimonials</a></li>
-                <li><a href="<?= htmlspecialchars($siteBase . '/booking.php') ?>" class="<?= nav_active($currentPage === 'booking.php') ?>">Booking</a></li>
+                <li><a href="<?= htmlspecialchars($siteBase . '/shows.php') ?>" class="<?= nav_active($currentPage === 'shows.php') ?>">Dates</a></li>
+                <li><a href="<?= htmlspecialchars($siteBase . '/media.php') ?>" class="<?= nav_active($currentPage === 'media.php') ?>">Video</a></li>
+                <li><a href="<?= htmlspecialchars($siteBase . '/testimonials.php') ?>" class="<?= nav_active($currentPage === 'testimonials.php') ?>">Reviews</a></li>
+                <li><a href="<?= htmlspecialchars($siteBase . '/booking.php') ?>" class="<?= nav_active($currentPage === 'booking.php') ?>">Book</a></li>
                 <li><a href="<?= htmlspecialchars($studioBase . '/shop/') ?>" class="<?= nav_active($isShop) ?>">Shop</a></li>
-                <li><a href="<?= htmlspecialchars($siteBase . '/contact.php') ?>" class="<?= nav_active($currentPage === 'contact.php') ?>">Contact</a></li>
+                
             </ul>
         </nav>
     </div>

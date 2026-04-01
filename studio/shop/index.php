@@ -28,6 +28,7 @@ $products = product_file_map();
 	fbq('init', '512475687955029');
 	fbq('track', 'PageView');
 </script>
+<link rel="stylesheet" href="../../assets/css/style.css">
 </head>
 <body>
 <?php include __DIR__ . '/../../includes/header.php'; ?>
@@ -54,5 +55,6 @@ $products = product_file_map();
       </div>
     </section>
   </main>
+  <?php include __DIR__ . '/../../includes/footer.php'; ?>
 </body>
 </html>

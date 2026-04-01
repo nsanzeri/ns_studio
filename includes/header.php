@@ -44,7 +44,6 @@ function nav_active(bool $condition): string
 
         <nav class="main-nav" id="mainNav">
             <ul>
-                <li><a href="<?= htmlspecialchars($siteBase . '/index.php') ?>" class="<?= nav_active($currentPage === 'index.php' && !$isShop) ?>">Home</a></li>
                 <li><a href="<?= htmlspecialchars($siteBase . '/shows.php') ?>" class="<?= nav_active($currentPage === 'shows.php') ?>">Shows</a></li>
                 <li><a href="<?= htmlspecialchars($siteBase . '/media.php') ?>" class="<?= nav_active($currentPage === 'media.php') ?>">Media</a></li>
                 <li><a href="<?= htmlspecialchars($siteBase . '/about.php') ?>" class="<?= nav_active($currentPage === 'about.php') ?>">About</a></li>
@@ -52,7 +51,6 @@ function nav_active(bool $condition): string
                 <li><a href="<?= htmlspecialchars($siteBase . '/booking.php') ?>" class="<?= nav_active($currentPage === 'booking.php') ?>">Booking</a></li>
                 <li><a href="<?= htmlspecialchars($studioBase . '/shop/') ?>" class="<?= nav_active($isShop) ?>">Shop</a></li>
                 <li><a href="<?= htmlspecialchars($siteBase . '/contact.php') ?>" class="<?= nav_active($currentPage === 'contact.php') ?>">Contact</a></li>
-                <li><a href="<?= htmlspecialchars($siteBase . '/payments.php') ?>" class="<?= nav_active($currentPage === 'payments.php') ?>">Payments</a></li>
             </ul>
         </nav>
     </div>

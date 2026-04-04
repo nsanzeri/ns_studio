@@ -270,7 +270,7 @@ include __DIR__ . '/includes/header.php';
     </main>
 
 	<?php 
-	include __DIR__ . '/includes/footer.php';
+	include __DIR__ . '/includes/foter.php';
 	?>
 </body>
 </html>

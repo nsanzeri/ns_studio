@@ -14,6 +14,11 @@ $products = product_file_map();
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Shop | Nick Sanzeri</title>
  <link rel="stylesheet" href="<?= htmlspecialchars(base_url('../assets/css/style.css')) ?>">
+ <link rel="preconnect" href="https://fonts.googleapis.com">
+ <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+ <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;700&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+ <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+ 
  <script>
 	!function(f,b,e,v,n,t,s)
 	{if(f.fbq)return;n=f.fbq=function(){n.callMethod?
@@ -28,7 +33,6 @@ $products = product_file_map();
 	fbq('init', '512475687955029');
 	fbq('track', 'PageView');
 </script>
-<link rel="stylesheet" href="../../assets/css/style.css">
 </head>
 <body>
 <?php include __DIR__ . '/../../includes/header.php'; ?>
@@ -44,14 +48,37 @@ $products = product_file_map();
 
     <section class="section">
       <div class="container">
-        <div class="testimonial-grid">
-          <div class="testimonial-card">
-            <p class="testimonial-text"><strong><?= htmlspecialchars($products['btb']['title'] ?? 'Backing Track Blueprint') ?></strong><br>
-              <span class="muted"><?= htmlspecialchars($products['btb']['description'] ?? 'Instant download') ?></span></p>
-              								
-            <a class="btn btn-primary" href="<?= htmlspecialchars(base_url('/shop/blueprint.php'))?>">View</a>
-          </div>
-        </div>
+<div class="shop-grid">
+  <article class="product-row">
+
+    <div class="product-info">
+      <h2 class="product-title">
+        <a href="<?= htmlspecialchars(base_url('/shop/blueprint.php')) ?>">
+          <?= htmlspecialchars($products['btb']['title'] ?? 'Backing Track Blueprint') ?>
+        </a>
+      </h2>
+
+      <p class="product-description">
+        How solo musicians and bands sound bigger, tighter, and more professional — without adding more gear or complexity.
+      </p>
+
+      <a class="btn btn-primary" href="<?= htmlspecialchars(base_url('/shop/blueprint.php')) ?>">
+        View Product
+      </a>
+    </div>
+
+    <div class="product-art">
+      <a class="product-image-link" href="<?= htmlspecialchars(base_url('/shop/blueprint.php')) ?>">
+        <img
+          class="product-image"
+          src="<?= htmlspecialchars(base_url('../assets/img/BackingTrackBlueprint.png')) ?>"
+          alt="Backing Track Blueprint cover"
+        >
+      </a>
+    </div>
+
+  </article>
+</div>
       </div>
     </section>
   </main>

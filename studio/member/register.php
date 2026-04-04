@@ -2,7 +2,7 @@
 require __DIR__ . '/../_private/_core/bootstrap.php';
 
 if (Auth::isLoggedIn()) {
-    redirect(base_url('studio/member/library.php'));
+    redirect(base_url('library.php'));
 }
 
 $email_prefill = isset($_GET['email']) ? trim((string)$_GET['email']) : '';
@@ -38,7 +38,7 @@ if (is_post()) {
         Auth::syncEntitlementsByEmail($pdo, $userId);
         Auth::login($userId);
 
-        $next = $_SESSION['login_next'] ?? base_url('studio/member/library.php');
+        $next = $_SESSION['login_next'] ?? base_url('library.php');
         unset($_SESSION['login_next']);
         redirect($next);
       }

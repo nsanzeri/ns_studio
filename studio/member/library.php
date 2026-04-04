@@ -1,6 +1,6 @@
 <?php
 require __DIR__ . '/../_private/_core/bootstrap.php';
-Auth::requireLogin(base_url('studio/member/library.php'));
+Auth::requireLogin(base_url('library.php'));
 
 $userId = Auth::userId();
 Auth::syncEntitlementsByEmail($pdo, $userId);
@@ -40,7 +40,7 @@ $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
     <div class="card" style="margin-top:1.5rem; padding:1.25rem;">
       <p style="margin:0 0 0.75rem;">No products are in your library yet.</p>
       <p class="muted" style="margin:0 0 1rem;">Use the same email you used at checkout. If you already did, buy something in the shop and it will appear here automatically.</p>
-      <a class="btn btn-primary" href="<?= e(base_url('studio/shop/')) ?>">Browse the Shop</a>
+      <a class="btn btn-primary" href="<?= e(base_url('../shop/')) ?>">Browse the Shop</a>
     </div>
   <?php else: ?>
     <div style="margin-top:1.25rem; display:grid; gap:1rem;">

@@ -2,7 +2,7 @@
 require __DIR__ . '/../_private/_core/bootstrap.php';
 
 if (Auth::isLoggedIn()) {
-    redirect(base_url('studio/member/library.php'));
+    redirect(base_url('library.php'));
 }
 
 $err = null;
@@ -25,7 +25,7 @@ if (is_post()) {
       Auth::login((int)$u['id']);
       Auth::touchLogin($pdo, (int)$u['id']);
       Auth::syncEntitlementsByEmail($pdo, (int)$u['id']);
-      $next = $_SESSION['login_next'] ?? base_url('studio/member/library.php');
+      $next = $_SESSION['login_next'] ?? base_url('library.php');
       unset($_SESSION['login_next']);
       redirect($next);
     }

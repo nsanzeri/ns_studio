@@ -55,7 +55,7 @@ if (is_post()) {
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Settings • Nick Sanzeri Studio</title>
-  <link rel="stylesheet" href="<?= e(base_url('assets/css/style.css')) ?>" />
+  <link rel="stylesheet" href="<?= e(base_url('../../assets/css/style.css')) ?>">
 </head>
 <body>
 <?php include __DIR__ . '/../../includes/header.php'; ?>

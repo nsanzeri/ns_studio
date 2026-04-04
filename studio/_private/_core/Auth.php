@@ -25,7 +25,7 @@ class Auth {
     session_destroy();
   }
 
-  public static function requireLogin(string $next = '/studio/member/library.php'): void {
+  public static function requireLogin(string $next = 'library.php'): void {
     if (!self::isLoggedIn()) {
       $_SESSION['login_next'] = $next;
       redirect(base_url('studio/member/login.php'));

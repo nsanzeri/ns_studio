@@ -1,10 +1,15 @@
 <?php
 require __DIR__ . '/../_private/_core/bootstrap.php';
 
+if (Auth::isLoggedIn()) {
+    redirect(base_url('studio/member/library.php'));
+}
+
 $email_prefill = isset($_GET['email']) ? trim((string)$_GET['email']) : '';
 $err = null;
+$googleClientId = env('GOOGLE_CLIENT_ID', '');
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+if (is_post()) {
   if (!csrf_verify($_POST['_csrf'] ?? null)) {
     $err = 'Security check failed. Please try again.';
   } else {
@@ -19,22 +24,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif ($pass1 !== $pass2) {
       $err = 'Passwords do not match.';
     } else {
-      // Create user if not exists
-      $stmt = $pdo->prepare("SELECT id FROM users WHERE email = ?");
-      $stmt->execute([$email]);
-      $existing = $stmt->fetch();
+      $existing = Auth::findUserByEmail($pdo, $email);
 
       if ($existing) {
         $err = 'That email already has an account. Please log in instead.';
       } else {
         $hash = password_hash($pass1, PASSWORD_DEFAULT);
 
-        $stmt = $pdo->prepare("INSERT INTO users (email, password_hash) VALUES (?, ?)");
+        $stmt = $pdo->prepare('INSERT INTO users (email, password_hash, last_login_at) VALUES (?, ?, NOW())');
         $stmt->execute([$email, $hash]);
+        $userId = (int)$pdo->lastInsertId();
 
-        Auth::login((int)$pdo->lastInsertId());
+        Auth::syncEntitlementsByEmail($pdo, $userId);
+        Auth::login($userId);
 
-        $next = $_SESSION['login_next'] ?? '/studio/library.php';
+        $next = $_SESSION['login_next'] ?? base_url('studio/member/library.php');
         unset($_SESSION['login_next']);
         redirect($next);
       }
@@ -48,33 +52,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Create Studio Login • Nick Sanzeri</title>
-  <link rel="stylesheet" href="/style.css" />
+   <link rel="stylesheet" href="<?= e(base_url('../../assets/css/style.css')) ?>">
 </head>
 <body>
-<main class="container" style="padding:3rem 0;">
-  <h1>Create your Studio login</h1>
-  <p class="muted">Takes ~15 seconds. This lets you access <strong>My Library</strong> and download purchases anytime.</p>
+<?php include __DIR__ . '/../../includes/header.php'; ?>
+<main class="container" style="padding:3rem 0; max-width:720px;">
+  <h1>Create your account</h1>
+  <p class="muted">Use the same email address you used at checkout and your past purchases will show up automatically.</p>
 
   <?php if ($err): ?>
-    <div class="alert" style="margin:1rem 0;"><?php echo e($err); ?></div>
+    <div class="alert" style="margin:1rem 0;"><?= e($err) ?></div>
   <?php endif; ?>
 
   <form method="post" style="max-width:520px;">
-    <input type="hidden" name="_csrf" value="<?php echo e(csrf_token()); ?>" />
+    <input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>" />
     <label>Email</label>
-    <input name="email" type="email" required value="<?php echo e($email_prefill); ?>" />
+    <input name="email" type="email" required value="<?= e($email_prefill) ?>" autocomplete="email" />
 
     <label style="margin-top:1rem;">Password</label>
-    <input name="password" type="password" required minlength="8" />
+    <input name="password" type="password" required minlength="8" autocomplete="new-password" />
 
     <label style="margin-top:1rem;">Confirm password</label>
-    <input name="password2" type="password" required minlength="8" />
+    <input name="password2" type="password" required minlength="8" autocomplete="new-password" />
 
     <button class="btn btn-primary" style="margin-top:1.25rem;">Create account</button>
-    <div style="margin-top:0.9rem;">
-      <a class="text-link" href="/studio/login.php">Already have an account? Log in</a>
-    </div>
   </form>
+
+  <?php if ($googleClientId): ?>
+    <div style="margin:1.25rem 0; font-size:.95rem; color:#666;">or</div>
+    <a class="btn btn-outline" href="<?= e(base_url('google_start.php')) ?>">Sign up with Google</a>
+  <?php endif; ?>
+
+  <div style="margin-top:0.9rem;">
+    <a class="text-link" href="<?= e(base_url('login.php')) ?>">Already have an account? Log in</a>
+  </div>
 </main>
+<?php include __DIR__ . '/../../includes/footer.php'; ?>
 </body>
 </html>

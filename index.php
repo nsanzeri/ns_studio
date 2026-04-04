@@ -12,7 +12,6 @@
     <link rel="icon" type="image/png" sizes="32x32" href="assets/favicons/favicon-32.png">
 	<link rel="icon" type="image/png" sizes="16x16" href="assets/favicons/favicon-16.png">
 	<link rel="apple-touch-icon" sizes="180x180" href="assets/favicons/favicon-180.png">
-	<link rel="manifest" href="site.webmanifest">
 	<link rel="shortcut icon" href="assets/favicons/favicon.ico">
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script type="application/ld+json">
@@ -95,10 +94,10 @@
 <script>
 document.addEventListener("DOMContentLoaded", () => {
     const video = document.getElementById("heroVideo");
+    if (!video) return;
 
     const isMobile = window.matchMedia("(max-width: 768px)").matches;
-
-    const src = isMobile 
+    const src = isMobile
         ? "assets/video/hero-mobile.webm"
         : "assets/video/hero-desktop.webm";
 
@@ -270,7 +269,7 @@ include __DIR__ . '/includes/header.php';
     </main>
 
 	<?php 
-	include __DIR__ . '/includes/foter.php';
+	include __DIR__ . '/includes/footer.php';
 	?>
 </body>
 </html>

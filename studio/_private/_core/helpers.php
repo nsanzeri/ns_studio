@@ -1,8 +1,10 @@
 <?php
 // /_core/helpers.php
 
-function e(string $s): string {
-  return htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
+declare(strict_types=1);
+
+function e(?string $s): string {
+  return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8');
 }
 
 function redirect(string $path): void {
@@ -30,4 +32,8 @@ function csrf_token(): string {
 
 function csrf_verify(?string $token): bool {
   return is_string($token) && isset($_SESSION['_csrf']) && hash_equals($_SESSION['_csrf'], $token);
+}
+
+function is_post(): bool {
+  return strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST';
 }

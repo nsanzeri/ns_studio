@@ -1,24 +1,14 @@
 <?php
 $currentPath = str_replace('\\', '/', $_SERVER['PHP_SELF'] ?? '');
 $currentPage = basename($currentPath);
-$isShop = str_contains($currentPath, '/studio/shop/');
 
-/*
- |--------------------------------------------------------------------------
- | URL bases
- |--------------------------------------------------------------------------
- |
- | Local:
- |   /ns_studio/index.php
- |   /ns_studio/studio/shop/
- |
- | Production:
- |   /index.php
- |   /studio/shop/
- |
- */
+$isShop = str_contains($currentPath, '/studio/shop/') || str_contains($currentPath, '/studio/member/');
+
+if ($isShop) {
+	require_once __DIR__ . '/../studio/_private/_core/bootstrap.php';
+}
+
 $isLocal = str_contains($currentPath, '/ns_studio/');
-
 $siteBase   = $isLocal ? '/ns_studio' : '';
 $studioBase = $siteBase . '/studio';
 
@@ -49,8 +39,9 @@ function nav_active(bool $condition): string
                 <li><a href="<?= htmlspecialchars($siteBase . '/testimonials.php') ?>" class="<?= nav_active($currentPage === 'testimonials.php') ?>">Reviews</a></li>
                 <li><a href="<?= htmlspecialchars($siteBase . '/booking.php') ?>" class="<?= nav_active($currentPage === 'booking.php') ?>">Book</a></li>
                 <li><a href="<?= htmlspecialchars($studioBase . '/shop/') ?>" class="<?= nav_active($isShop) ?>">Shop</a></li>
-                
             </ul>
         </nav>
     </div>
 </header>
+
+<?php include __DIR__ . '/studio_subnav.php'; ?>

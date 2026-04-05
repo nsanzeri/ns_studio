@@ -7,13 +7,22 @@ Auth::syncEntitlementsByEmail($pdo, $userId);
 $user = Auth::currentUser($pdo);
 
 $stmt = $pdo->prepare("
-  SELECT p.id, p.slug, p.name, p.kind, e.source, e.expires_at
-  FROM entitlements e
-  JOIN products p ON p.id = e.product_id
-  WHERE e.user_id = ?
-    AND e.status = 'active'
-    AND (e.expires_at IS NULL OR e.expires_at > NOW())
-  ORDER BY e.created_at DESC, p.name ASC
+SELECT
+    p.id,
+    p.slug,
+    p.name,
+    p.kind,
+    p.file_path,
+    e.source,
+    e.expires_at,
+    e.created_at AS granted_at
+FROM entitlements e
+JOIN products p
+    ON p.id = e.product_id
+WHERE e.user_id = ?
+  AND e.status = 'active'
+  AND (e.expires_at IS NULL OR e.expires_at > NOW())
+ORDER BY e.created_at DESC, p.name ASC;
 ");
 $stmt->execute([$userId]);
 $items = $stmt->fetchAll(PDO::FETCH_ASSOC);

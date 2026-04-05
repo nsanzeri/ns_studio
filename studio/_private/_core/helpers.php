@@ -37,3 +37,38 @@ function csrf_verify(?string $token): bool {
 function is_post(): bool {
   return strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST';
 }
+
+if (!function_exists('sync_user_entitlements')) {
+	function sync_user_entitlements(PDO $pdo, int $userId): void
+	{
+		$stmt = $pdo->prepare("
+            INSERT INTO entitlements (
+                user_id,
+                product_id,
+                source,
+                status,
+                expires_at
+            )
+            SELECT DISTINCT
+                u.id,
+                pi.product_id,
+                'purchase',
+                'active',
+                NULL
+            FROM users u
+            JOIN purchases pu
+                ON pu.purchaser_email = u.email
+            JOIN purchase_items pi
+                ON pi.purchase_id = pu.id
+            LEFT JOIN entitlements e
+                ON e.user_id = u.id
+               AND e.product_id = pi.product_id
+               AND e.source = 'purchase'
+            WHERE u.id = ?
+              AND pu.status = 'paid'
+              AND e.id IS NULL
+        ");
+		
+		$stmt->execute([$userId]);
+	}
+}

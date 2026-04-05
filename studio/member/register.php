@@ -2,7 +2,7 @@
 require __DIR__ . '/../_private/_core/bootstrap.php';
 
 if (Auth::isLoggedIn()) {
-    redirect(base_url('library.php'));
+	redirect(base_url('library.php'));
 }
 
 $email_prefill = isset($_GET['email']) ? trim((string)$_GET['email']) : '';
@@ -10,40 +10,40 @@ $err = null;
 $googleClientId = env('GOOGLE_CLIENT_ID', '');
 
 if (is_post()) {
-  if (!csrf_verify($_POST['_csrf'] ?? null)) {
-    $err = 'Security check failed. Please try again.';
-  } else {
-    $email = strtolower(trim((string)($_POST['email'] ?? '')));
-    $pass1 = (string)($_POST['password'] ?? '');
-    $pass2 = (string)($_POST['password2'] ?? '');
-
-    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-      $err = 'Please enter a valid email.';
-    } elseif (strlen($pass1) < 8) {
-      $err = 'Password must be at least 8 characters.';
-    } elseif ($pass1 !== $pass2) {
-      $err = 'Passwords do not match.';
-    } else {
-      $existing = Auth::findUserByEmail($pdo, $email);
-
-      if ($existing) {
-        $err = 'That email already has an account. Please log in instead.';
-      } else {
-        $hash = password_hash($pass1, PASSWORD_DEFAULT);
-
-        $stmt = $pdo->prepare('INSERT INTO users (email, password_hash, last_login_at) VALUES (?, ?, NOW())');
-        $stmt->execute([$email, $hash]);
-        $userId = (int)$pdo->lastInsertId();
-
-        Auth::syncEntitlementsByEmail($pdo, $userId);
-        Auth::login($userId);
-
-        $next = $_SESSION['login_next'] ?? base_url('library.php');
-        unset($_SESSION['login_next']);
-        redirect($next);
-      }
-    }
-  }
+	if (!csrf_verify($_POST['_csrf'] ?? null)) {
+		$err = 'Security check failed. Please try again.';
+	} else {
+		$email = strtolower(trim((string)($_POST['email'] ?? '')));
+		$pass1 = (string)($_POST['password'] ?? '');
+		$pass2 = (string)($_POST['password2'] ?? '');
+		
+		if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+			$err = 'Please enter a valid email.';
+		} elseif (strlen($pass1) < 8) {
+			$err = 'Password must be at least 8 characters.';
+		} elseif ($pass1 !== $pass2) {
+			$err = 'Passwords do not match.';
+		} else {
+			$existing = Auth::findUserByEmail($pdo, $email);
+			
+			if ($existing) {
+				$err = 'That email already has an account. Please log in instead.';
+			} else {
+				$hash = password_hash($pass1, PASSWORD_DEFAULT);
+				
+				$stmt = $pdo->prepare('INSERT INTO users (email, password_hash, last_login_at) VALUES (?, ?, NOW())');
+				$stmt->execute([$email, $hash]);
+				$userId = (int)$pdo->lastInsertId();
+				
+				sync_user_entitlements($pdo, $userId);
+				Auth::login($userId);
+				
+				$next = $_SESSION['login_next'] ?? base_url('library.php');
+				unset($_SESSION['login_next']);
+				redirect($next);
+			}
+		}
+	}
 }
 ?>
 <!doctype html>
@@ -52,7 +52,7 @@ if (is_post()) {
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Create Studio Login • Nick Sanzeri</title>
-   <link rel="stylesheet" href="<?= e(base_url('../../assets/css/style.css')) ?>">
+  <link rel="stylesheet" href="<?= e(base_url('../../assets/css/style.css')) ?>">
 </head>
 <body>
 <?php include __DIR__ . '/../../includes/header.php'; ?>
@@ -66,6 +66,7 @@ if (is_post()) {
 
   <form method="post" style="max-width:520px;">
     <input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>" />
+
     <label>Email</label>
     <input name="email" type="email" required value="<?= e($email_prefill) ?>" autocomplete="email" />
 

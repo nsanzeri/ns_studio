@@ -30,7 +30,6 @@ try {
 
 $livemode = !empty($event->livemode) ? 1 : 0;
 
-// Reject mode mismatch
 if ($mode === 'live' && $livemode !== 1) {
 	http_response_code(400);
 	echo 'Wrong mode for live endpoint';
@@ -94,9 +93,11 @@ try {
 		exit;
 	}
 	
-	$sessionId  = (string)($session->id ?? '');
-	$email      = trim((string)($session->customer_details->email ?? ''));
-	$productKey = trim((string)($session->metadata->product_key ?? ''));
+	$sessionId        = (string)($session->id ?? '');
+	$paymentIntentId  = (string)($session->payment_intent ?? '');
+	$customerId       = (string)($session->customer ?? '');
+	$email            = trim((string)($session->customer_details->email ?? $session->customer_email ?? ''));
+	$productKey       = trim((string)($session->metadata->product_key ?? ''));
 	
 	$products = product_file_map();
 	
@@ -114,6 +115,18 @@ try {
 		exit;
 	}
 	
+	$stmt = $pdo->prepare("SELECT id, slug, name, file_path FROM products WHERE slug = ? LIMIT 1");
+	$stmt->execute([$productKey]);
+	$product = $stmt->fetch(PDO::FETCH_ASSOC);
+	
+	if (!$product) {
+		mark_webhook_event($pdo, $event->id, $livemode, 'failed', 'No product row found for slug: ' . $productKey);
+		http_response_code(200);
+		echo 'Missing product row';
+		exit;
+	}
+	
+	$productId = (int)$product['id'];
 	$meta = $products[$productKey];
 	$expiresAt = (new DateTimeImmutable('now'))->add(
 			new DateInterval('PT' . (int)$meta['expires_minutes'] . 'M')
@@ -123,28 +136,80 @@ try {
 	
 	$pdo->prepare("
         INSERT INTO purchases
-            (stripe_checkout_session_id, purchaser_email, amount_total, currency, livemode, status, paid_at)
+            (stripe_checkout_session_id, stripe_payment_intent_id, stripe_customer_id, purchaser_email, product_id, amount_total, currency, livemode, status, paid_at)
         VALUES
-            (?, ?, ?, ?, ?, 'paid', NOW())
+            (?, ?, ?, ?, ?, ?, ?, ?, 'paid', NOW())
         ON DUPLICATE KEY UPDATE
+            stripe_payment_intent_id = VALUES(stripe_payment_intent_id),
+            stripe_customer_id = VALUES(stripe_customer_id),
+            purchaser_email = VALUES(purchaser_email),
+            product_id = VALUES(product_id),
+            amount_total = VALUES(amount_total),
+            currency = VALUES(currency),
             status = 'paid',
-            paid_at = COALESCE(paid_at, NOW())
+            paid_at = COALESCE(paid_at, VALUES(paid_at))
     ")->execute([
     		$sessionId,
+    		$paymentIntentId !== '' ? $paymentIntentId : null,
+    		$customerId !== '' ? $customerId : null,
     		$email,
+    		$productId,
     		$session->amount_total ?? null,
     		$session->currency ?? null,
     		$livemode
     ]);
+	
+	$stmt = $pdo->prepare("
+        SELECT id
+        FROM purchases
+        WHERE stripe_checkout_session_id = ? AND livemode = ?
+        LIMIT 1
+    ");
+	$stmt->execute([$sessionId, $livemode]);
+	$purchaseId = (int)$stmt->fetchColumn();
+	
+	if ($purchaseId <= 0) {
+		throw new RuntimeException('Unable to resolve purchase id after upsert.');
+	}
+	
+	$pdo->prepare("
+        INSERT IGNORE INTO purchase_items
+            (purchase_id, product_id, quantity, unit_amount, line_amount_total, metadata_json)
+        VALUES
+            (?, ?, 1, ?, ?, ?)
+    ")->execute([
+    		$purchaseId,
+    		$productId,
+    		$session->amount_total ?? null,
+    		$session->amount_total ?? null,
+    		json_encode([
+    				'source' => 'stripe_webhook',
+    				'checkout_session_id' => $sessionId,
+    				'product_key' => $productKey,
+    		], JSON_UNESCAPED_SLASHES)
+    ]);
+	
+	$stmt = $pdo->prepare("SELECT id FROM users WHERE email = ? LIMIT 1");
+	$stmt->execute([$email]);
+	$userId = $stmt->fetchColumn();
+	
+	if ($userId) {
+		$pdo->prepare("
+            INSERT IGNORE INTO entitlements
+                (user_id, product_id, source, status, expires_at)
+            VALUES
+                (?, ?, 'purchase', 'active', NULL)
+        ")->execute([(int)$userId, $productId]);
+	}
 	
 	$token = bin2hex(random_bytes(32));
 	
 	try {
 		$pdo->prepare("
             INSERT INTO download_tokens
-                (token, checkout_session_id, purchaser_email, product_key, file_path, expires_at, uses_remaining)
+                (token, checkout_session_id, purchaser_email, product_key, file_path, expires_at, uses_remaining, purchase_id, product_id)
             VALUES
-                (?, ?, ?, ?, ?, ?, ?)
+                (?, ?, ?, ?, ?, ?, ?, ?, ?)
         ")->execute([
         		$token,
         		$sessionId,
@@ -152,7 +217,9 @@ try {
         		$productKey,
         		$meta['file_path'],
         		$expiresAt->format('Y-m-d H:i:s'),
-        		(int)$meta['uses']
+        		(int)$meta['uses'],
+        		$purchaseId,
+        		$productId
         ]);
 	} catch (\PDOException $e) {
 		$sqlState   = $e->getCode();
@@ -168,6 +235,26 @@ try {
 			$stmt->execute([$sessionId, $productKey]);
 			$existing = $stmt->fetch(PDO::FETCH_ASSOC);
 			$token = $existing['token'] ?? $token;
+			
+			$pdo->prepare("
+                UPDATE download_tokens
+                SET purchaser_email = ?,
+                    file_path = ?,
+                    expires_at = ?,
+                    uses_remaining = ?,
+                    purchase_id = COALESCE(purchase_id, ?),
+                    product_id = COALESCE(product_id, ?)
+                WHERE checkout_session_id = ? AND product_key = ?
+            ")->execute([
+            		$email,
+            		$meta['file_path'],
+            		$expiresAt->format('Y-m-d H:i:s'),
+            		(int)$meta['uses'],
+            		$purchaseId,
+            		$productId,
+            		$sessionId,
+            		$productKey
+            ]);
 		} else {
 			throw $e;
 		}
@@ -256,7 +343,7 @@ try {
 						'reply_to'        => env('SMTP_REPLY_TO', 'nick@nicksanzeri.com'),
 						'idempotency_key' => $idemKey,
 						'related_table'   => 'purchases',
-						'related_id'      => null,
+						'related_id'      => $purchaseId ?: null,
 				]);
 				
 				if (!$sent) {

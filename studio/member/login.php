@@ -2,34 +2,35 @@
 require __DIR__ . '/../_private/_core/bootstrap.php';
 
 if (Auth::isLoggedIn()) {
-    redirect(base_url('library.php'));
+	redirect(base_url('library.php'));
 }
 
 $err = null;
 $googleClientId = env('GOOGLE_CLIENT_ID', '');
 
 if (is_post()) {
-  if (!csrf_verify($_POST['_csrf'] ?? null)) {
-    $err = 'Security check failed. Please try again.';
-  } else {
-    $email = strtolower(trim((string)($_POST['email'] ?? '')));
-    $pass  = (string)($_POST['password'] ?? '');
-
-    $stmt = $pdo->prepare('SELECT id, password_hash FROM users WHERE email = ? LIMIT 1');
-    $stmt->execute([$email]);
-    $u = $stmt->fetch(PDO::FETCH_ASSOC);
-
-    if (!$u || !password_verify($pass, (string)$u['password_hash'])) {
-      $err = 'Invalid email or password.';
-    } else {
-      Auth::login((int)$u['id']);
-      Auth::touchLogin($pdo, (int)$u['id']);
-      Auth::syncEntitlementsByEmail($pdo, (int)$u['id']);
-      $next = $_SESSION['login_next'] ?? base_url('library.php');
-      unset($_SESSION['login_next']);
-      redirect($next);
-    }
-  }
+	if (!csrf_verify($_POST['_csrf'] ?? null)) {
+		$err = 'Security check failed. Please try again.';
+	} else {
+		$email = strtolower(trim((string)($_POST['email'] ?? '')));
+		$pass  = (string)($_POST['password'] ?? '');
+		
+		$stmt = $pdo->prepare('SELECT id, password_hash FROM users WHERE email = ? LIMIT 1');
+		$stmt->execute([$email]);
+		$u = $stmt->fetch(PDO::FETCH_ASSOC);
+		
+		if (!$u || !password_verify($pass, (string)$u['password_hash'])) {
+			$err = 'Invalid email or password.';
+		} else {
+			$userId = (int)$u['id'];
+			Auth::login($userId);
+			Auth::touchLogin($pdo, $userId);
+			sync_user_entitlements($pdo, $userId);
+			$next = $_SESSION['login_next'] ?? base_url('library.php');
+			unset($_SESSION['login_next']);
+			redirect($next);
+		}
+	}
 }
 ?>
 <!doctype html>

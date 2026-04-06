@@ -51,16 +51,17 @@ $ua = isset($_SERVER['HTTP_USER_AGENT']) ? substr($_SERVER['HTTP_USER_AGENT'], 0
 // Basic bot detection (conservative)
 // -----------------------------
 if (!$ua || preg_match('/bot|crawl|spider|wget|curl|python|scrapy|httpclient|postman|insomnia/i', $ua)) {
-	// Best-effort log (bootstrap normally provides $pdo)
 	if (isset($pdo) && $pdo instanceof PDO) {
 		try {
 			log_download($pdo, [
 					'result' => 'blocked',
 					'ip' => $ipBin,
 					'user_agent' => $ua,
-					'note' => 'Bot detected'
+					'note' => 'Bot detected',
 			]);
-		} catch (Throwable $e) { /* ignore */ }
+		} catch (Throwable $e) {
+			// ignore
+		}
 	}
 	http_response_code(403);
 	echo 'Automated downloads are not allowed.';
@@ -83,9 +84,6 @@ if ($downloadSecret) {
 	}
 }
 
-
-$products = product_file_map();
-
 try {
 	$pdo->beginTransaction();
 	
@@ -105,7 +103,7 @@ try {
 				'result' => 'not_found',
 				'ip' => $ipBin,
 				'user_agent' => $ua,
-				'note' => 'Token not found'
+				'note' => 'Token not found',
 		]);
 		$pdo->commit();
 		http_response_code(404);
@@ -113,12 +111,10 @@ try {
 		exit;
 	}
 	
-	$product_key = $row['product_key'];
+	$productKey = (string)($row['product_key'] ?? '');
 	
 	// -----------------------------
 	// Anti-link-sharing: bind token to first IP that uses it
-	// Requires:
-	//   ALTER TABLE download_tokens ADD COLUMN first_ip VARBINARY(16) NULL;
 	// -----------------------------
 	if (!empty($row['first_ip'])) {
 		if ($ipBin === null || $row['first_ip'] !== $ipBin) {
@@ -127,11 +123,11 @@ try {
 					'purchase_id' => $row['purchase_id'] ?? null,
 					'checkout_session_id' => $row['checkout_session_id'],
 					'purchaser_email' => $row['purchaser_email'],
-					'product_key' => $product_key,
+					'product_key' => $productKey,
 					'result' => 'blocked',
 					'ip' => $ipBin,
 					'user_agent' => $ua,
-					'note' => 'IP mismatch'
+					'note' => 'IP mismatch',
 			]);
 			$pdo->commit();
 			http_response_code(403);
@@ -139,25 +135,13 @@ try {
 			exit;
 		}
 	} else {
-		// First use binds the token to this IP (best-effort; row is already locked).
 		$bind = $pdo->prepare("UPDATE download_tokens SET first_ip = ? WHERE id = ? AND first_ip IS NULL");
 		$bind->execute([$ipBin, $row['id']]);
-		$row['first_ip'] = $ipBin; // keep local copy consistent for logging/debugging
+		$row['first_ip'] = $ipBin;
 	}
-	
-	
 	
 	// -----------------------------
 	// Rate limiting (per token, DB-backed; default: 5 hits / 60 seconds)
-	// Requires:
-	//   CREATE TABLE download_rate_limit (
-	//     token_id INT PRIMARY KEY,
-	//     window_start DATETIME NOT NULL,
-	//     hits INT NOT NULL
-	//   );
-	// Optional .env:
-	//   DOWNLOAD_RATE_LIMIT=5
-	//   DOWNLOAD_RATE_WINDOW=60
 	// -----------------------------
 	$rateLimit = (int)($_ENV['DOWNLOAD_RATE_LIMIT'] ?? getenv('DOWNLOAD_RATE_LIMIT') ?: 5);
 	$rateWindow = (int)($_ENV['DOWNLOAD_RATE_WINDOW'] ?? getenv('DOWNLOAD_RATE_WINDOW') ?: 60);
@@ -183,11 +167,11 @@ try {
 						'purchase_id' => $row['purchase_id'] ?? null,
 						'checkout_session_id' => $row['checkout_session_id'],
 						'purchaser_email' => $row['purchaser_email'],
-						'product_key' => $product_key,
+						'product_key' => $productKey,
 						'result' => 'blocked',
 						'ip' => $ipBin,
 						'user_agent' => $ua,
-						'note' => 'Rate limit exceeded'
+						'note' => 'Rate limit exceeded',
 				]);
 				$pdo->commit();
 				http_response_code(429);
@@ -201,20 +185,6 @@ try {
 		}
 	}
 	
-	if (!isset($products[$product_key])) {
-		log_download($pdo, [
-				'token_id' => $row['id'],
-				'result' => 'invalid',
-				'ip' => $ipBin,
-				'user_agent' => $ua,
-				'note' => 'Unknown product_key'
-		]);
-		$pdo->commit();
-		http_response_code(400);
-		echo 'Invalid product.';
-		exit;
-	}
-	
 	// Expiration enforcement
 	if (new DateTimeImmutable() >= new DateTimeImmutable($row['expires_at'])) {
 		log_download($pdo, [
@@ -222,10 +192,10 @@ try {
 				'purchase_id' => $row['purchase_id'] ?? null,
 				'checkout_session_id' => $row['checkout_session_id'],
 				'purchaser_email' => $row['purchaser_email'],
-				'product_key' => $product_key,
+				'product_key' => $productKey,
 				'result' => 'expired',
 				'ip' => $ipBin,
-				'user_agent' => $ua
+				'user_agent' => $ua,
 		]);
 		$pdo->commit();
 		http_response_code(410);
@@ -239,10 +209,10 @@ try {
 				'purchase_id' => $row['purchase_id'] ?? null,
 				'checkout_session_id' => $row['checkout_session_id'],
 				'purchaser_email' => $row['purchaser_email'],
-				'product_key' => $product_key,
+				'product_key' => $productKey,
 				'result' => 'exhausted',
 				'ip' => $ipBin,
-				'user_agent' => $ua
+				'user_agent' => $ua,
 		]);
 		$pdo->commit();
 		http_response_code(410);
@@ -250,19 +220,31 @@ try {
 		exit;
 	}
 	
-	$filePath = !empty($row['file_path'])
-	? $row['file_path']
-	: $products[$product_key]['file_path'];
+	// Use the token row as the source of truth.
+	$filePath = trim((string)($row['file_path'] ?? ''));
+	if ($filePath === '') {
+		log_download($pdo, [
+				'token_id' => $row['id'],
+				'purchase_id' => $row['purchase_id'] ?? null,
+				'checkout_session_id' => $row['checkout_session_id'],
+				'purchaser_email' => $row['purchaser_email'],
+				'product_key' => $productKey,
+				'result' => 'invalid',
+				'ip' => $ipBin,
+				'user_agent' => $ua,
+				'note' => 'Missing file_path on token',
+		]);
+		$pdo->commit();
+		http_response_code(400);
+		echo 'Invalid product.';
+		exit;
+	}
 	
-	$downloadName = $products[$product_key]['download_name'] ?? basename($filePath);
+	$downloadName = basename($filePath);
 	
 	// -----------------------------
 	// "Signed streaming" / direct-access prevention:
 	// Enforce that the served file lives under a private storage root.
-	// Recommended: keep files OUTSIDE the public web root.
-	// Optional .env:
-	//   DOWNLOAD_STORAGE_ROOT=/absolute/path/to/private/downloads
-	// Default: <this_dir>/_private/downloads
 	// -----------------------------
 	$storageRoot = $_ENV['DOWNLOAD_STORAGE_ROOT'] ?? getenv('DOWNLOAD_STORAGE_ROOT') ?: (__DIR__ . '/_private/downloads');
 	$rootReal = realpath($storageRoot);
@@ -276,26 +258,31 @@ try {
 					'purchase_id' => $row['purchase_id'] ?? null,
 					'checkout_session_id' => $row['checkout_session_id'],
 					'purchaser_email' => $row['purchaser_email'],
-					'product_key' => $product_key,
+					'product_key' => $productKey,
 					'result' => 'error',
 					'ip' => $ipBin,
 					'user_agent' => $ua,
-					'note' => 'File path outside storage root'
+					'note' => 'File path outside storage root',
 			]);
 			$pdo->commit();
 			http_response_code(403);
 			echo 'File not available.';
 			exit;
 		}
-	} // If rootReal is missing, we do not block (keeps backward compatibility).
+	}
 	
 	if (!is_file($filePath)) {
 		log_download($pdo, [
 				'token_id' => $row['id'],
+				'purchase_id' => $row['purchase_id'] ?? null,
+				'checkout_session_id' => $row['checkout_session_id'],
+				'purchaser_email' => $row['purchaser_email'],
+				'product_key' => $productKey,
+				'file_path' => $filePath,
 				'result' => 'error',
 				'note' => 'File missing',
 				'ip' => $ipBin,
-				'user_agent' => $ua
+				'user_agent' => $ua,
 		]);
 		$pdo->commit();
 		http_response_code(404);
@@ -324,11 +311,11 @@ try {
 			'purchase_id' => $row['purchase_id'] ?? null,
 			'checkout_session_id' => $row['checkout_session_id'],
 			'purchaser_email' => $row['purchaser_email'],
-			'product_key' => $product_key,
+			'product_key' => $productKey,
 			'file_path' => $filePath,
 			'result' => 'success',
 			'ip' => $ipBin,
-			'user_agent' => $ua
+			'user_agent' => $ua,
 	]);
 	
 	$pdo->commit();
@@ -346,7 +333,9 @@ try {
 	exit;
 	
 } catch (Throwable $e) {
-	if ($pdo->inTransaction()) $pdo->rollBack();
+	if ($pdo->inTransaction()) {
+		$pdo->rollBack();
+	}
 	http_response_code(500);
 	echo 'An error occurred. Please contact support.';
 	exit;

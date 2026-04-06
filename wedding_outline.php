@@ -615,13 +615,13 @@ document.addEventListener('DOMContentLoaded', function () {
                     <?php endfor; ?>
                 </div>
 
-                <div class="wedding-section">
+<!--                 <div class="wedding-section">
                     <h2>Speeches</h2>
                     <div class="form-field">
                         <label for="speeches_notes">Best Man / Maid of Honor / Other</label>
                         <textarea id="speeches_notes" name="speeches_notes" placeholder="These usually occur during dinner. We provide our wireless mic and the folks introduce themselves. Add any notes here."></textarea>
                     </div>
-                </div>
+                </div> -->
 
                 <div class="wedding-section">
                     <h2>Contact</h2>

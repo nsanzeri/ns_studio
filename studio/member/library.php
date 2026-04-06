@@ -65,7 +65,7 @@ $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
           </div>
 
           <?php if ($it['kind'] === 'digital'): ?>
-            <a class="btn btn-primary" href="<?= e(base_url('studio/member/download.php')) ?>?product_id=<?= (int)$it['id'] ?>">Download</a>
+            <a class="btn btn-primary" href="<?= e(base_url('download.php')) ?>?product_id=<?= (int)$it['id'] ?>">Download</a>
           <?php else: ?>
             <a class="btn btn-outline" href="#">View</a>
           <?php endif; ?>

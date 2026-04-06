@@ -176,7 +176,7 @@ $announcement_wording    = field('announcement_wording', 2000);
 $couple_intro_song       = field('couple_intro_song', 190);
 $couple_intro_artist     = field('couple_intro_artist', 190);
 
-$speeches_notes          = field('speeches_notes', 3000);
+// $speeches_notes          = field('speeches_notes', 3000);
 
 $contact_name            = field('contact_name', 120);
 $contact_email           = field('contact_email', 190);
@@ -346,8 +346,8 @@ for ($i = 1; $i <= 5; $i++) {
     }
 }
 
-$body .= section_title("SPEECHES");
-$body .= line_if_has_value("Notes", $speeches_notes);
+//$body .= section_title("SPEECHES");
+//$body .= line_if_has_value("Notes", $speeches_notes);
 
 $body .= section_title("META");
 $body .= "IP: $ip\n";

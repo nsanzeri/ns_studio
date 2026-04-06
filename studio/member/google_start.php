@@ -1,6 +1,6 @@
 <?php
 require __DIR__ . '/../_private/_core/bootstrap.php';
-
+//echo "NEW VERSION"; exit;
 $clientId = env('GOOGLE_CLIENT_ID');
 $clientSecret = env('GOOGLE_CLIENT_SECRET');
 $redirectUri = env('GOOGLE_REDIRECT_URI');
@@ -15,8 +15,13 @@ $client = new Google_Client();
 $client->setClientId($clientId);
 $client->setClientSecret($clientSecret);
 $client->setRedirectUri($redirectUri);
-$client->addScope('email');
-$client->addScope('profile');
+
+$client->setScopes([
+		'openid',
+		'email',
+		'profile',
+]);
+
 $client->setAccessType('online');
 $client->setPrompt('select_account');
 

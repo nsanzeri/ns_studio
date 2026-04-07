@@ -187,9 +187,15 @@ set_error_handler(function (int $severity, string $message, string $file, int $l
 			
 			$pdo = db($config);
 			
-			// Detect project base path (works in /ns_studio and in domain root)
-			$scriptDir = rtrim(dirname($_SERVER['SCRIPT_NAME'] ?? ''), '/');  // e.g. /ns_studio/shop
-			$basePath  = preg_replace('#/shop$#', '', $scriptDir);            // e.g. /ns_studio
+			// Detect studio app base path (works for /studio locally or in production)
+			$scriptName = $_SERVER['SCRIPT_NAME'] ?? ''; // e.g. /ns_studio/studio/tools/index.php
+			
+			if (preg_match('#^(.*?/studio)(?:/.*)?$#', $scriptName, $m)) {
+				$basePath = $m[1]; // /ns_studio/studio or /studio
+			} else {
+				// Fallback if /studio is not present for some reason
+				$basePath = rtrim(dirname($scriptName), '/');
+			}
 			
 			// If it becomes just "/" treat as empty
 			if ($basePath === '/' || $basePath === '\\') {
@@ -198,7 +204,7 @@ set_error_handler(function (int $severity, string $message, string $file, int $l
 			
 			define('BASE_PATH', $basePath);
 			
-			// Helper: base_url('assets/css/style.css') => /ns_studio/assets/css/style.css
+			// Helper: base_url('assets/css/style.css') => /ns_studio/studio/assets/css/style.css
 			if (!function_exists('base_url')) {
 				function base_url(string $path = ''): string {
 					$path = ltrim($path, '/');

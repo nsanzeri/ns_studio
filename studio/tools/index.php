@@ -2,20 +2,49 @@
 require_once __DIR__ . '/../_private/_core/bootstrap.php';
 
 if (!Auth::isLoggedIn()) {
-	$_SESSION['login_next'] = base_url('/index.php');
-	header('Location: ' . base_url('../member/login.php'));
+	$_SESSION['login_next'] = base_url('/tools/index.php');
+	header('Location: ' . base_url('/member/login.php'));
 	exit;
 }
 
 $user = Auth::currentUser($pdo);
+if (!$user) {
+	header('Location: ' . base_url('/member/login.php'));
+	exit;
+}
 
-$connectedCalendars = [];
+$userTimezone = $user['timezone'] ?? 'America/Chicago';
+
+$calStmt = $pdo->prepare("
+    SELECT
+        id,
+        name,
+        color,
+        timezone,
+        ics_url,
+        is_active,
+        is_default,
+        sync_status,
+        last_sync_at
+    FROM calendars
+    WHERE user_id = :user_id
+      AND is_active = 1
+    ORDER BY is_default DESC, name ASC
+");
+$calStmt->execute([
+		':user_id' => (int)$user['id'],
+]);
+$connectedCalendars = $calStmt->fetchAll(PDO::FETCH_ASSOC);
+
 $hasCalendars = !empty($connectedCalendars);
 
-// Optional future:
-// $hasAccess = user_has_entitlement($user['id'], 'calendar-tools');
-// if (!$hasAccess) { header('Location: ' . base_url('/shop/calendar-tools.php')); exit; }
-
+$selectedCalendarIds = array_map('intval', $_GET['calendar_ids'] ?? []);
+if (!$selectedCalendarIds && $hasCalendars) {
+	$selectedCalendarIds = array_map(
+			fn($c) => (int)$c['id'],
+			$connectedCalendars
+			);
+}
 ?>
 <!doctype html>
 <html lang="en">
@@ -408,17 +437,35 @@ $hasCalendars = !empty($connectedCalendars);
 
                 <?php if ($hasCalendars): ?>
                   <div class="tools-checkbox-list">
-                    <?php foreach ($connectedCalendars as $calendar): ?>
-                      <label class="tools-check">
-                        <input
-                          type="checkbox"
-                          name="calendar_ids[]"
-                          value="<?= e($calendar['id']) ?>"
-                          checked
-                        >
-                        <span><?= e($calendar['name']) ?></span>
-                      </label>
-                    <?php endforeach; ?>
+					<?php
+					$selectedCalendarIds = array_map('intval', $_GET['calendar_ids'] ?? []);
+					if (!$selectedCalendarIds && $hasCalendars) {
+					    $selectedCalendarIds = array_map(
+					        fn($c) => (int)$c['id'],
+					        $connectedCalendars
+					    );
+					}
+					?>
+					
+					<?php foreach ($connectedCalendars as $calendar): ?>
+					  <?php
+					    $calendarId = (int)$calendar['id'];
+					    $isChecked = in_array($calendarId, $selectedCalendarIds, true);
+					    $dotColor = !empty($calendar['color']) ? $calendar['color'] : '#d4af37';
+					  ?>
+					  <label class="tools-check">
+					    <input
+					      type="checkbox"
+					      name="calendar_ids[]"
+					      value="<?= $calendarId ?>"
+					      <?= $isChecked ? 'checked' : '' ?>
+					    >
+					    <span style="display:inline-flex;align-items:center;gap:.6rem;">
+					      <span style="width:10px;height:10px;border-radius:999px;background:<?= e($dotColor) ?>;display:inline-block;"></span>
+					      <span><?= e($calendar['name']) ?></span>
+					    </span>
+					  </label>
+					<?php endforeach; ?>
                   </div>
                 <?php else: ?>
                   <div class="demo-box">
@@ -459,9 +506,6 @@ $hasCalendars = !empty($connectedCalendars);
                 </button>
 
                 <?php if (!$hasCalendars): ?>
-                  <a class="btn btn-secondary" href="<?= e(base_url('/tools/calendars.php?demo=1')) ?>">
-                    <i class="fa-regular fa-eye"></i>&nbsp; Try Demo
-                  </a>
                   <a class="btn btn-secondary" href="<?= e(base_url('/tools/calendars.php')) ?>">
                     <i class="fa-solid fa-link"></i>&nbsp; Connect Calendars
                   </a>
@@ -582,7 +626,6 @@ $hasCalendars = !empty($connectedCalendars);
                 Use a sample calendar set to preview how the tool works before connecting your own feeds.
               </p>
               <div style="display:flex; gap:.75rem; flex-wrap:wrap;">
-                <a class="btn btn-secondary" href="<?= e(base_url('/tools/calendars.php?demo=1')) ?>">Try Demo</a>
                 <a class="btn btn-primary" href="<?= e(base_url('/tools/calendars.php')) ?>">Connect Calendars</a>
               </div>
             </div>

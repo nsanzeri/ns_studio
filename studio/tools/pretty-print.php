@@ -247,28 +247,27 @@ if (!in_array($selectedFormat, ['newsletter', 'spreadsheet', 'print'], true)) {
       justify-content:center;
     }
 
-    .output-wrap{
-      background:rgba(255,255,255,.96);
-      color:#111;
-      border-radius:18px;
-      border:1px solid rgba(0,0,0,.08);
-      padding:1rem;
-    }
-
-    .pretty-output{
-      margin:0;
-      width:100%;
-      min-height:420px;
-      max-height:520px;
-      overflow:auto;
-      white-space:pre-wrap;
-      font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-      font-size:.98rem;
-      line-height:1.65;
-      color:#111;
-      background:transparent;
-      border:none;
-    }
+	.output-wrap{
+	  background:rgba(255,255,255,.04);
+	  border:1px solid rgba(255,255,255,.08);
+	  border-radius:18px;
+	  padding:1rem;
+	}
+	
+	.pretty-output{
+	  margin:0;
+	  width:100%;
+	  min-height:420px;
+	  max-height:520px;
+	  overflow:auto;
+	  white-space:pre-wrap;
+	  font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+	  font-size:.98rem;
+	  line-height:1.65;
+	  color:#fff;
+	  background:transparent;
+	  border:none;
+	}
 
     .button-row{
       display:flex;
@@ -692,30 +691,27 @@ async function generatePrettyPrint(event) {
     let text = "";
     let currentMonth = "";
 
-    if (format === "spreadsheet") {
-      text = "Date,Time,Summary,Location,Description\n";
-      for (const ev of events) {
-        const startObj = new Date(ev.start);
-        const dateStr = formatSpreadsheetDate(startObj);
-        const timeStr = startObj.toLocaleString("en-US", {
-          hour: "numeric",
-          minute: "2-digit",
-          hour12: true,
-          timeZone: USER_TIMEZONE
-        }).toLowerCase();
-
-        text += [
-          csvEscape(dateStr),
-          csvEscape(timeStr),
-          csvEscape(unescapeICal(ev.summary || "")),
-          csvEscape(unescapeICal(ev.location || "")),
-          csvEscape(unescapeICal(ev.description || ""))
-        ].join(",") + "\n";
-      }
-
-      output.textContent = text.trim();
-      return;
-    }
+	if (format === "spreadsheet") {
+	  for (const ev of events) {
+	    const startObj = new Date(ev.start);
+	    const month = monthHeader(startObj);
+	    const summary = unescapeICal(ev.summary || "(No Summary)");
+	    const dateStr = formatSpreadsheetDate(startObj);
+	
+		if (month !== currentMonth) {
+		  currentMonth = month;
+		  if (text.trim() !== "") {
+		    text += `\n`;
+		  }
+		  text += `===== ${currentMonth} =====\n`;
+		}
+	
+	    text += `${dateStr}, ${summary}\n`;
+	  }
+	
+	  output.textContent = text.trim();
+	  return;
+	}
 
     for (const ev of events) {
       const startObj = new Date(ev.start);
@@ -727,7 +723,7 @@ async function generatePrettyPrint(event) {
 
       if (month !== currentMonth) {
         currentMonth = month;
-        text += `\n===== ${currentMonth} =====\n\n`;
+        text += `\n===== ${currentMonth} =====\n`;
       }
 
       if (format === "newsletter") {

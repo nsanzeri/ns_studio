@@ -403,6 +403,27 @@ if (!$selectedCalendarIds && $hasCalendars) {
         flex-direction:column;
       }
     }
+    .output-wrap{
+	  background:rgba(255,255,255,.04);
+	  border:1px solid rgba(255,255,255,.08);
+	  border-radius:18px;
+	  padding:1rem;
+	}
+	
+	.pretty-output{
+	  margin:0;
+	  width:100%;
+	  min-height:220px;
+	  max-height:520px;
+	  overflow:auto;
+	  white-space:pre-wrap;
+	  font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+	  font-size:.98rem;
+	  line-height:1.65;
+	  color:#fff;
+	  background:transparent;
+	  border:none;
+	}
   </style>
 </head>
 <body>
@@ -577,15 +598,17 @@ if (!$selectedCalendarIds && $hasCalendars) {
             </p>
           </div>
 
-          <div class="result-toolbar">
-            <a href="<?= e(base_url('/tools/pretty-print.php')) ?>">
-              <i class="fa-solid fa-print"></i> Print
-            </a>
-            <a href="<?= e(base_url('/tools/bandsintown.php')) ?>">
-              <i class="fa-solid fa-file-export"></i> Export
-            </a>
-          </div>
-        </div>
+		<div class="result-toolbar">
+		  <button class="btn btn-secondary" type="button" onclick="copyAvailabilityOutput()">
+		    <i class="fa-regular fa-copy"></i>&nbsp; Copy
+		  </button>
+		  <button class="btn btn-secondary" type="button" onclick="exportAvailabilityTXT()">
+		    <i class="fa-regular fa-file-lines"></i>&nbsp; Export TXT
+		  </button>
+		  <button class="btn btn-secondary" type="button" onclick="window.print()">
+		    <i class="fa-solid fa-print"></i>&nbsp; Print
+		  </button>
+		</div>
 
         <div id="resultsEmpty" class="empty-state">
           <?php if ($hasCalendars): ?>
@@ -631,7 +654,12 @@ if (!$selectedCalendarIds && $hasCalendars) {
 
         <div id="resultsError" class="error-box" style="display:none;"></div>
 
-        <div id="resultsGrid" class="results-grid" style="display:none;"></div>
+        <!-- div id="resultsGrid" class="results-grid" style="display:none;"></div-->
+        
+        <div id="availabilityTextWrap" class="output-wrap" style="display:none; margin-top:1rem;">
+		  <pre class="pretty-output" id="availabilityTextOutput"></pre>
+		</div>
+        
       </section>
     </div>
   </div>
@@ -688,16 +716,48 @@ async function getICalEvents(calendarId, startDate, endDate) {
   }));
 }
 
+function formatAvailabilityMonth(date) {
+  const month = date.toLocaleDateString("en-US", {
+    month: "long",
+    timeZone: USER_TIMEZONE
+  });
+  const year = date.toLocaleDateString("en-US", {
+    year: "numeric",
+    timeZone: USER_TIMEZONE
+  });
+  return `${month} – ${year}`;
+}
+
+function formatAvailabilityLine(date) {
+  const weekday = date.toLocaleDateString("en-US", {
+    weekday: "short",
+    timeZone: USER_TIMEZONE
+  });
+  const month = date.toLocaleDateString("en-US", {
+    month: "short",
+    timeZone: USER_TIMEZONE
+  });
+  const day = date.toLocaleDateString("en-US", {
+    day: "numeric",
+    timeZone: USER_TIMEZONE
+  });
+  return `${weekday} ${month} ${day}`;
+}
+
 function renderResults(freeDates, startStr, endStr) {
   const resultsGrid = document.getElementById("resultsGrid");
   const resultsEmpty = document.getElementById("resultsEmpty");
   const resultsError = document.getElementById("resultsError");
   const resultsLoading = document.getElementById("resultsLoading");
+  const availabilityTextWrap = document.getElementById("availabilityTextWrap");
+  const availabilityTextOutput = document.getElementById("availabilityTextOutput");
 
   resultsLoading.style.display = "none";
   resultsError.style.display = "none";
   resultsGrid.style.display = "none";
   resultsGrid.innerHTML = "";
+  availabilityTextWrap.style.display = "none";
+  availabilityTextOutput.textContent = "";
 
   if (!freeDates.length) {
     resultsEmpty.style.display = "block";
@@ -714,31 +774,43 @@ function renderResults(freeDates, startStr, endStr) {
 
   resultsEmpty.style.display = "none";
 
+  let text = "";
   let currentMonth = "";
-  let html = `<div class="result-summary">Found ${freeDates.length} open date${freeDates.length === 1 ? "" : "s"}.</div>`;
 
   for (const date of freeDates) {
-    const monthHeader = formatMonthHeader(date);
+    const monthHeader = formatAvailabilityMonth(date);
+
     if (monthHeader !== currentMonth) {
+      if (text.trim() !== "") {
+        text += `\n\n`;
+      }
       currentMonth = monthHeader;
-      html += `<div class="result-month">${escapeHtml(monthHeader)}</div>`;
+      text += `${monthHeader}\n-------------\n`;
     }
 
-    html += `
-      <article class="result-row available">
-        <div>
-          <div class="result-date">${escapeHtml(formatPretty(date))}</div>
-          <div class="result-note">All selected calendars are open</div>
-        </div>
-        <div class="status-pill open">
-          <i class="fa-solid fa-circle-check"></i> Available
-        </div>
-      </article>
-    `;
+    text += `${formatAvailabilityLine(date)}\n`;
   }
 
-  resultsGrid.innerHTML = html;
-  resultsGrid.style.display = "grid";
+  availabilityTextOutput.textContent = text.trim();
+  availabilityTextWrap.style.display = "block";
+}
+
+function copyAvailabilityOutput() {
+  const text = document.getElementById("availabilityTextOutput").textContent;
+  if (!text.trim()) return;
+  navigator.clipboard.writeText(text);
+}
+
+function exportAvailabilityTXT() {
+  const text = document.getElementById("availabilityTextOutput").textContent;
+  if (!text.trim()) return;
+
+  const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "available_dates.txt";
+  a.click();
+  URL.revokeObjectURL(a.href);
 }
 
 async function findAvailableDates(event) {

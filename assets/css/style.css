@@ -628,6 +628,18 @@ a:hover {
   gap: 1rem 1.2rem;
 }
 
+/* Make native date controls render in a light theme */
+input[type="date"] {
+    color-scheme: light;
+}
+
+/* Chrome / Edge / Safari */
+input[type="date"]::-webkit-calendar-picker-indicator {
+    opacity: 1 !important;
+    filter: invert(1) brightness(2) contrast(1.2) !important;
+    cursor: pointer;
+}
+
 .form-field {
   display: flex;
   flex-direction: column;

@@ -350,9 +350,6 @@ $commonTimezones = [
       <a class="active" href="<?= e(base_url('/tools/calendars.php')) ?>">
         <i class="fa-solid fa-link"></i> Manage Calendars
       </a>
-      <a href="<?= e(base_url('/tools/settings.php')) ?>">
-        <i class="fa-solid fa-gear"></i> Settings
-      </a>
     </nav>
 
     <?php if ($flash): ?>

@@ -258,79 +258,6 @@ if (!$selectedCalendarIds && $hasCalendars) {
       gap:.6rem;
     }
 
-    .result-toolbar a{
-      display:inline-flex;
-      align-items:center;
-      gap:.45rem;
-      padding:.65rem .9rem;
-      border-radius:999px;
-      text-decoration:none;
-      color:rgba(255,255,255,.85);
-      background:rgba(255,255,255,.04);
-      border:1px solid rgba(255,255,255,.06);
-    }
-
-    .results-grid{
-      display:grid;
-      gap:.9rem;
-    }
-
-    .result-row{
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      gap:1rem;
-      padding:1rem 1.1rem;
-      border-radius:18px;
-      background:rgba(255,255,255,.04);
-      border:1px solid rgba(255,255,255,.06);
-    }
-
-    .result-row.available{
-      border-color:rgba(93, 201, 126, .28);
-      background:rgba(93, 201, 126, .06);
-    }
-
-    .result-row.conflict{
-      border-color:rgba(255, 159, 67, .25);
-      background:rgba(255, 159, 67, .06);
-    }
-
-    .result-date{
-      font-weight:600;
-      color:#fff;
-      font-size:1.05rem;
-    }
-
-    .result-note{
-      margin-top:.2rem;
-      color:rgba(255,255,255,.72);
-      font-size:.95rem;
-    }
-
-    .status-pill{
-      display:inline-flex;
-      align-items:center;
-      gap:.45rem;
-      padding:.45rem .7rem;
-      border-radius:999px;
-      font-size:.82rem;
-      font-weight:600;
-      letter-spacing:.04em;
-      text-transform:uppercase;
-      white-space:nowrap;
-    }
-
-    .status-pill.open{
-      background:rgba(93, 201, 126, .14);
-      color:#7fe29b;
-    }
-
-    .status-pill.partial{
-      background:rgba(255, 159, 67, .14);
-      color:#ffbf78;
-    }
-
     .empty-state{
       display:grid;
       gap:1rem;
@@ -375,18 +302,26 @@ if (!$selectedCalendarIds && $hasCalendars) {
       color:#ffb3b3;
     }
 
-    .result-month{
-      margin:1.25rem 0 .35rem;
-      color:#d4af37;
-      font-weight:700;
-      letter-spacing:.04em;
-      text-transform:uppercase;
-      font-size:.9rem;
+    .output-wrap{
+      background:rgba(255,255,255,.04);
+      border:1px solid rgba(255,255,255,.08);
+      border-radius:18px;
+      padding:1rem;
     }
 
-    .result-summary{
-      margin-bottom:1rem;
-      color:rgba(255,255,255,.72);
+    .pretty-output{
+      margin:0;
+      width:100%;
+      min-height:220px;
+      max-height:520px;
+      overflow:auto;
+      white-space:pre-wrap;
+      font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size:.98rem;
+      line-height:1.65;
+      color:#fff;
+      background:transparent;
+      border:none;
     }
 
     @media (max-width: 980px){
@@ -403,27 +338,6 @@ if (!$selectedCalendarIds && $hasCalendars) {
         flex-direction:column;
       }
     }
-    .output-wrap{
-	  background:rgba(255,255,255,.04);
-	  border:1px solid rgba(255,255,255,.08);
-	  border-radius:18px;
-	  padding:1rem;
-	}
-	
-	.pretty-output{
-	  margin:0;
-	  width:100%;
-	  min-height:220px;
-	  max-height:520px;
-	  overflow:auto;
-	  white-space:pre-wrap;
-	  font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-	  font-size:.98rem;
-	  line-height:1.65;
-	  color:#fff;
-	  background:transparent;
-	  border:none;
-	}
   </style>
 </head>
 <body>
@@ -455,9 +369,6 @@ if (!$selectedCalendarIds && $hasCalendars) {
       </a>
       <a href="<?= e(base_url('/tools/calendars.php')) ?>">
         <i class="fa-solid fa-link"></i> Manage Calendars
-      </a>
-      <a href="<?= e(base_url('/tools/settings.php')) ?>">
-        <i class="fa-solid fa-gear"></i> Settings
       </a>
     </nav>
 
@@ -598,17 +509,18 @@ if (!$selectedCalendarIds && $hasCalendars) {
             </p>
           </div>
 
-		<div class="result-toolbar">
-		  <button class="btn btn-secondary" type="button" onclick="copyAvailabilityOutput()">
-		    <i class="fa-regular fa-copy"></i>&nbsp; Copy
-		  </button>
-		  <button class="btn btn-secondary" type="button" onclick="exportAvailabilityTXT()">
-		    <i class="fa-regular fa-file-lines"></i>&nbsp; Export TXT
-		  </button>
-		  <button class="btn btn-secondary" type="button" onclick="window.print()">
-		    <i class="fa-solid fa-print"></i>&nbsp; Print
-		  </button>
-		</div>
+          <div class="result-toolbar">
+            <button class="btn btn-secondary" type="button" onclick="copyAvailabilityOutput()">
+              <i class="fa-regular fa-copy"></i>&nbsp; Copy
+            </button>
+            <button class="btn btn-secondary" type="button" onclick="exportAvailabilityTXT()">
+              <i class="fa-regular fa-file-lines"></i>&nbsp; Export TXT
+            </button>
+            <button class="btn btn-secondary" type="button" onclick="window.print()">
+              <i class="fa-solid fa-print"></i>&nbsp; Print
+            </button>
+          </div>
+        </div>
 
         <div id="resultsEmpty" class="empty-state">
           <?php if ($hasCalendars): ?>
@@ -654,12 +566,9 @@ if (!$selectedCalendarIds && $hasCalendars) {
 
         <div id="resultsError" class="error-box" style="display:none;"></div>
 
-        <!-- div id="resultsGrid" class="results-grid" style="display:none;"></div-->
-        
         <div id="availabilityTextWrap" class="output-wrap" style="display:none; margin-top:1rem;">
-		  <pre class="pretty-output" id="availabilityTextOutput"></pre>
-		</div>
-        
+          <pre class="pretty-output" id="availabilityTextOutput"></pre>
+        </div>
       </section>
     </div>
   </div>
@@ -669,23 +578,6 @@ if (!$selectedCalendarIds && $hasCalendars) {
 
 <script>
 const USER_TIMEZONE = <?= json_encode($userTimezone) ?>;
-
-function formatPretty(date) {
-  return date.toLocaleDateString("en-US", {
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-    timeZone: USER_TIMEZONE
-  });
-}
-
-function formatMonthHeader(date) {
-  return date.toLocaleDateString("en-US", {
-    month: "long",
-    year: "numeric",
-    timeZone: USER_TIMEZONE
-  });
-}
 
 function escapeHtml(value) {
   return String(value)
@@ -745,7 +637,6 @@ function formatAvailabilityLine(date) {
 }
 
 function renderResults(freeDates, startStr, endStr) {
-  const resultsGrid = document.getElementById("resultsGrid");
   const resultsEmpty = document.getElementById("resultsEmpty");
   const resultsError = document.getElementById("resultsError");
   const resultsLoading = document.getElementById("resultsLoading");
@@ -754,8 +645,6 @@ function renderResults(freeDates, startStr, endStr) {
 
   resultsLoading.style.display = "none";
   resultsError.style.display = "none";
-  resultsGrid.style.display = "none";
-  resultsGrid.innerHTML = "";
   availabilityTextWrap.style.display = "none";
   availabilityTextOutput.textContent = "";
 
@@ -818,18 +707,20 @@ async function findAvailableDates(event) {
     event.preventDefault();
   }
 
-  const resultsGrid = document.getElementById("resultsGrid");
   const resultsEmpty = document.getElementById("resultsEmpty");
   const resultsError = document.getElementById("resultsError");
   const resultsLoading = document.getElementById("resultsLoading");
+  const availabilityTextWrap = document.getElementById("availabilityTextWrap");
+  const availabilityTextOutput = document.getElementById("availabilityTextOutput");
 
   const startStr = document.getElementById("date_from").value;
   const endStr   = document.getElementById("date_to").value;
 
   if (!startStr || !endStr) {
     resultsEmpty.style.display = "none";
-    resultsGrid.style.display = "none";
     resultsLoading.style.display = "none";
+    availabilityTextWrap.style.display = "none";
+    availabilityTextOutput.textContent = "";
     resultsError.style.display = "block";
     resultsError.textContent = "Please select both dates.";
     return;
@@ -844,8 +735,9 @@ async function findAvailableDates(event) {
 
   if (!selectedDays.length) {
     resultsEmpty.style.display = "none";
-    resultsGrid.style.display = "none";
     resultsLoading.style.display = "none";
+    availabilityTextWrap.style.display = "none";
+    availabilityTextOutput.textContent = "";
     resultsError.style.display = "block";
     resultsError.textContent = "Select at least one weekday.";
     return;
@@ -857,16 +749,18 @@ async function findAvailableDates(event) {
 
   if (!selectedCalendars.length) {
     resultsEmpty.style.display = "none";
-    resultsGrid.style.display = "none";
     resultsLoading.style.display = "none";
+    availabilityTextWrap.style.display = "none";
+    availabilityTextOutput.textContent = "";
     resultsError.style.display = "block";
     resultsError.textContent = "Select at least one calendar.";
     return;
   }
 
   resultsError.style.display = "none";
-  resultsGrid.style.display = "none";
   resultsEmpty.style.display = "none";
+  availabilityTextWrap.style.display = "none";
+  availabilityTextOutput.textContent = "";
   resultsLoading.style.display = "block";
 
   try {
@@ -916,7 +810,8 @@ async function findAvailableDates(event) {
     renderResults(freeDates, startStr, endStr);
   } catch (err) {
     resultsLoading.style.display = "none";
-    resultsGrid.style.display = "none";
+    availabilityTextWrap.style.display = "none";
+    availabilityTextOutput.textContent = "";
     resultsEmpty.style.display = "none";
     resultsError.style.display = "block";
     resultsError.textContent = "Error: " + err.message;

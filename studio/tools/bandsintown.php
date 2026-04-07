@@ -2,7 +2,7 @@
 require_once __DIR__ . '/../_private/_core/bootstrap.php';
 
 if (!Auth::isLoggedIn()) {
-	$_SESSION['login_next'] = base_url('/tools/pretty-print.php');
+	$_SESSION['login_next'] = base_url('/tools/bandsintown.php');
 	header('Location: ' . base_url('/member/login.php'));
 	exit;
 }
@@ -20,6 +20,7 @@ $dateFrom = $_GET['date_from'] ?? $today->format('Y-m-d');
 $dateTo   = $_GET['date_to'] ?? $oneMonthOut->format('Y-m-d');
 
 $userTimezone = $user['timezone'] ?? 'America/Chicago';
+$defaultArtistName = $user['display_name'] ?? 'Nick Sanzeri';
 
 $calStmt = $pdo->prepare("
     SELECT
@@ -43,14 +44,10 @@ $calStmt->execute([
 $connectedCalendars = $calStmt->fetchAll(PDO::FETCH_ASSOC);
 
 $hasCalendars = !empty($connectedCalendars);
+
 $selectedCalendarId = isset($_GET['calendar_id']) ? (int)$_GET['calendar_id'] : 0;
 if (!$selectedCalendarId && $hasCalendars) {
 	$selectedCalendarId = (int)$connectedCalendars[0]['id'];
-}
-
-$selectedFormat = $_GET['format'] ?? 'newsletter';
-if (!in_array($selectedFormat, ['newsletter', 'spreadsheet', 'print'], true)) {
-	$selectedFormat = 'newsletter';
 }
 ?>
 <!doctype html>
@@ -58,8 +55,8 @@ if (!in_array($selectedFormat, ['newsletter', 'spreadsheet', 'print'], true)) {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Printable Views | Nick Sanzeri</title>
-  <meta name="description" content="Pretty-print actual calendar events from one selected calendar in multiple useful formats.">
+  <title>Bandsintown Export | Nick Sanzeri</title>
+  <meta name="description" content="Generate a Bandsintown-formatted CSV from your calendar events.">
   <link rel="stylesheet" href="<?= e(base_url('../assets/css/style.css')) ?>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -199,26 +196,6 @@ if (!in_array($selectedFormat, ['newsletter', 'spreadsheet', 'print'], true)) {
       box-shadow:0 0 0 2px rgba(255,255,255,.08);
     }
 
-    .format-box{
-      display:grid;
-      gap:.65rem;
-    }
-
-    .format-option{
-      display:flex;
-      align-items:center;
-      gap:.7rem;
-      padding:.8rem .9rem;
-      border-radius:14px;
-      background:rgba(255,255,255,.04);
-      border:1px solid rgba(255,255,255,.06);
-      color:#fff;
-    }
-
-    .format-option input{
-      accent-color:#d4af37;
-    }
-
     .tools-actions{
       display:grid;
       gap:.75rem;
@@ -247,33 +224,53 @@ if (!in_array($selectedFormat, ['newsletter', 'spreadsheet', 'print'], true)) {
       justify-content:center;
     }
 
-	.output-wrap{
-	  background:rgba(255,255,255,.04);
-	  border:1px solid rgba(255,255,255,.08);
-	  border-radius:18px;
-	  padding:1rem;
-	}
-	
-	.pretty-output{
-	  margin:0;
-	  width:100%;
-	  min-height:420px;
-	  max-height:520px;
-	  overflow:auto;
-	  white-space:pre-wrap;
-	  font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-	  font-size:.98rem;
-	  line-height:1.65;
-	  color:#fff;
-	  background:transparent;
-	  border:none;
-	}
+    .error-box{
+      padding:1rem 1.1rem;
+      border-radius:16px;
+      background:rgba(255,107,107,.1);
+      border:1px solid rgba(255,107,107,.25);
+      color:#ffb3b3;
+      margin-bottom:1rem;
+      display:none;
+    }
 
-    .button-row{
-      display:flex;
-      flex-wrap:wrap;
-      gap:.75rem;
-      margin-top:1rem;
+    .preview-wrap{
+      background:rgba(255,255,255,.04);
+      border:1px solid rgba(255,255,255,.08);
+      border-radius:18px;
+      padding:1rem;
+      overflow:auto;
+    }
+
+    .preview-table{
+      width:100%;
+      border-collapse:collapse;
+      min-width:980px;
+      color:#fff;
+      font-size:.92rem;
+    }
+
+    .preview-table th,
+    .preview-table td{
+      padding:.7rem .75rem;
+      border-bottom:1px solid rgba(255,255,255,.08);
+      text-align:left;
+      vertical-align:top;
+    }
+
+    .preview-table th{
+      font-size:.82rem;
+      text-transform:uppercase;
+      letter-spacing:.04em;
+      color:#d4af37;
+      background:rgba(255,255,255,.03);
+      position:sticky;
+      top:0;
+    }
+
+    .preview-note{
+      color:rgba(255,255,255,.72);
+      margin-bottom:1rem;
     }
 
     .empty-state{
@@ -304,15 +301,6 @@ if (!in_array($selectedFormat, ['newsletter', 'spreadsheet', 'print'], true)) {
       color:rgba(255,255,255,.62);
     }
 
-    .error-box{
-      padding:1rem 1.1rem;
-      border-radius:16px;
-      background:rgba(255,107,107,.1);
-      border:1px solid rgba(255,107,107,.25);
-      color:#ffb3b3;
-      margin-bottom:1rem;
-    }
-
     @media (max-width:980px){
       .tools-layout{
         grid-template-columns:1fr;
@@ -327,55 +315,6 @@ if (!in_array($selectedFormat, ['newsletter', 'spreadsheet', 'print'], true)) {
         flex-direction:column;
       }
     }
-
-    @media print{
-      body{
-        background:#fff !important;
-        color:#111 !important;
-      }
-
-      header,
-      footer,
-      .tools-topbar,
-      .tools-subnav,
-      .tools-layout > aside,
-      .preview-toolbar{
-        display:none !important;
-      }
-
-      .tools-shell{
-        padding:0 !important;
-      }
-
-      .container{
-        width:100% !important;
-        max-width:none !important;
-        padding:0 !important;
-        margin:0 !important;
-      }
-
-      .tools-layout{
-        display:block !important;
-      }
-
-      .tools-card{
-        background:transparent !important;
-        border:none !important;
-        box-shadow:none !important;
-        padding:0 !important;
-      }
-
-      .output-wrap{
-        border:none !important;
-        box-shadow:none !important;
-        padding:0 !important;
-      }
-
-      .pretty-output{
-        max-height:none !important;
-        overflow:visible !important;
-      }
-    }
   </style>
 </head>
 <body>
@@ -387,8 +326,8 @@ if (!in_array($selectedFormat, ['newsletter', 'spreadsheet', 'print'], true)) {
     <div class="tools-topbar">
       <div>
         <p class="eyebrow">Ready Set Shows</p>
-        <h1>Pretty Print Calendar Events</h1>
-        <p>Pull the actual contents of one calendar and format them for newsletters, printouts, or simple exports.</p>
+        <h1>Bandsintown Export</h1>
+        <p>Generate a Bandsintown-formatted CSV from the events in one selected calendar.</p>
       </div>
       <div class="tools-muted">
         Signed in as <?= e($user['email'] ?? 'your account') ?>
@@ -399,10 +338,10 @@ if (!in_array($selectedFormat, ['newsletter', 'spreadsheet', 'print'], true)) {
       <a href="<?= e(base_url('/tools/index.php')) ?>">
         <i class="fa-regular fa-calendar-check"></i> Availability
       </a>
-      <a class="active" href="<?= e(base_url('/tools/pretty-print.php')) ?>">
+      <a href="<?= e(base_url('/tools/pretty-print.php')) ?>">
         <i class="fa-solid fa-print"></i> Print Views
       </a>
-      <a href="<?= e(base_url('/tools/bandsintown.php')) ?>">
+      <a class="active" href="<?= e(base_url('/tools/bandsintown.php')) ?>">
         <i class="fa-solid fa-file-csv"></i> Bandsintown Export
       </a>
       <a href="<?= e(base_url('/tools/calendars.php')) ?>">
@@ -413,13 +352,25 @@ if (!in_array($selectedFormat, ['newsletter', 'spreadsheet', 'print'], true)) {
     <div class="tools-layout">
       <aside class="tools-stack">
         <section class="tools-card">
-          <h2>Pretty Print</h2>
+          <h2>Build Export</h2>
           <p class="tools-muted" style="margin-top:-.25rem; margin-bottom:1rem;">
-            Choose a calendar, set the date range, pick an output style, and generate formatted event text.
+            Choose one calendar, enter the artist name, and generate a CSV preview ready for Bandsintown.
           </p>
 
-          <form id="prettyPrintForm" method="get" action="<?= e(base_url('/tools/pretty-print.php')) ?>">
+          <form id="bitForm" method="get" action="<?= e(base_url('/tools/bandsintown.php')) ?>">
             <div class="tools-stack">
+              <div class="tools-field">
+                <label for="artistName">Artist Name</label>
+                <input
+                  class="tools-input"
+                  type="text"
+                  id="artistName"
+                  name="artist_name"
+                  value="<?= e($_GET['artist_name'] ?? $defaultArtistName) ?>"
+                  placeholder="Artist or Band Name"
+                >
+              </div>
+
               <div class="tools-field">
                 <label for="startDate">Start Date</label>
                 <input class="tools-input" type="date" id="startDate" name="date_from" value="<?= e($dateFrom) ?>">
@@ -457,33 +408,15 @@ if (!in_array($selectedFormat, ['newsletter', 'spreadsheet', 'print'], true)) {
                   <div class="demo-box">
                     <strong style="color:#fff;">No calendars connected yet</strong>
                     <p class="small-note" style="margin:.45rem 0 0;">
-                      Add one or more iCal feeds to generate formatted calendar output.
+                      Add one or more iCal feeds to generate a Bandsintown export.
                     </p>
                   </div>
                 <?php endif; ?>
               </div>
 
-              <div class="tools-field">
-                <label>Select Output Format</label>
-                <div class="format-box">
-                  <label class="format-option">
-                    <input type="radio" name="format" value="newsletter" <?= $selectedFormat === 'newsletter' ? 'checked' : '' ?>>
-                    <span>Newsletter</span>
-                  </label>
-                  <label class="format-option">
-                    <input type="radio" name="format" value="spreadsheet" <?= $selectedFormat === 'spreadsheet' ? 'checked' : '' ?>>
-                    <span>Spreadsheet (CSV)</span>
-                  </label>
-                  <label class="format-option">
-                    <input type="radio" name="format" value="print" <?= $selectedFormat === 'print' ? 'checked' : '' ?>>
-                    <span>Print Format</span>
-                  </label>
-                </div>
-              </div>
-
               <div class="tools-actions">
                 <button class="btn btn-primary" type="submit">
-                  <i class="fa-solid fa-wand-magic-sparkles"></i>&nbsp; Generate
+                  <i class="fa-solid fa-wand-magic-sparkles"></i>&nbsp; Generate Preview
                 </button>
 
                 <?php if (!$hasCalendars): ?>
@@ -501,25 +434,22 @@ if (!in_array($selectedFormat, ['newsletter', 'spreadsheet', 'print'], true)) {
         <div class="preview-header">
           <div>
             <p class="eyebrow" style="margin-bottom:.45rem;">Preview</p>
-            <h2 style="margin-bottom:.4rem;">Formatted output</h2>
+            <h2 style="margin-bottom:.4rem;">Bandsintown CSV</h2>
             <p class="tools-muted" style="margin:0;">
-              Generate text from a single calendar and use it however you need.
+              Review the rows before downloading or copying the CSV.
             </p>
           </div>
 
           <?php if ($hasCalendars): ?>
             <div class="preview-toolbar">
-              <button class="btn btn-secondary" type="button" onclick="copyOutput()">
-                <i class="fa-regular fa-copy"></i>&nbsp; Copy
+              <button class="btn btn-secondary" type="button" onclick="downloadCSV()">
+                <i class="fa-solid fa-download"></i>&nbsp; Download CSV
               </button>
-              <button class="btn btn-secondary" type="button" onclick="exportCSV()">
-                <i class="fa-solid fa-file-csv"></i>&nbsp; Export CSV
+              <button class="btn btn-secondary" type="button" onclick="copyCSV()">
+                <i class="fa-regular fa-copy"></i>&nbsp; Copy CSV
               </button>
-              <button class="btn btn-secondary" type="button" onclick="exportTXT()">
-                <i class="fa-regular fa-file-lines"></i>&nbsp; Export TXT
-              </button>
-              <button class="btn btn-secondary" type="button" onclick="window.print()">
-                <i class="fa-solid fa-print"></i>&nbsp; Print
+              <button class="btn btn-secondary" type="button" onclick="openCSV()">
+                <i class="fa-regular fa-window-restore"></i>&nbsp; Open in New Window
               </button>
             </div>
           <?php endif; ?>
@@ -530,14 +460,14 @@ if (!in_array($selectedFormat, ['newsletter', 'spreadsheet', 'print'], true)) {
             <div class="empty-hero">
               <h3 style="margin-top:0;">Start by connecting your calendars</h3>
               <p class="tools-muted" style="margin-bottom:0;">
-                Once your iCal feeds are connected, this page can turn real calendar events into clean formatted text.
+                Once your iCal feeds are connected, this page can turn calendar events into a Bandsintown-friendly CSV.
               </p>
             </div>
 
             <div class="demo-box">
               <strong style="color:#fff;">Ready to get started?</strong>
               <p class="small-note" style="margin:.45rem 0 .9rem;">
-                Add your first calendar feed and come back here to generate event copy.
+                Add your first calendar feed and come back here to generate a CSV.
               </p>
               <div style="display:flex; gap:.75rem; flex-wrap:wrap;">
                 <a class="btn btn-primary" href="<?= e(base_url('/tools/calendars.php')) ?>">Connect Calendars</a>
@@ -545,10 +475,17 @@ if (!in_array($selectedFormat, ['newsletter', 'spreadsheet', 'print'], true)) {
             </div>
           </div>
         <?php else: ?>
-          <div id="errorBox" class="error-box" style="display:none;"></div>
+          <div id="errorBox" class="error-box"></div>
 
-          <div class="output-wrap">
-            <pre class="pretty-output" id="output">Choose a calendar and click Generate.</pre>
+          <p class="preview-note">
+            This preview follows the same basic export logic as your working Sir Gigz version.
+          </p>
+
+          <div class="preview-wrap">
+            <table class="preview-table" id="previewTable">
+              <thead></thead>
+              <tbody></tbody>
+            </table>
           </div>
         <?php endif; ?>
       </section>
@@ -561,6 +498,7 @@ if (!in_array($selectedFormat, ['newsletter', 'spreadsheet', 'print'], true)) {
 <?php if ($hasCalendars): ?>
 <script>
 const USER_TIMEZONE = <?= json_encode($userTimezone) ?>;
+let FINAL_CSV = "";
 
 async function fetchEvents(calendarId, start, end) {
   const url = `<?= e(base_url('/api/fetch_ics.php')) ?>?id=${encodeURIComponent(calendarId)}&start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`;
@@ -578,45 +516,6 @@ async function fetchEvents(calendarId, start, end) {
   return data.events || [];
 }
 
-function formatNewsletterDate(d) {
-  const weekday = d.toLocaleDateString("en-US", { weekday: "short", timeZone: USER_TIMEZONE });
-  const month = d.toLocaleString("en-US", { month: "long", timeZone: USER_TIMEZONE });
-  const day = d.toLocaleDateString("en-US", { day: "numeric", timeZone: USER_TIMEZONE });
-  const time = d.toLocaleString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-    timeZone: USER_TIMEZONE
-  }).toLowerCase();
-
-  return `${weekday}, ${month} ${day} at ${time}`;
-}
-
-function formatSpreadsheetDate(d) {
-  const parts = d.toLocaleDateString("en-US", {
-    month: "numeric",
-    day: "numeric",
-    year: "2-digit",
-    timeZone: USER_TIMEZONE
-  }).split("/");
-  return `${parts[0]}/${parts[1]}/${parts[2]}`;
-}
-
-function formatPrintDate(d) {
-  const weekday = d.toLocaleDateString("en-US", { weekday: "short", timeZone: USER_TIMEZONE });
-  const month = d.toLocaleString("en-US", { month: "short", timeZone: USER_TIMEZONE });
-  const day = d.toLocaleDateString("en-US", { day: "numeric", timeZone: USER_TIMEZONE });
-  return `${weekday} ${month} ${day}`;
-}
-
-function monthHeader(d) {
-  return d.toLocaleDateString("en-US", {
-    month: "long",
-    year: "numeric",
-    timeZone: USER_TIMEZONE
-  });
-}
-
 function unescapeICal(str) {
   if (!str || typeof str !== "string") return "";
   return str
@@ -626,16 +525,59 @@ function unescapeICal(str) {
     .replace(/\\n/g, "\n");
 }
 
-function extractCity(location) {
-  if (!location || typeof location !== "string") return "";
-  const parts = location.split(",");
-  return unescapeICal(parts[parts.length - 3]?.trim() || "");
+function extractParts(location, fallbackSummary = "") {
+  if (!location) {
+    return {
+      venue: fallbackSummary || "",
+      addr: "",
+      city: "",
+      region: "",
+      country: "United States"
+    };
+  }
+
+  const parts = location.split(",").map(p => unescapeICal(p.trim()));
+
+  if (parts.length === 3) {
+    return {
+      venue: fallbackSummary || "",
+      addr: parts[0],
+      city: parts[1],
+      region: (parts[2] || "").substring(0, 2),
+      country: "United States"
+    };
+  }
+
+  if (parts.length >= 5) {
+    return {
+      venue: parts[0] || fallbackSummary || "",
+      addr: parts[1] || "",
+      city: parts[2] || "",
+      region: (parts[3] || "").substring(0, 2),
+      country: parts[4] || "United States"
+    };
+  }
+
+  return {
+    venue: fallbackSummary || "",
+    addr: "",
+    city: "",
+    region: "",
+    country: "United States"
+  };
 }
 
-function extractSt(location) {
-  if (!location || typeof location !== "string") return "";
-  const parts = location.split(",");
-  return unescapeICal(parts[parts.length - 2]?.trim() || "");
+function formatDate(d) {
+  return d.toISOString().split("T")[0];
+}
+
+function formatTime(d) {
+  return d.toLocaleTimeString("en-US", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+    timeZone: USER_TIMEZONE
+  });
 }
 
 function csvEscape(value) {
@@ -646,143 +588,178 @@ function csvEscape(value) {
   return str;
 }
 
-async function generatePrettyPrint(event) {
+function showError(message) {
+  const box = document.getElementById("errorBox");
+  box.textContent = message;
+  box.style.display = "block";
+}
+
+function hideError() {
+  const box = document.getElementById("errorBox");
+  box.textContent = "";
+  box.style.display = "none";
+}
+
+function renderPreview(headers, rows) {
+  const thead = document.querySelector("#previewTable thead");
+  const tbody = document.querySelector("#previewTable tbody");
+
+  let headHtml = "<tr>";
+  headers.forEach(h => {
+    headHtml += `<th>${h}</th>`;
+  });
+  headHtml += "</tr>";
+  thead.innerHTML = headHtml;
+
+  let bodyHtml = "";
+  rows.forEach(row => {
+    bodyHtml += "<tr>";
+    row.forEach(cell => {
+      bodyHtml += `<td>${String(cell ?? "").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</td>`;
+    });
+    bodyHtml += "</tr>";
+  });
+  tbody.innerHTML = bodyHtml;
+}
+
+async function generateBIT(event) {
   if (event) {
     event.preventDefault();
   }
 
-  const output = document.getElementById("output");
-  const errorBox = document.getElementById("errorBox");
-  output.textContent = "Loading...";
-  errorBox.style.display = "none";
-  errorBox.textContent = "";
+  hideError();
 
-  const cal = document.querySelector("input[name='calendar_id']:checked");
-  if (!cal) {
-    output.textContent = "";
-    errorBox.style.display = "block";
-    errorBox.textContent = "Please select a calendar.";
-    return;
-  }
-
+  const artist = document.getElementById("artistName").value.trim();
+  const calendar = document.querySelector("input[name='calendar_id']:checked");
   const start = document.getElementById("startDate").value;
-  const end = document.getElementById("endDate").value;
-  if (!start || !end) {
-    output.textContent = "";
-    errorBox.style.display = "block";
-    errorBox.textContent = "Please select a start and end date.";
+  const end   = document.getElementById("endDate").value;
+
+  if (!artist || !calendar || !start || !end) {
+    showError("Please complete all fields.");
     return;
   }
-
-  const format = document.querySelector("input[name='format']:checked").value;
 
   try {
-    const events = await fetchEvents(cal.value, start, end);
+    const events = await fetchEvents(calendar.value, start, end);
     events.sort((a, b) => new Date(a.start) - new Date(b.start));
 
-    if (!events.length) {
-      output.textContent = "No events found for the selected range.";
-      return;
-    }
+    const headers = [
+      "Artist Name",
+      "Venue*",
+      "Country*",
+      "Address",
+      "City*",
+      "Region*",
+      "Postal Code",
+      "Timezone*",
+      "Start Date* (yyyy-mm-dd)",
+      "Start Time* (HH:MM)",
+      "End Date",
+      "End Time",
+      "Streaming Link",
+      "Ticket Link",
+      "Ticket Type",
+      "Ticket Link 2",
+      "Ticket Type 2",
+      "On-Sale Date",
+      "On-Sale Time",
+      "Lineup",
+      "Event Name",
+      "Event Display Format",
+      "Description",
+      "Schedule Date",
+      "Schedule Time",
+      "Do Not Announce",
+      "Setlist",
+      "Event Image"
+    ];
 
-    let text = "";
-    let currentMonth = "";
-
-	if (format === "spreadsheet") {
-	  for (const ev of events) {
-	    const startObj = new Date(ev.start);
-	    const month = monthHeader(startObj);
-	    const summary = unescapeICal(ev.summary || "(No Summary)");
-	    const dateStr = formatSpreadsheetDate(startObj);
-	
-		if (month !== currentMonth) {
-		  currentMonth = month;
-		  if (text.trim() !== "") {
-		    text += `\n`;
-		  }
-		  text += `===== ${currentMonth} =====\n`;
-		}
-	
-	    text += `${dateStr}, ${summary}\n`;
-	  }
-	
-	  output.textContent = text.trim();
-	  return;
-	}
+    const previewRows = [];
+    const csvRows = [headers.map(csvEscape).join(",")];
 
     for (const ev of events) {
-      const startObj = new Date(ev.start);
-      const month = monthHeader(startObj);
-      const summary = unescapeICal(ev.summary || "(No Summary)");
+      const summary = unescapeICal(ev.summary || "");
       const location = unescapeICal(ev.location || "");
-      const city = extractCity(location);
-      const state = extractSt(location);
+      const description = unescapeICal(ev.description || "");
+      const startObj = new Date(ev.start);
 
-      if (month !== currentMonth) {
-        currentMonth = month;
-        text += `\n===== ${currentMonth} =====\n`;
-      }
+      const parts = extractParts(location, summary);
 
-      if (format === "newsletter") {
-        text += `${formatNewsletterDate(startObj)}\n`;
-        text += `${summary}\n`;
-        if (location) {
-          text += `${location}\n`;
-        }
-        text += `\n`;
-      } else if (format === "print") {
-        text += `${formatPrintDate(startObj)}\t${summary}`;
-        if (city || state) {
-          text += ` - ${[city, state].filter(Boolean).join(", ")}`;
-        }
-        text += `\n`;
-      }
+      const row = [
+        artist,
+        parts.venue,
+        parts.country || "United States",
+        parts.addr,
+        parts.city,
+        parts.region,
+        "",
+        "",
+        formatDate(startObj),
+        formatTime(startObj),
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        summary,
+        artist,
+        description,
+        "",
+        "",
+        "",
+        "",
+        ""
+      ];
+
+      previewRows.push(row);
+      csvRows.push(row.map(csvEscape).join(","));
     }
 
-    output.textContent = text.trim();
+    FINAL_CSV = csvRows.join("\n");
+    renderPreview(headers, previewRows);
+
+    if (!previewRows.length) {
+      showError("No events found for the selected range.");
+    }
   } catch (err) {
-    output.textContent = "";
-    errorBox.style.display = "block";
-    errorBox.textContent = "Error: " + err.message;
+    showError("Error: " + err.message);
   }
 }
 
-function copyOutput() {
-  const text = document.getElementById("output").textContent;
-  if (!text.trim()) return;
-  navigator.clipboard.writeText(text);
-}
-
-function exportCSV() {
-  const text = document.getElementById("output").textContent;
-  if (!text.trim()) return;
-
-  const blob = new Blob([text], { type: "text/csv;charset=utf-8" });
+function downloadCSV() {
+  if (!FINAL_CSV.trim()) return;
+  const blob = new Blob([FINAL_CSV], { type: "text/csv;charset=utf-8" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
-  a.download = "calendar_export.csv";
+  a.download = "bandsintown_export.csv";
   a.click();
   URL.revokeObjectURL(a.href);
 }
 
-function exportTXT() {
-  const text = document.getElementById("output").textContent;
-  if (!text.trim()) return;
+function copyCSV() {
+  if (!FINAL_CSV.trim()) return;
+  navigator.clipboard.writeText(FINAL_CSV);
+}
 
-  const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = "calendar_export.txt";
-  a.click();
-  URL.revokeObjectURL(a.href);
+function openCSV() {
+  if (!FINAL_CSV.trim()) return;
+  const w = window.open("", "_blank");
+  if (!w) return;
+  w.document.write("<pre>" + FINAL_CSV.replace(/</g, "&lt;") + "</pre>");
+  w.document.close();
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-  const form = document.getElementById("prettyPrintForm");
-  form.addEventListener("submit", generatePrettyPrint);
+  const form = document.getElementById("bitForm");
+  form.addEventListener("submit", generateBIT);
 
   if (document.querySelector("input[name='calendar_id']:checked")) {
-    generatePrettyPrint();
+    generateBIT();
   }
 });
 </script>

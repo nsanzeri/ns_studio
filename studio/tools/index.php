@@ -13,6 +13,12 @@ if (!$user) {
 	exit;
 }
 
+$today = new DateTime('today');
+$oneMonthOut = (clone $today)->modify('+1 month');
+
+$dateFrom = $_GET['date_from'] ?? $today->format('Y-m-d');
+$dateTo   = $_GET['date_to'] ?? $oneMonthOut->format('Y-m-d');
+
 $userTimezone = $user['timezone'] ?? 'America/Chicago';
 
 $calStmt = $pdo->prepare("
@@ -361,6 +367,28 @@ if (!$selectedCalendarIds && $hasCalendars) {
       color:rgba(255,255,255,.62);
     }
 
+    .error-box{
+      padding:1rem 1.1rem;
+      border-radius:16px;
+      background:rgba(255,107,107,.1);
+      border:1px solid rgba(255,107,107,.25);
+      color:#ffb3b3;
+    }
+
+    .result-month{
+      margin:1.25rem 0 .35rem;
+      color:#d4af37;
+      font-weight:700;
+      letter-spacing:.04em;
+      text-transform:uppercase;
+      font-size:.9rem;
+    }
+
+    .result-summary{
+      margin-bottom:1rem;
+      color:rgba(255,255,255,.72);
+    }
+
     @media (max-width: 980px){
       .tools-layout{
         grid-template-columns:1fr;
@@ -420,16 +448,16 @@ if (!$selectedCalendarIds && $hasCalendars) {
             Pick your calendars, choose a date range, and see which dates are truly open.
           </p>
 
-          <form method="get" action="<?= e(base_url('/tools/index.php')) ?>">
+          <form id="availabilityForm" method="get" action="<?= e(base_url('/tools/index.php')) ?>">
             <div class="tools-stack">
               <div class="tools-field">
                 <label for="date_from">Date From</label>
-                <input class="tools-input" type="date" id="date_from" name="date_from" value="<?= date('Y-m-d') ?>">
+                <input class="tools-input" type="date" id="date_from" name="date_from" value="<?= e($dateFrom) ?>">
               </div>
 
               <div class="tools-field">
                 <label for="date_to">Date To</label>
-                <input class="tools-input" type="date" id="date_to" name="date_to" value="<?= date('Y-m-d', strtotime('+1 month')) ?>">
+                <input class="tools-input" type="date" id="date_to" name="date_to" value="<?= e($dateTo) ?>">
               </div>
 
               <div class="tools-field">
@@ -437,35 +465,25 @@ if (!$selectedCalendarIds && $hasCalendars) {
 
                 <?php if ($hasCalendars): ?>
                   <div class="tools-checkbox-list">
-					<?php
-					$selectedCalendarIds = array_map('intval', $_GET['calendar_ids'] ?? []);
-					if (!$selectedCalendarIds && $hasCalendars) {
-					    $selectedCalendarIds = array_map(
-					        fn($c) => (int)$c['id'],
-					        $connectedCalendars
-					    );
-					}
-					?>
-					
-					<?php foreach ($connectedCalendars as $calendar): ?>
-					  <?php
-					    $calendarId = (int)$calendar['id'];
-					    $isChecked = in_array($calendarId, $selectedCalendarIds, true);
-					    $dotColor = !empty($calendar['color']) ? $calendar['color'] : '#d4af37';
-					  ?>
-					  <label class="tools-check">
-					    <input
-					      type="checkbox"
-					      name="calendar_ids[]"
-					      value="<?= $calendarId ?>"
-					      <?= $isChecked ? 'checked' : '' ?>
-					    >
-					    <span style="display:inline-flex;align-items:center;gap:.6rem;">
-					      <span style="width:10px;height:10px;border-radius:999px;background:<?= e($dotColor) ?>;display:inline-block;"></span>
-					      <span><?= e($calendar['name']) ?></span>
-					    </span>
-					  </label>
-					<?php endforeach; ?>
+                    <?php foreach ($connectedCalendars as $calendar): ?>
+                      <?php
+                        $calendarId = (int)$calendar['id'];
+                        $isChecked = in_array($calendarId, $selectedCalendarIds, true);
+                        $dotColor = !empty($calendar['color']) ? $calendar['color'] : '#d4af37';
+                      ?>
+                      <label class="tools-check">
+                        <input
+                          type="checkbox"
+                          name="calendar_ids[]"
+                          value="<?= $calendarId ?>"
+                          <?= $isChecked ? 'checked' : '' ?>
+                        >
+                        <span style="display:inline-flex;align-items:center;gap:.6rem;">
+                          <span style="width:10px;height:10px;border-radius:999px;background:<?= e($dotColor) ?>;display:inline-block;"></span>
+                          <span><?= e($calendar['name']) ?></span>
+                        </span>
+                      </label>
+                    <?php endforeach; ?>
                   </div>
                 <?php else: ?>
                   <div class="demo-box">
@@ -569,40 +587,15 @@ if (!$selectedCalendarIds && $hasCalendars) {
           </div>
         </div>
 
-        <?php if ($hasCalendars): ?>
-          <div class="results-grid">
-            <article class="result-row available">
-              <div>
-                <div class="result-date">Friday, June 12</div>
-                <div class="result-note">All selected calendars are open</div>
-              </div>
-              <div class="status-pill open">
-                <i class="fa-solid fa-circle-check"></i> Available
-              </div>
-            </article>
-
-            <article class="result-row conflict">
-              <div>
-                <div class="result-date">Saturday, June 20</div>
-                <div class="result-note">One calendar has a conflict</div>
-              </div>
-              <div class="status-pill partial">
-                <i class="fa-solid fa-triangle-exclamation"></i> Conflict
-              </div>
-            </article>
-
-            <article class="result-row available">
-              <div>
-                <div class="result-date">Friday, June 26</div>
-                <div class="result-note">All selected calendars are open</div>
-              </div>
-              <div class="status-pill open">
-                <i class="fa-solid fa-circle-check"></i> Available
-              </div>
-            </article>
-          </div>
-        <?php else: ?>
-          <div class="empty-state">
+        <div id="resultsEmpty" class="empty-state">
+          <?php if ($hasCalendars): ?>
+            <div class="empty-hero">
+              <h3 style="margin-top:0;">Ready to check availability</h3>
+              <p class="tools-muted" style="margin-bottom:0;">
+                Choose your calendars and date range, then click <strong>Check Availability</strong>.
+              </p>
+            </div>
+          <?php else: ?>
             <div class="empty-hero">
               <h3 style="margin-top:0;">Start by connecting your calendars</h3>
               <p class="tools-muted" style="margin-bottom:0;">
@@ -621,21 +614,253 @@ if (!$selectedCalendarIds && $hasCalendars) {
             </div>
 
             <div class="demo-box">
-              <strong style="color:#fff;">Want to see it first?</strong>
+              <strong style="color:#fff;">Ready to get started?</strong>
               <p class="small-note" style="margin:.45rem 0 .9rem;">
-                Use a sample calendar set to preview how the tool works before connecting your own feeds.
+                Add your first calendar feed and this page will start showing real shared availability.
               </p>
               <div style="display:flex; gap:.75rem; flex-wrap:wrap;">
                 <a class="btn btn-primary" href="<?= e(base_url('/tools/calendars.php')) ?>">Connect Calendars</a>
               </div>
             </div>
-          </div>
-        <?php endif; ?>
+          <?php endif; ?>
+        </div>
+
+        <div id="resultsLoading" class="demo-box" style="display:none;">
+          Loading availability…
+        </div>
+
+        <div id="resultsError" class="error-box" style="display:none;"></div>
+
+        <div id="resultsGrid" class="results-grid" style="display:none;"></div>
       </section>
     </div>
   </div>
 </main>
 
 <?php include __DIR__ . '/../../includes/footer.php'; ?>
+
+<script>
+const USER_TIMEZONE = <?= json_encode($userTimezone) ?>;
+
+function formatPretty(date) {
+  return date.toLocaleDateString("en-US", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    timeZone: USER_TIMEZONE
+  });
+}
+
+function formatMonthHeader(date) {
+  return date.toLocaleDateString("en-US", {
+    month: "long",
+    year: "numeric",
+    timeZone: USER_TIMEZONE
+  });
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+async function getICalEvents(calendarId, startDate, endDate) {
+  const url = `<?= e(base_url('/api/fetch_ics.php')) ?>?id=${encodeURIComponent(calendarId)}&start=${encodeURIComponent(startDate)}&end=${encodeURIComponent(endDate)}`;
+  const res = await fetch(url, { credentials: "same-origin" });
+
+  if (!res.ok) {
+    throw new Error(`Failed to fetch calendar ${calendarId}`);
+  }
+
+  const data = await res.json();
+
+  if (!data.success) {
+    throw new Error(data.error || "Unknown error");
+  }
+
+  return data.events.map(ev => ({
+    start: new Date(ev.start),
+    end: new Date(ev.end)
+  }));
+}
+
+function renderResults(freeDates, startStr, endStr) {
+  const resultsGrid = document.getElementById("resultsGrid");
+  const resultsEmpty = document.getElementById("resultsEmpty");
+  const resultsError = document.getElementById("resultsError");
+  const resultsLoading = document.getElementById("resultsLoading");
+
+  resultsLoading.style.display = "none";
+  resultsError.style.display = "none";
+  resultsGrid.style.display = "none";
+  resultsGrid.innerHTML = "";
+
+  if (!freeDates.length) {
+    resultsEmpty.style.display = "block";
+    resultsEmpty.innerHTML = `
+      <div class="empty-hero">
+        <h3 style="margin-top:0;">No open dates found</h3>
+        <p class="tools-muted" style="margin-bottom:0;">
+          No shared availability was found between ${escapeHtml(startStr)} and ${escapeHtml(endStr)} for the calendars and weekdays you selected.
+        </p>
+      </div>
+    `;
+    return;
+  }
+
+  resultsEmpty.style.display = "none";
+
+  let currentMonth = "";
+  let html = `<div class="result-summary">Found ${freeDates.length} open date${freeDates.length === 1 ? "" : "s"}.</div>`;
+
+  for (const date of freeDates) {
+    const monthHeader = formatMonthHeader(date);
+    if (monthHeader !== currentMonth) {
+      currentMonth = monthHeader;
+      html += `<div class="result-month">${escapeHtml(monthHeader)}</div>`;
+    }
+
+    html += `
+      <article class="result-row available">
+        <div>
+          <div class="result-date">${escapeHtml(formatPretty(date))}</div>
+          <div class="result-note">All selected calendars are open</div>
+        </div>
+        <div class="status-pill open">
+          <i class="fa-solid fa-circle-check"></i> Available
+        </div>
+      </article>
+    `;
+  }
+
+  resultsGrid.innerHTML = html;
+  resultsGrid.style.display = "grid";
+}
+
+async function findAvailableDates(event) {
+  if (event) {
+    event.preventDefault();
+  }
+
+  const resultsGrid = document.getElementById("resultsGrid");
+  const resultsEmpty = document.getElementById("resultsEmpty");
+  const resultsError = document.getElementById("resultsError");
+  const resultsLoading = document.getElementById("resultsLoading");
+
+  const startStr = document.getElementById("date_from").value;
+  const endStr   = document.getElementById("date_to").value;
+
+  if (!startStr || !endStr) {
+    resultsEmpty.style.display = "none";
+    resultsGrid.style.display = "none";
+    resultsLoading.style.display = "none";
+    resultsError.style.display = "block";
+    resultsError.textContent = "Please select both dates.";
+    return;
+  }
+
+  const selectedDays = Array.from(
+    document.querySelectorAll("input[name='days[]']:checked")
+  ).map(c => {
+    const map = { sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6 };
+    return map[c.value];
+  });
+
+  if (!selectedDays.length) {
+    resultsEmpty.style.display = "none";
+    resultsGrid.style.display = "none";
+    resultsLoading.style.display = "none";
+    resultsError.style.display = "block";
+    resultsError.textContent = "Select at least one weekday.";
+    return;
+  }
+
+  const selectedCalendars = Array.from(
+    document.querySelectorAll("input[name='calendar_ids[]']:checked")
+  ).map(c => c.value);
+
+  if (!selectedCalendars.length) {
+    resultsEmpty.style.display = "none";
+    resultsGrid.style.display = "none";
+    resultsLoading.style.display = "none";
+    resultsError.style.display = "block";
+    resultsError.textContent = "Select at least one calendar.";
+    return;
+  }
+
+  resultsError.style.display = "none";
+  resultsGrid.style.display = "none";
+  resultsEmpty.style.display = "none";
+  resultsLoading.style.display = "block";
+
+  try {
+    const calendarEvents = await Promise.all(
+      selectedCalendars.map(id => getICalEvents(id, startStr, endStr))
+    );
+
+    const startDate = new Date(startStr + "T00:00:00");
+    const endDate = new Date(endStr + "T00:00:00");
+    const freeDates = [];
+
+    for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+      if (!selectedDays.includes(d.getDay())) {
+        continue;
+      }
+
+      const dayStart = new Date(d);
+      dayStart.setHours(0, 0, 0, 0);
+
+      const dayEnd = new Date(d);
+      dayEnd.setHours(23, 59, 59, 999);
+
+      let allFree = true;
+
+      for (const calEvents of calendarEvents) {
+        const busy = calEvents.some(ev => {
+          const s = new Date(ev.start);
+          const e = new Date(ev.end);
+
+          const evtStart = new Date(s.getFullYear(), s.getMonth(), s.getDate(), 0, 0, 0);
+          const evtEnd   = new Date(e.getFullYear(), e.getMonth(), e.getDate(), 23, 59, 59);
+
+          return evtStart <= dayEnd && evtEnd >= dayStart;
+        });
+
+        if (busy) {
+          allFree = false;
+          break;
+        }
+      }
+
+      if (allFree) {
+        freeDates.push(new Date(d));
+      }
+    }
+
+    renderResults(freeDates, startStr, endStr);
+  } catch (err) {
+    resultsLoading.style.display = "none";
+    resultsGrid.style.display = "none";
+    resultsEmpty.style.display = "none";
+    resultsError.style.display = "block";
+    resultsError.textContent = "Error: " + err.message;
+  }
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  const form = document.getElementById("availabilityForm");
+
+  form.addEventListener("submit", findAvailableDates);
+
+  const hasCalendars = <?= $hasCalendars ? 'true' : 'false' ?>;
+  if (hasCalendars) {
+    findAvailableDates();
+  }
+});
+</script>
 </body>
 </html>

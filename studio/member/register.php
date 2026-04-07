@@ -38,7 +38,7 @@ if (is_post()) {
 				sync_user_entitlements($pdo, $userId);
 				Auth::login($userId);
 				
-				$next = $_SESSION['login_next'] ?? base_url('library.php');
+				$next = $_SESSION['login_next'] ?? base_url('member/library.php');
 				unset($_SESSION['login_next']);
 				redirect($next);
 			}
@@ -54,7 +54,7 @@ if (is_post()) {
   <title>Create Studio Login • Nick Sanzeri</title>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;700&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <link rel="stylesheet" href="<?= e(base_url('../../assets/css/style.css')) ?>">
+  <link rel="stylesheet" href="<?= e(base_url('../assets/css/style.css')) ?>">
 </head>
 <body>
 <?php include __DIR__ . '/../../includes/header.php'; ?>
@@ -87,11 +87,11 @@ if (is_post()) {
 
   <?php if ($googleClientId): ?>
     <div style="margin:1.25rem 0; font-size:.95rem; color:#666;">or</div>
-    <a class="btn btn-outline" href="<?= e(base_url('google_start.php')) ?>">Sign up with Google</a>
+    <a class="btn btn-outline" href="<?= e(base_url('member/google_start.php')) ?>">Sign up with Google</a>
   <?php endif; ?>
 
   <div style="margin-top:0.9rem;">
-    <a class="text-link" href="<?= e(base_url('login.php')) ?>">Already have an account? Log in</a>
+    <a class="text-link" href="<?= e(base_url('member/login.php')) ?>">Already have an account? Log in</a>
   </div>
 </main>
 <?php include __DIR__ . '/../../includes/footer.php'; ?>

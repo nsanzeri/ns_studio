@@ -38,6 +38,6 @@ $userId = Auth::upsertGoogleUser($pdo, $sub, $email, $name ?: null);
 sync_user_entitlements($pdo, $userId);
 Auth::login($userId);
 
-$next = $_SESSION['login_next'] ?? base_url('library.php');
+$next = $_SESSION['login_next'] ?? base_url('/member/library.php');
 unset($_SESSION['login_next']);
 redirect($next);

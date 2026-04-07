@@ -2,7 +2,7 @@
 require __DIR__ . '/../_private/_core/bootstrap.php';
 
 if (Auth::isLoggedIn()) {
-	redirect(base_url('library.php'));
+	redirect(base_url('member/library.php'));
 }
 
 $err = null;
@@ -26,7 +26,7 @@ if (is_post()) {
 			Auth::login($userId);
 			Auth::touchLogin($pdo, $userId);
 			sync_user_entitlements($pdo, $userId);
-			$next = $_SESSION['login_next'] ?? base_url('library.php');
+			$next = $_SESSION['login_next'] ?? base_url('member/library.php');
 			unset($_SESSION['login_next']);
 			redirect($next);
 		}
@@ -41,7 +41,7 @@ if (is_post()) {
   <title>Studio Login • Nick Sanzeri</title>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;700&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <link rel="stylesheet" href="<?= e(base_url('../../assets/css/style.css')) ?>">
+  <link rel="stylesheet" href="<?= e(base_url('../assets/css/style.css')) ?>">
    
 </head>
 <body>
@@ -75,11 +75,11 @@ if (is_post()) {
 
 		<?php if ($googleClientId): ?>
     <div style="margin:1.25rem 0; font-size:.95rem; color:#666;">or</div>
-    <a class="btn btn-outline" href="<?= e(base_url('google_start.php')) ?>">Continue with Google</a>
+    <a class="btn btn-outline" href="<?= e(base_url('member/google_start.php')) ?>">Continue with Google</a>
   <?php endif; ?>
 
   <div style="margin-top:1rem;">
-    <a class="text-link" href="<?= e(base_url('register.php')) ?>">Create an account</a>
+    <a class="text-link" href="<?= e(base_url('member/register.php')) ?>">Create an account</a>
   </div>
 </main>
 <?php include __DIR__ . '/../../includes/footer.php'; ?>

@@ -60,7 +60,7 @@ if (is_post()) {
 <body>
 <?php include __DIR__ . '/../../includes/header.php'; ?>
 <main class="container" style="padding:3rem 0; max-width:760px;">
-  <h1>Account settings</h1>
+ <h2 class="form-title">Account Settings</h2>
   <p class="muted">Manage your password and account.</p>
 
   <?php if ($err): ?>
@@ -71,34 +71,36 @@ if (is_post()) {
   <?php endif; ?>
 
   <section class="card" style="padding:1.5rem; margin:1.5rem 0;">
-    <h2 style="margin-top:0;">Change password</h2>
-    <form method="post">
+    <h3 class="form-title">Change Password</h3>
+    <form class="form" method="post">
       <input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>">
       <input type="hidden" name="action" value="password">
-
+<div class="form-field">
       <label>Current password</label>
       <input type="password" name="current_password" required autocomplete="current-password">
-
+</div>
+<div class="form-field">
       <label style="margin-top:1rem;">New password</label>
       <input type="password" name="new_password" required minlength="8" autocomplete="new-password">
-
+</div>
+<div class="form-field">
       <label style="margin-top:1rem;">Confirm new password</label>
       <input type="password" name="new_password2" required minlength="8" autocomplete="new-password">
-
+</div>
       <button class="btn btn-primary" style="margin-top:1.25rem;">Save password</button>
     </form>
   </section>
 
   <section class="card" style="padding:1.5rem; margin:1.5rem 0; border-color:#c77;">
-    <h2 style="margin-top:0;">Delete account</h2>
+    <h3 class="form-title">Delete Account</h3>
     <p class="muted">This removes your login. If you register again later with the same purchase email, your library can be rebuilt from past purchases.</p>
-    <form method="post">
+    <form  class="form" method="post">
       <input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>">
       <input type="hidden" name="action" value="delete">
-
+<div class="form-field">
       <label>Type DELETE to confirm</label>
       <input type="text" name="delete_confirmation" required>
-
+</div>
       <button class="btn btn-outline" style="margin-top:1.25rem;">Delete account</button>
     </form>
   </section>

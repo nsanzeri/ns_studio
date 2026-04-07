@@ -58,19 +58,22 @@ if (is_post()) {
     <div class="alert" style="margin:1rem 0;"><?= e($err) ?></div>
   <?php endif; ?>
 
-  <form method="post" style="max-width:520px; margin-top:1.5rem;">
-    <input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>" />
+		<form class="form" method="post" style="max-width: 520px; margin-top: 1.5rem;">
+			<h2 class="form-title">Login</h2>
 
-    <label>Email</label>
-    <input name="email" type="email" required autocomplete="email" />
+				<div class="form-field">
+					<label>Email</label> 
+					<input name="email" type="email" required autocomplete="email" />
+				</div>
+				<div class="form-field">
+					<label style="margin-top: 1rem;">Password</label> 
+					<input name="password" type="password" required	autocomplete="current-password" />
+				</div>
+				<button class="btn btn-primary" style="margin-top: 1.25rem;">Log in</button>
+				<input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>" />
+		</form>
 
-    <label style="margin-top:1rem;">Password</label>
-    <input name="password" type="password" required autocomplete="current-password" />
-
-    <button class="btn btn-primary" style="margin-top:1.25rem;">Log in</button>
-  </form>
-
-  <?php if ($googleClientId): ?>
+		<?php if ($googleClientId): ?>
     <div style="margin:1.25rem 0; font-size:.95rem; color:#666;">or</div>
     <a class="btn btn-outline" href="<?= e(base_url('google_start.php')) ?>">Continue with Google</a>
   <?php endif; ?>

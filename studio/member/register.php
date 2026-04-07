@@ -66,18 +66,22 @@ if (is_post()) {
     <div class="alert" style="margin:1rem 0;"><?= e($err) ?></div>
   <?php endif; ?>
 
-  <form method="post" style="max-width:520px;">
+  <form class="form" method="post" style="max-width:520px;">
+  	<h2 class="form-title">Create An Account</h2>
     <input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>" />
-
+	<div class="form-field">
     <label>Email</label>
     <input name="email" type="email" required value="<?= e($email_prefill) ?>" autocomplete="email" />
-
+</div>
+<div class="form-field">
     <label style="margin-top:1rem;">Password</label>
     <input name="password" type="password" required minlength="8" autocomplete="new-password" />
-
+				</div>
+				<div class="form-field">
     <label style="margin-top:1rem;">Confirm password</label>
     <input name="password2" type="password" required minlength="8" autocomplete="new-password" />
-
+				</div>
+				<div class="form-field">
     <button class="btn btn-primary" style="margin-top:1.25rem;">Create account</button>
   </form>
 

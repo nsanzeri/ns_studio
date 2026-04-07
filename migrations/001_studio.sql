@@ -49,7 +49,7 @@ CREATE TABLE `download_log` (
   KEY `idx_session` (`checkout_session_id`,`created_at`),
   CONSTRAINT `fk_dl_purchase` FOREIGN KEY (`purchase_id`) REFERENCES `purchases` (`id`) ON DELETE SET NULL,
   CONSTRAINT `fk_dl_token` FOREIGN KEY (`token_id`) REFERENCES `download_tokens` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB AUTO_INCREMENT=16 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=20 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -100,7 +100,7 @@ CREATE TABLE `download_tokens` (
   KEY `idx_product` (`product_id`),
   CONSTRAINT `fk_tokens_product` FOREIGN KEY (`product_id`) REFERENCES `products` (`id`) ON DELETE SET NULL,
   CONSTRAINT `fk_tokens_purchase` FOREIGN KEY (`purchase_id`) REFERENCES `purchases` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=21 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -116,6 +116,7 @@ CREATE TABLE `email_log` (
   `recipient` varchar(190) NOT NULL,
   `related_table` varchar(64) DEFAULT NULL,
   `related_id` bigint(20) unsigned DEFAULT NULL,
+  `subject` varchar(255) NOT NULL,
   `status` enum('queued','sent','failed') NOT NULL DEFAULT 'queued',
   `error_message` text DEFAULT NULL,
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
@@ -125,7 +126,7 @@ CREATE TABLE `email_log` (
   UNIQUE KEY `uq_email_idempotency` (`idempotency_key`),
   KEY `idx_recipient` (`recipient`,`created_at`),
   KEY `idx_related` (`related_table`,`related_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -149,7 +150,7 @@ CREATE TABLE `entitlements` (
   KEY `idx_ent_status` (`status`),
   CONSTRAINT `fk_ent_product` FOREIGN KEY (`product_id`) REFERENCES `products` (`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_ent_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -168,6 +169,27 @@ CREATE TABLE `leads` (
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`id`),
   KEY `idx_leads_email` (`email`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `product_bundle_items`
+--
+
+DROP TABLE IF EXISTS `product_bundle_items`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `product_bundle_items` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `bundle_product_id` int(10) unsigned NOT NULL,
+  `child_product_id` int(10) unsigned NOT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_bundle_child` (`bundle_product_id`,`child_product_id`),
+  KEY `idx_bundle_product` (`bundle_product_id`),
+  KEY `idx_bundle_child` (`child_product_id`),
+  CONSTRAINT `fk_bundle_child` FOREIGN KEY (`child_product_id`) REFERENCES `products` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_bundle_parent` FOREIGN KEY (`bundle_product_id`) REFERENCES `products` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -191,6 +213,30 @@ CREATE TABLE `products` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
+-- Table structure for table `purchase_items`
+--
+
+DROP TABLE IF EXISTS `purchase_items`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `purchase_items` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `purchase_id` bigint(20) unsigned NOT NULL,
+  `product_id` int(10) unsigned NOT NULL,
+  `quantity` int(10) unsigned NOT NULL DEFAULT 1,
+  `unit_amount` int(10) unsigned DEFAULT NULL,
+  `line_amount_total` int(10) unsigned DEFAULT NULL,
+  `metadata_json` longtext DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_purchase_items_purchase` (`purchase_id`),
+  KEY `idx_purchase_items_product` (`product_id`),
+  CONSTRAINT `fk_purchase_items_product` FOREIGN KEY (`product_id`) REFERENCES `products` (`id`),
+  CONSTRAINT `fk_purchase_items_purchase` FOREIGN KEY (`purchase_id`) REFERENCES `purchases` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
 -- Table structure for table `purchases`
 --
 
@@ -203,6 +249,7 @@ CREATE TABLE `purchases` (
   `stripe_payment_intent_id` varchar(255) DEFAULT NULL,
   `stripe_customer_id` varchar(255) DEFAULT NULL,
   `purchaser_email` varchar(190) NOT NULL,
+  `product_id` int(10) unsigned DEFAULT NULL,
   `amount_total` int(10) unsigned DEFAULT NULL,
   `currency` char(3) DEFAULT NULL,
   `livemode` tinyint(1) NOT NULL DEFAULT 0,
@@ -212,8 +259,11 @@ CREATE TABLE `purchases` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_session` (`stripe_checkout_session_id`,`livemode`),
   UNIQUE KEY `uq_session_mode` (`stripe_checkout_session_id`,`livemode`),
-  KEY `idx_email` (`purchaser_email`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+  UNIQUE KEY `uniq_checkout_session` (`stripe_checkout_session_id`,`livemode`),
+  KEY `idx_email` (`purchaser_email`),
+  KEY `idx_purchases_product` (`product_id`),
+  CONSTRAINT `fk_purchases_product` FOREIGN KEY (`product_id`) REFERENCES `products` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -237,9 +287,10 @@ CREATE TABLE `stripe_webhook_events` (
   `error_message` text DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_event` (`stripe_event_id`,`livemode`),
+  UNIQUE KEY `uniq_event_mode` (`stripe_event_id`,`livemode`),
   KEY `idx_type` (`event_type`),
   KEY `idx_status` (`process_status`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=19 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -252,10 +303,18 @@ DROP TABLE IF EXISTS `users`;
 CREATE TABLE `users` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `email` varchar(190) NOT NULL,
+  `google_sub` varchar(191) DEFAULT NULL,
+  `display_name` varchar(190) DEFAULT NULL,
   `password_hash` varchar(255) NOT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `updated_at` timestamp NULL DEFAULT NULL ON UPDATE current_timestamp(),
+  `last_login_at` datetime DEFAULT NULL,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uniq_users_email` (`email`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+  UNIQUE KEY `uniq_users_email` (`email`),
+  UNIQUE KEY `uniq_users_google_sub` (`google_sub`)
+) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping routines for database 'ns_studio'
+--

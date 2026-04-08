@@ -20,8 +20,11 @@ $upgradeUrl = rss_tool_upgrade_url();
 $today = new DateTime('today');
 $oneMonthOut = (clone $today)->modify('+1 month');
 
-$dateFrom = $_GET['date_from'] ?? $today->format('Y-m-d');
-$dateTo   = $_GET['date_to'] ?? $oneMonthOut->format('Y-m-d');
+$defaultDateFrom = $today->format('Y-m-d');
+$defaultDateTo   = $oneMonthOut->format('Y-m-d');
+
+$dateFrom = $isProUser ? ($_GET['date_from'] ?? $defaultDateFrom) : $defaultDateFrom;
+$dateTo   = $isProUser ? ($_GET['date_to'] ?? $defaultDateTo) : $defaultDateTo;
 
 $userTimezone = $user['timezone'] ?? 'America/Chicago';
 
@@ -387,7 +390,7 @@ if (!$selectedCalendarIds && $hasCalendars) {
       <a class="active" href="<?= e(base_url('/tools/index.php')) ?>">
         <i class="fa-regular fa-calendar-check"></i> Availability
       </a>
-      <a href="<?= e(base_url('/tools/pretty-print.php')) ?>">
+      <a href="<?= e(base_urlBands In Townetty-print.php')) ?>">
         <i class="fa-solid fa-print"></i> Print Views
       </a>
       <a href="<?= e(base_url('/tools/bandsintown.php')) ?>">
@@ -424,6 +427,9 @@ if (!$selectedCalendarIds && $hasCalendars) {
               <div class="tools-field">
                 <label for="date_to">Date To</label>
                 <input class="tools-input" type="date" id="date_to" name="date_to" value="<?= e($dateTo) ?>">
+                <?php if (!$isProUser): ?>
+                  <p class="pro-locked-note">Free accounts can view the next month. Upgrade to Pro to choose a custom date range.</p>
+                <?php endif; ?>
               </div>
 
               <div class="tools-field">
@@ -637,7 +643,6 @@ if (!$selectedCalendarIds && $hasCalendars) {
 <script>
 const USER_TIMEZONE = <?= json_encode($userTimezone) ?>;
 const IS_PRO_USER = <?= $isProUser ? 'true' : 'false' ?>;
-const FREE_CALENDAR_LIMIT = 1;
 
 function escapeHtml(value) {
   return String(value)
@@ -663,6 +668,42 @@ function requirePro() {
   if (IS_PRO_USER) return true;
   openUpgradeModal();
   return false;
+}
+
+function guardLockedInteraction(event) {
+  if (IS_PRO_USER) return true;
+  if (event) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+  openUpgradeModal();
+  return false;
+}
+
+function installLockedDateRange(fieldIds) {
+  if (IS_PRO_USER) return;
+
+  fieldIds.forEach(id => {
+    const field = document.getElementById(id);
+    if (!field) return;
+
+    field.setAttribute('readonly', 'readonly');
+    field.setAttribute('aria-disabled', 'true');
+
+    ['click', 'focus', 'mousedown', 'keydown', 'touchstart'].forEach(evtName => {
+      field.addEventListener(evtName, guardLockedInteraction);
+    });
+  });
+}
+
+function protectOutputElement(element) {
+  if (IS_PRO_USER || !element) return;
+
+  element.classList.add('pro-locked-output');
+
+  ['copy', 'cut', 'contextmenu', 'selectstart'].forEach(evtName => {
+    element.addEventListener(evtName, guardLockedInteraction);
+  });
 }
 
 async function getICalEvents(calendarId, startDate, endDate) {
@@ -838,16 +879,6 @@ async function findAvailableDates(event) {
     availabilityTextOutput.textContent = "";
     resultsError.style.display = "block";
     resultsError.textContent = "Select at least one calendar.";
-    return;
-  }
-
-  if (selectedCalendars.length > FREE_CALENDAR_LIMIT && !IS_PRO_USER) {
-    resultsLoading.style.display = "none";
-    availabilityTextWrap.style.display = "none";
-    availabilityTextOutput.textContent = "";
-    resultsError.style.display = "none";
-    resultsEmpty.style.display = "none";
-    openUpgradeModal();
     return;
   }
 

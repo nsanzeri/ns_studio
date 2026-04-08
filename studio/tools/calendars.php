@@ -14,6 +14,9 @@ if (!$user) {
     exit;
 }
 
+$isProUser = rss_current_user_is_pro($pdo);
+$upgradeUrl = rss_tool_upgrade_url();
+
 $userId = (int)($user['id'] ?? 0);
 $errors = [];
 $flash = $_SESSION['tools_flash'] ?? null;

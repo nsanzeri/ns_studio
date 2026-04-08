@@ -20,8 +20,11 @@ $upgradeUrl = rss_tool_upgrade_url();
 $today = new DateTime('today');
 $oneMonthOut = (clone $today)->modify('+1 month');
 
-$dateFrom = $_GET['date_from'] ?? $today->format('Y-m-d');
-$dateTo   = $_GET['date_to'] ?? $oneMonthOut->format('Y-m-d');
+$defaultDateFrom = $today->format('Y-m-d');
+$defaultDateTo   = $oneMonthOut->format('Y-m-d');
+
+$dateFrom = $isProUser ? ($_GET['date_from'] ?? $defaultDateFrom) : $defaultDateFrom;
+$dateTo   = $isProUser ? ($_GET['date_to'] ?? $defaultDateTo) : $defaultDateTo;
 
 $userTimezone = $user['timezone'] ?? 'America/Chicago';
 $defaultArtistName = $user['display_name'] ?? 'Nick Sanzeri';
@@ -327,6 +330,19 @@ if (!$selectedCalendarId && $hasCalendars) {
     .upgrade-modal-card{position:relative;z-index:2;width:min(560px, calc(100% - 2rem));margin:8vh auto 0;padding:1.5rem;border-radius:22px;background:#111;border:1px solid rgba(255,255,255,.1);box-shadow:0 24px 60px rgba(0,0,0,.4);}
     .upgrade-modal-close{position:absolute;top:.85rem;right:.95rem;background:none;border:none;color:#fff;font-size:1.8rem;cursor:pointer;}
 
+
+    .pro-locked-output,
+    .pro-locked-output *{
+      user-select:none;
+      -webkit-user-select:none;
+    }
+
+    .pro-locked-note{
+      margin-top:.85rem;
+      color:rgba(255,255,255,.62);
+      font-size:.9rem;
+    }
+
     @media (max-width:980px){
       .tools-layout{
         grid-template-columns:1fr;
@@ -413,6 +429,9 @@ if (!$selectedCalendarId && $hasCalendars) {
               <div class="tools-field">
                 <label for="endDate">End Date</label>
                 <input class="tools-input" type="date" id="endDate" name="date_to" value="<?= e($dateTo) ?>">
+                <?php if (!$isProUser): ?>
+                  <p class="pro-locked-note">Free accounts can preview the next month. Upgrade to Pro to choose a custom date range.</p>
+                <?php endif; ?>
               </div>
 
               <div class="tools-field">
@@ -576,6 +595,42 @@ function requirePro() {
   return false;
 }
 
+function guardLockedInteraction(event) {
+  if (IS_PRO_USER) return true;
+  if (event) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+  openUpgradeModal();
+  return false;
+}
+
+function installLockedDateRange(fieldIds) {
+  if (IS_PRO_USER) return;
+
+  fieldIds.forEach(id => {
+    const field = document.getElementById(id);
+    if (!field) return;
+
+    field.setAttribute('readonly', 'readonly');
+    field.setAttribute('aria-disabled', 'true');
+
+    ['click', 'focus', 'mousedown', 'keydown', 'touchstart'].forEach(evtName => {
+      field.addEventListener(evtName, guardLockedInteraction);
+    });
+  });
+}
+
+function protectOutputElement(element) {
+  if (IS_PRO_USER || !element) return;
+
+  element.classList.add('pro-locked-output');
+
+  ['copy', 'cut', 'contextmenu', 'selectstart'].forEach(evtName => {
+    element.addEventListener(evtName, guardLockedInteraction);
+  });
+}
+
 async function fetchEvents(calendarId, start, end) {
   const url = `<?= e(base_url('/api/fetch_ics.php')) ?>?id=${encodeURIComponent(calendarId)}&start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`;
   const r = await fetch(url, { credentials: "same-origin" });
@@ -731,7 +786,7 @@ function hideError() {
   box.style.display = "none";
 }
 
-function renderPreBands In Towners, rows) {
+function renderPreview(headers, rows) {
   const thead = document.querySelector("#previewTable thead");
   const tbody = document.querySelector("#previewTable tbody");
 
@@ -891,6 +946,9 @@ function openCSV() {
 document.addEventListener("DOMContentLoaded", () => {
   const form = document.getElementById("bitForm");
   form.addEventListener("submit", generateBIT);
+
+  installLockedDateRange(['startDate', 'endDate']);
+  protectOutputElement(document.querySelector('.preview-wrap'));
 
   if (document.querySelector("input[name='calendar_id']:checked")) {
     generateBIT();

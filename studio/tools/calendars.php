@@ -313,6 +313,50 @@ $commonTimezones = [
     .calendar-actions .btn{width:100%;justify-content:center;}
     .helper-list{margin:0;padding-left:1.1rem;color:rgba(255,255,255,.82);line-height:1.8;}
     .empty-state{padding:1.2rem;border-radius:18px;background:rgba(255,255,255,.03);border:1px dashed rgba(255,255,255,.14);}
+    .color-field-wrap{
+	  display:flex;
+	  align-items:center;
+	  gap:.75rem;
+	}
+	
+	.tools-color-input{
+	  appearance:none;
+	  -webkit-appearance:none;
+	  width:72px;
+	  min-width:72px;
+	  height:48px;
+	  padding:.35rem;
+	  border-radius:14px;
+	  cursor:pointer;
+	  background:rgba(255,255,255,.05);
+	}
+	
+	.tools-color-input::-webkit-color-swatch-wrapper{
+	  padding:0;
+	}
+	
+	.tools-color-input::-webkit-color-swatch{
+	  border:none;
+	  border-radius:10px;
+	}
+	
+	.tools-color-input::-moz-color-swatch{
+	  border:none;
+	  border-radius:10px;
+	}
+	
+	.color-value{
+	  display:inline-flex;
+	  align-items:center;
+	  min-height:48px;
+	  padding:0 .9rem;
+	  border-radius:14px;
+	  background:rgba(255,255,255,.05);
+	  border:1px solid rgba(255,255,255,.1);
+	  color:rgba(255,255,255,.82);
+	  font-size:.95rem;
+	  letter-spacing:.04em;
+	}
     @media (max-width: 980px){
       .tools-layout{grid-template-columns:1fr;}
       .tools-topbar{flex-direction:column;align-items:flex-start;}
@@ -410,18 +454,21 @@ $commonTimezones = [
               >
             </div>
 
-            <div class="tools-field">
-              <label for="color">Color</label>
-              <input
-                class="tools-input"
-                type="text"
-                id="color"
-                name="color"
-                maxlength="16"
-                placeholder="#D4AF37"
-                value="<?= e($formData['color'] ?? '') ?>"
-              >
-            </div>
+			<div class="tools-field">
+			  <label for="color">Color</label>
+			  <div class="color-field-wrap">
+			    <input
+			      class="tools-input tools-color-input"
+			      type="color"
+			      id="color"
+			      name="color"
+			      value="<?= e(!empty($formData['color']) ? $formData['color'] : '#D4AF37') ?>"
+			    >
+			    <span class="color-value" id="colorValue">
+			      <?= e(!empty($formData['color']) ? strtoupper($formData['color']) : '#D4AF37') ?>
+			    </span>
+			  </div>
+			</div>
 
             <div class="tools-field">
               <label for="timezone">Timezone (optional)</label>
@@ -488,9 +535,6 @@ $commonTimezones = [
                       <?= ((int)$calendar['is_active'] === 1) ? 'Active' : 'Inactive' ?>
                     </span>
 
-                    <span class="pill <?= e($statusClass) ?>">
-                      Sync: <?= e($syncStatus) ?>
-                    </span>
                   </div>
 
                   <div class="calendar-url"><?= e($calendar['ics_url']) ?></div>
@@ -500,13 +544,6 @@ $commonTimezones = [
                       <div><strong>Timezone:</strong> <?= e($calendar['timezone']) ?></div>
                     <?php endif; ?>
 
-                    <?php if (!empty($calendar['last_sync_at'])): ?>
-                      <div><strong>Last sync:</strong> <?= e($calendar['last_sync_at']) ?></div>
-                    <?php endif; ?>
-
-                    <?php if (!empty($calendar['sync_error_message'])): ?>
-                      <div><strong>Last error:</strong> <?= e($calendar['sync_error_message']) ?></div>
-                    <?php endif; ?>
                   </div>
                 </div>
 
@@ -550,5 +587,20 @@ $commonTimezones = [
 </main>
 
 <?php include __DIR__ . '/../../includes/footer.php'; ?>
+<script>
+  (function () {
+    const colorInput = document.getElementById('color');
+    const colorValue = document.getElementById('colorValue');
+
+    if (colorInput && colorValue) {
+      const syncColorLabel = () => {
+        colorValue.textContent = (colorInput.value || '').toUpperCase();
+      };
+
+      colorInput.addEventListener('input', syncColorLabel);
+      syncColorLabel();
+    }
+  })();
+</script>
 </body>
 </html>

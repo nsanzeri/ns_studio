@@ -526,49 +526,111 @@ function unescapeICal(str) {
 }
 
 function extractParts(location, fallbackSummary = "") {
-  if (!location) {
-    return {
-      venue: fallbackSummary || "",
-      addr: "",
-      city: "",
-      region: "",
-      country: "United States"
-    };
-  }
-
-  const parts = location.split(",").map(p => unescapeICal(p.trim()));
-
-  if (parts.length === 3) {
-    return {
-      venue: fallbackSummary || "",
-      addr: parts[0],
-      city: parts[1],
-      region: (parts[2] || "").substring(0, 2),
-      country: "United States"
-    };
-  }
-
-  if (parts.length >= 5) {
-    return {
-      venue: parts[0] || fallbackSummary || "",
-      addr: parts[1] || "",
-      city: parts[2] || "",
-      region: (parts[3] || "").substring(0, 2),
-      country: parts[4] || "United States"
-    };
-  }
-
-  return {
+  const result = {
     venue: fallbackSummary || "",
     addr: "",
     city: "",
     region: "",
+    postalCode: "",
     country: "United States"
   };
+
+  if (!location || typeof location !== "string") {
+    return result;
+  }
+
+  const parts = location
+    .split(",")
+    .map(p => unescapeICal(p.trim()))
+    .filter(Boolean);
+
+  if (!parts.length) {
+    return result;
+  }
+
+  const looksLikeStreet = (value) => {
+    return /^\d+\s+/.test(value || "");
+  };
+
+  const normalizeCountry = (value) => {
+    if (!value) return "United States";
+    if (/^(usa|us|united states)$/i.test(value.trim())) {
+      return "United States";
+    }
+    return value.trim();
+  };
+
+  const parseRegionPostal = (value) => {
+    const out = { region: "", postalCode: "" };
+    if (!value) return out;
+
+    const cleaned = value.trim();
+
+    // Examples:
+    // "IL"
+    // "IL 60102"
+    // "Illinois 60102"
+    const m = cleaned.match(/^([A-Za-z]{2}|[A-Za-z\s]+?)(?:\s+(\d{5}(?:-\d{4})?))?$/);
+    if (m) {
+      out.region = (m[1] || "").trim().substring(0, 2).toUpperCase();
+      out.postalCode = (m[2] || "").trim();
+    }
+
+    return out;
+  };
+
+  if (parts.length >= 4) {
+    let idx = 0;
+
+    if (looksLikeStreet(parts[0])) {
+      result.venue = fallbackSummary || "";
+      result.addr = parts[0] || "";
+      idx = 1;
+    } else {
+      result.venue = parts[0] || fallbackSummary || "";
+      result.addr = parts[1] || "";
+      idx = 2;
+    }
+
+    result.city = parts[idx] || "";
+
+    const regionPostal = parseRegionPostal(parts[idx + 1] || "");
+    result.region = regionPostal.region;
+    result.postalCode = regionPostal.postalCode;
+
+    result.country = normalizeCountry(parts[idx + 2] || "United States");
+
+    return result;
+  }
+
+  if (parts.length === 3) {
+    result.venue = fallbackSummary || "";
+    result.addr = parts[0] || "";
+    result.city = parts[1] || "";
+
+    const regionPostal = parseRegionPostal(parts[2] || "");
+    result.region = regionPostal.region;
+    result.postalCode = regionPostal.postalCode;
+
+    return result;
+  }
+
+  return result;
 }
 
 function formatDate(d) {
-  return d.toISOString().split("T")[0];
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: USER_TIMEZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).formatToParts(d);
+
+  const year = parts.find(p => p.type === "year")?.value || "";
+  const month = parts.find(p => p.type === "month")?.value || "";
+  const day = parts.find(p => p.type === "day")?.value || "";
+
+  return `${year}-${month}-${day}`;
 }
 
 function formatTime(d) {
@@ -685,36 +747,36 @@ async function generateBIT(event) {
 
       const parts = extractParts(location, summary);
 
-      const row = [
-        artist,
-        parts.venue,
-        parts.country || "United States",
-        parts.addr,
-        parts.city,
-        parts.region,
-        "",
-        "",
-        formatDate(startObj),
-        formatTime(startObj),
-        "",
-        "",
-        "",
-        "",
-        "",
-        "",
-        "",
-        "",
-        "",
-        "",
-        summary,
-        artist,
-        description,
-        "",
-        "",
-        "",
-        "",
-        ""
-      ];
+		const row = [
+		  artist,
+		  parts.venue,
+		  parts.country || "United States",
+		  parts.addr,
+		  parts.city,
+		  parts.region,
+		  parts.postalCode || "",
+		  "",
+		  formatDate(startObj),
+		  formatTime(startObj),
+		  "",
+		  "",
+		  "",
+		  "",
+		  "",
+		  "",
+		  "",
+		  "",
+		  "",
+		  "",
+		  summary,
+		  artist,
+		  description,
+		  "",
+		  "",
+		  "",
+		  "",
+		  ""
+		];
 
       previewRows.push(row);
       csvRows.push(row.map(csvEscape).join(","));

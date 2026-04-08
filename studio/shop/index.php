@@ -81,7 +81,7 @@ $products = product_file_map();
             </h2>
 
             <p class="product-description">
-              Know your real availability fast. Connect multiple calendar feeds, find true open dates across your band, print clean schedule views, and export dates for Bandsintown.
+              Know your real availability fast. Connect multiple calendar feeds, find true open dates across your band, print clean schedule views, and export dates for Bands In Town.
             </p>
 
             <ul style="margin:1rem 0 1.4rem 1.1rem; color:rgba(255,255,255,.82); line-height:1.7;">

@@ -67,7 +67,7 @@ $isProUser = $user ? rss_current_user_is_pro($pdo) : false;
           <li>Unlimited availability checks</li>
           <li>Multiple connected calendars</li>
           <li>Printable calendar views</li>
-          <li>Bandsintown CSV export</li>
+          <li>Bands In Town CSV export</li>
           <li>Full date range access</li>
           <li><strong>5% off all shop purchases</strong></li>
         </ul>

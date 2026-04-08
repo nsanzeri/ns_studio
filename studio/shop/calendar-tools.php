@@ -8,7 +8,7 @@ require_once __DIR__ . '/../_private/config/stripe.php';
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Ready Set Shows Calendar Tools | Nick Sanzeri</title>
-  <meta name="description" content="Check shared band availability across multiple calendars, print clean date views, and export dates for Bandsintown. Built for working musicians.">
+  <meta name="description" content="Check shared band availability across multiple calendars, print clean date views, and export dates for Bands In Town. Built for working musicians.">
   <link rel="stylesheet" href="<?= e(base_url('../assets/css/style.css')) ?>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -421,7 +421,7 @@ require_once __DIR__ . '/../_private/config/stripe.php';
 
         <article class="feature-card">
           <i class="fa-solid fa-file-csv"></i>
-          <h3>Export for Bandsintown</h3>
+          <h3>Export for Bands In Town</h3>
           <p>
             Turn your calendar data into a useful CSV format so your promo workflow is less repetitive and less error-prone.
           </p>
@@ -441,7 +441,7 @@ require_once __DIR__ . '/../_private/config/stripe.php';
             <li>Check shared availability across selected calendars</li>
             <li>See open dates quickly in one place</li>
             <li>Generate printable date views</li>
-            <li>Export dates for Bandsintown upload workflows</li>
+            <li>Export dates for Bands In Town upload workflows</li>
           </ul>
         </div>
 
@@ -508,7 +508,7 @@ require_once __DIR__ . '/../_private/config/stripe.php';
 	          <li>Unlimited availability checks</li>
 	          <li>Multiple connected calendars</li>
 	          <li>Printable calendar views</li>
-	          <li>Bandsintown CSV export</li>
+	          <li>Bands In Town CSV export</li>
 	          <li>Full date range access</li>
 	          <li><strong>5% off all shop purchases</strong></li>
 	        </ul>
@@ -576,9 +576,9 @@ require_once __DIR__ . '/../_private/config/stripe.php';
 </article>
 
         <article class="faq-item">
-          <h3>Will this help with Bandsintown?</h3>
+          <h3>Will this help with Bands In Town?</h3>
           <p>
-            Yes. One of the included tools is a CSV export workflow built to make Bandsintown uploads easier.
+            Yes. One of the included tools is a CSV export workflow built to make Bands In Town uploads easier.
           </p>
         </article>
       </div>

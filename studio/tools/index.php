@@ -62,7 +62,7 @@ if (!$selectedCalendarIds && $hasCalendars) {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Calendar Tools | Nick Sanzeri</title>
-  <meta name="description" content="Check shared availability across multiple calendars, print useful views, and export dates for Bandsintown.">
+  <meta name="description" content="Check shared availability across multiple calendars, print useful views, and export dates for Bands In Town.">
   <link rel="stylesheet" href="<?= e(base_url('../assets/css/style.css')) ?>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -391,7 +391,7 @@ if (!$selectedCalendarIds && $hasCalendars) {
         <i class="fa-solid fa-print"></i> Print Views
       </a>
       <a href="<?= e(base_url('/tools/bandsintown.php')) ?>">
-        <i class="fa-solid fa-file-csv"></i> Bandsintown Export
+        <i class="fa-solid fa-file-csv"></i> Bands In Town Export
       </a>
       <a href="<?= e(base_url('/tools/calendars.php')) ?>">
         <i class="fa-solid fa-link"></i> Manage Calendars
@@ -520,7 +520,7 @@ if (!$selectedCalendarIds && $hasCalendars) {
 
             <a href="<?= e(base_url('/tools/bandsintown.php')) ?>">
               <div>
-                <strong>Bandsintown Export</strong><br>
+                <strong>Bands In Town Export</strong><br>
                 <span>Generate a CSV for upload workflows</span>
               </div>
               <i class="fa-solid fa-chevron-right"></i>
@@ -619,7 +619,7 @@ if (!$selectedCalendarIds && $hasCalendars) {
     </p>
     <ul style="margin:0 0 1.2rem 1.1rem; color:rgba(255,255,255,.82); line-height:1.8;">
       <li>Multiple calendars</li>
-      <li>Bandsintown export</li>
+      <li>Bands In Town export</li>
       <li>Pretty print views</li>
       <li>Full date range access</li>
       <li><strong>5% off all shop purchases</strong></li>

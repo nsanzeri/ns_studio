@@ -59,8 +59,8 @@ if (!$selectedCalendarId && $hasCalendars) {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Bandsintown Export | Nick Sanzeri</title>
-  <meta name="description" content="Generate a Bandsintown-formatted CSV from your calendar events.">
+  <title>Bands In Town Export | Nick Sanzeri</title>
+  <meta name="description" content="Generate a Bands In Town-formatted CSV from your calendar events.">
   <link rel="stylesheet" href="<?= e(base_url('../assets/css/style.css')) ?>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -352,8 +352,8 @@ if (!$selectedCalendarId && $hasCalendars) {
     <div class="tools-topbar">
       <div>
         <p class="eyebrow">Ready Set Shows</p>
-        <h1>Bandsintown Export</h1>
-        <p>Generate a Bandsintown-formatted CSV from the events in one selected calendar.</p>
+        <h1>Bands In Town Export</h1>
+        <p>Generate a Bands In Town-formatted CSV from the events in one selected calendar.</p>
       </div>
       <div class="tools-muted">
         Signed in as <?= e($user['email'] ?? 'your account') ?>
@@ -368,7 +368,7 @@ if (!$selectedCalendarId && $hasCalendars) {
         <i class="fa-solid fa-print"></i> Print Views
       </a>
       <a class="active" href="<?= e(base_url('/tools/bandsintown.php')) ?>">
-        <i class="fa-solid fa-file-csv"></i> Bandsintown Export
+        <i class="fa-solid fa-file-csv"></i> Bands In Town Export
       </a>
       <a href="<?= e(base_url('/tools/calendars.php')) ?>">
         <i class="fa-solid fa-link"></i> Manage Calendars
@@ -388,7 +388,7 @@ if (!$selectedCalendarId && $hasCalendars) {
         <section class="tools-card">
           <h2>Build Export</h2>
           <p class="tools-muted" style="margin-top:-.25rem; margin-bottom:1rem;">
-            Choose one calendar, enter the artist name, and generate a CSV preview ready for Bandsintown.
+            Choose one calendar, enter the artist name, and generate a CSV preview ready for Bands In Town.
           </p>
 
           <form id="bitForm" method="get" action="<?= e(base_url('/tools/bandsintown.php')) ?>">
@@ -442,7 +442,7 @@ if (!$selectedCalendarId && $hasCalendars) {
                   <div class="demo-box">
                     <strong style="color:#fff;">No calendars connected yet</strong>
                     <p class="small-note" style="margin:.45rem 0 0;">
-                      Add one or more iCal feeds to generate a Bandsintown export.
+                      Add one or more iCal feeds to generate a Bands In Town export.
                     </p>
                   </div>
                 <?php endif; ?>
@@ -468,7 +468,7 @@ if (!$selectedCalendarId && $hasCalendars) {
         <div class="preview-header">
           <div>
             <p class="eyebrow" style="margin-bottom:.45rem;">Preview</p>
-            <h2 style="margin-bottom:.4rem;">Bandsintown CSV</h2>
+            <h2 style="margin-bottom:.4rem;">Bands In Town CSV</h2>
             <p class="tools-muted" style="margin:0;">
               Review the rows before downloading or copying the CSV.
             </p>
@@ -494,7 +494,7 @@ if (!$selectedCalendarId && $hasCalendars) {
             <div class="empty-hero">
               <h3 style="margin-top:0;">Start by connecting your calendars</h3>
               <p class="tools-muted" style="margin-bottom:0;">
-                Once your iCal feeds are connected, this page can turn calendar events into a Bandsintown-friendly CSV.
+                Once your iCal feeds are connected, this page can turn calendar events into a Bands In Town-friendly CSV.
               </p>
             </div>
 
@@ -538,7 +538,7 @@ if (!$selectedCalendarId && $hasCalendars) {
     </p>
     <ul style="margin:0 0 1.2rem 1.1rem; color:rgba(255,255,255,.82); line-height:1.8;">
       <li>Multiple calendars</li>
-      <li>Bandsintown export</li>
+      <li>Bands In Town export</li>
       <li>Pretty print views</li>
       <li>Full date range access</li>
       <li><strong>5% off all shop purchases</strong></li>
@@ -731,7 +731,7 @@ function hideError() {
   box.style.display = "none";
 }
 
-function renderPreview(headers, rows) {
+function renderPreBands In Towners, rows) {
   const thead = document.querySelector("#previewTable thead");
   const tbody = document.querySelector("#previewTable tbody");
 

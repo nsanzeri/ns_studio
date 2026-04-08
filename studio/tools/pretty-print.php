@@ -429,7 +429,7 @@ if (!in_array($selectedFormat, ['newsletter', 'spreadsheet', 'print'], true)) {
         <i class="fa-solid fa-print"></i> Print Views
       </a>
       <a href="<?= e(base_url('/tools/bandsintown.php')) ?>">
-        <i class="fa-solid fa-file-csv"></i> Bandsintown Export
+        <i class="fa-solid fa-file-csv"></i> Bands In Town Export
       </a>
       <a href="<?= e(base_url('/tools/calendars.php')) ?>">
         <i class="fa-solid fa-link"></i> Manage Calendars
@@ -601,7 +601,7 @@ if (!in_array($selectedFormat, ['newsletter', 'spreadsheet', 'print'], true)) {
     </p>
     <ul style="margin:0 0 1.2rem 1.1rem; color:rgba(255,255,255,.82); line-height:1.8;">
       <li>Multiple calendars</li>
-      <li>Bandsintown export</li>
+      <li>Bands In Town export</li>
       <li>Pretty print views</li>
       <li>Full date range access</li>
       <li><strong>5% off all shop purchases</strong></li>

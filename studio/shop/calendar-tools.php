@@ -294,7 +294,23 @@ require_once __DIR__ . '/../_private/config/stripe.php';
     .final-cta .tools-hero-cta{
       justify-content:center;
     }
+.pricing-grid-single-feature{
+  grid-template-columns:repeat(2, minmax(0, 1fr));
+  align-items:stretch;
+}
 
+.small-pricing-note{
+  margin-top:.85rem;
+  color:rgba(255,255,255,.62);
+  font-size:.9rem;
+  line-height:1.5;
+}
+
+@media (max-width: 980px){
+  .pricing-grid-single-feature{
+    grid-template-columns:1fr;
+  }
+}
     @media (max-width: 980px){
       .tools-hero-grid,
       .split-section,
@@ -312,27 +328,27 @@ require_once __DIR__ . '/../_private/config/stripe.php';
   <section class="page-hero">
     <div class="container">
       <div class="tools-hero-grid">
-        <div class="tools-hero-copy">
-          <p class="eyebrow">Subscription Tool</p>
-          <h1>Know your band’s real availability fast.</h1>
-          <p class="page-intro">
-            Ready Set Shows Calendar Tools helps working musicians and bandleaders check shared availability across multiple calendar feeds, answer booking questions quickly, and stay organized without the usual chaos.
-          </p>
-
-          <div class="tools-hero-cta">
-            <a class="btn btn-primary" href="<?= e(base_url('/shop/checkout-calendar-tools.php')) ?>">
-              Start Free Trial
-            </a>
-            <a class="btn btn-secondary" href="<?= e(base_url('/shop/single-checkout-calendar-tools.php')) ?>">
-              Run One Check for $1
-            </a>
-          </div>
-
-          <p class="tools-note">
-            $5/month after trial. Built for solo acts, bandleaders, and working musicians.
-          </p>
-        </div>
-
+		<div class="tools-hero-copy">
+		  <p class="eyebrow">Ready Set Shows</p>
+		  <h1>Turn your calendar into more gigs.</h1>
+		  <p class="page-intro">
+		    Ready Set Shows Calendar Tools helps working musicians and bandleaders check shared availability,
+		    create cleaner scheduling workflows, and stay organized without the usual back-and-forth chaos.
+		  </p>
+		
+		  <div class="tools-hero-cta">
+		    <a class="btn btn-primary" href="#pricing">
+		      View Pricing
+		    </a>
+		    <a class="btn btn-secondary" href="<?= e(base_url('/member/login.php')) ?>">
+		      Get Started Free
+		    </a>
+		  </div>
+		
+		  <p class="tools-note">
+		    Built for working musicians. Founder pricing starts at just $5/month.
+		  </p>
+		</div>
         <div class="tools-preview" aria-label="Calendar tools preview">
           <div>
             <div class="tools-preview-top">
@@ -444,63 +460,85 @@ require_once __DIR__ . '/../_private/config/stripe.php';
     </div>
   </section>
 
-  <section class="section">
-    <div class="container">
-      <div class="section-heading" style="max-width:760px; margin-bottom:2rem;">
-        <p class="eyebrow">Pricing</p>
-        <h2>Use it your way.</h2>
-        <p>
-          Subscribe for unlimited access, or pay per check when you just need a quick answer.
-        </p>
-      </div>
-
-      <div class="pricing-grid">
-        <article class="pricing-card featured">
-          <div class="pricing-badge">Best value</div>
-          <h3>Monthly Access</h3>
-          <p class="pricing-subtitle">For musicians and bandleaders who want ongoing access.</p>
-
-          <div class="price-line">
-            <div class="price">$5</div>
-            <div class="price-unit">/ month</div>
-          </div>
-
-          <ul>
-            <li>Unlimited availability checks</li>
-            <li>Connect multiple calendar feeds</li>
-            <li>Printable calendar views</li>
-            <li>Bandsintown CSV export</li>
-            <li>Free trial before billing starts</li>
-          </ul>
-
-          <a class="btn btn-primary" href="<?= e(base_url('/shop/checkout-calendar-tools.php')) ?>">
-            Start Free Trial
-          </a>
-        </article>
-
-        <article class="pricing-card">
-          <h3>Single Availability Check</h3>
-          <p class="pricing-subtitle">For occasional users who just need a one-off answer.</p>
-
-          <div class="price-line">
-            <div class="price">$1</div>
-            <div class="price-unit">/ check</div>
-          </div>
-
-          <ul>
-            <li>Run one availability check</li>
-            <li>No monthly subscription required</li>
-            <li>Great for trying the tool first</li>
-            <li>Upgrade later if you need more</li>
-          </ul>
-
-          <a class="btn btn-secondary" href="<?= e(base_url('/shop/single-checkout-calendar-tools.php')) ?>">
-            Run One Check
-          </a>
-        </article>
-      </div>
+	<section class="section" id="pricing">
+	  <div class="container">
+	    <div class="section-heading" style="max-width:760px; margin-bottom:2rem;">
+	      <p class="eyebrow">Pricing</p>
+	      <h2>Start free. Upgrade when it starts saving you time.</h2>
+	      <p>
+	        Explore the tools with a free account, then unlock the full workflow with Pro.
+	        Early users can lock in founder pricing.
+	      </p>
+	    </div>
+	
+	    <div class="pricing-grid pricing-grid-single-feature">
+	      <article class="pricing-card">
+	        <div class="pricing-badge">Free</div>
+	        <h3>Free Account</h3>
+	        <p class="pricing-subtitle">A simple way to explore the tools risk-free.</p>
+	
+	        <div class="price-line">
+	          <div class="price">$0</div>
+	          <div class="price-unit">/ month</div>
+	        </div>
+	
+	        <ul>
+	          <li>1 connected calendar</li>
+	          <li>Basic availability view</li>
+	          <li>Limited preview access</li>
+	          <li>See how the system works before upgrading</li>
+	        </ul>
+	
+	        <a class="btn btn-secondary" href="<?= e(base_url('/member/login.php')) ?>">
+	          Get Started Free
+	        </a>
+	      </article>
+	
+	      <article class="pricing-card featured">
+	        <div class="pricing-badge">Founder Pricing</div>
+	        <h3>Pro</h3>
+	        <p class="pricing-subtitle">For working musicians who want the full workflow.</p>
+	
+	        <div class="price-line">
+	          <div class="price">$5</div>
+	          <div class="price-unit">/ month</div>
+	        </div>
+	
+	        <ul>
+	          <li>Unlimited availability checks</li>
+	          <li>Multiple connected calendars</li>
+	          <li>Printable calendar views</li>
+	          <li>Bandsintown CSV export</li>
+	          <li>Full date range access</li>
+	          <li><strong>5% off all shop purchases</strong></li>
+	        </ul>
+	
+	        <a class="btn btn-primary" href="<?= e(base_url('/member/pricing.php')) ?>">
+	          Upgrade to Pro
+	        </a>
+	
+	        <p class="small-pricing-note">
+	          Lock in founder pricing now. Future users may pay more.
+	        </p>
+	      </article>
+	    </div>
+	  </div>
+	</section>
+	
+	<section class="section">
+  <div class="container">
+    <div class="list-card" style="max-width:860px; margin:0 auto;">
+      <p class="eyebrow">Why Pro makes sense</p>
+      <h3>This pays for itself fast.</h3>
+      <ul>
+        <li>Book one extra gig and it is covered</li>
+        <li>Save even a little time every week and it is covered</li>
+        <li>Buy from the shop and your member discount helps offset the cost</li>
+        <li>Look more organized when venues, clients, or bandmates need answers quickly</li>
+      </ul>
     </div>
-  </section>
+  </div>
+</section>
 
   <section class="section">
     <div class="container">
@@ -524,12 +562,18 @@ require_once __DIR__ . '/../_private/config/stripe.php';
           </p>
         </article>
 
-        <article class="faq-item">
-          <h3>Do I need the subscription to try it?</h3>
-          <p>
-            No. If you do not want a subscription, you can pay $1 to run a single availability check.
-          </p>
-        </article>
+<article class="faq-item">
+  <h3>Do I need the subscription to try it?</h3>
+  <p>
+    No. You can start with a free account and explore the tools before deciding whether Pro makes sense for you.
+  </p>
+</article>
+<article class="faq-item">
+  <h3>Why is Pro only $5 per month?</h3>
+  <p>
+    This is founder pricing for early users. It is meant to reward the first musicians who get on board and help shape the platform.
+  </p>
+</article>
 
         <article class="faq-item">
           <h3>Will this help with Bandsintown?</h3>

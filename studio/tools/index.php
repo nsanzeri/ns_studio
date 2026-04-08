@@ -390,7 +390,7 @@ if (!$selectedCalendarIds && $hasCalendars) {
       <a class="active" href="<?= e(base_url('/tools/index.php')) ?>">
         <i class="fa-regular fa-calendar-check"></i> Availability
       </a>
-      <a href="<?= e(base_urlBands In Townetty-print.php')) ?>">
+      <a href="<?= e(base_url('/tools/pretty-print.php')) ?>">
         <i class="fa-solid fa-print"></i> Print Views
       </a>
       <a href="<?= e(base_url('/tools/bandsintown.php')) ?>">

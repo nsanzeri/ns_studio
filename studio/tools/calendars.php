@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../_private/_core/bootstrap.php';
+require_once __DIR__ . '/../_private/_core/tool_access.php';
 
 if (!Auth::isLoggedIn()) {
     $_SESSION['login_next'] = base_url('/tools/calendars.php');
@@ -17,6 +18,10 @@ $userId = (int)($user['id'] ?? 0);
 $errors = [];
 $flash = $_SESSION['tools_flash'] ?? null;
 unset($_SESSION['tools_flash']);
+
+$existingCalendarCountStmt = $pdo->prepare("SELECT COUNT(*) FROM calendars WHERE user_id = ?");
+$existingCalendarCountStmt->execute([$userId]);
+$existingCalendarCount = (int)$existingCalendarCountStmt->fetchColumn();
 
 function redirect_tools_calendars(): void
 {
@@ -97,6 +102,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         if (!$errors) {
+            if ($action === 'create' && !$isProUser && $existingCalendarCount >= 1) {
+                $errors[] = 'Free accounts can connect one calendar. Upgrade to Pro to add more.';
+            }
+
             if ($action === 'create') {
                 $stmt = $pdo->prepare("
                     INSERT INTO calendars
@@ -357,6 +366,28 @@ $commonTimezones = [
 	  font-size:.95rem;
 	  letter-spacing:.04em;
 	}
+    
+    .upgrade-banner{
+      margin-bottom:1rem;
+      padding:.9rem 1rem;
+      border-radius:16px;
+      background:rgba(212,175,55,.10);
+      border:1px solid rgba(212,175,55,.22);
+      color:#fff;
+    }
+
+    .upgrade-banner a{
+      color:#f2d67c;
+      text-decoration:none;
+      font-weight:600;
+    }
+
+    .upgrade-modal[hidden]{display:none;}
+    .upgrade-modal{position:fixed;inset:0;z-index:9999;}
+    .upgrade-modal-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);}
+    .upgrade-modal-card{position:relative;z-index:2;width:min(560px, calc(100% - 2rem));margin:8vh auto 0;padding:1.5rem;border-radius:22px;background:#111;border:1px solid rgba(255,255,255,.1);box-shadow:0 24px 60px rgba(0,0,0,.4);}
+    .upgrade-modal-close{position:absolute;top:.85rem;right:.95rem;background:none;border:none;color:#fff;font-size:1.8rem;cursor:pointer;}
+
     @media (max-width: 980px){
       .tools-layout{grid-template-columns:1fr;}
       .tools-topbar{flex-direction:column;align-items:flex-start;}
@@ -396,6 +427,14 @@ $commonTimezones = [
       </a>
     </nav>
 
+
+    <?php if (!$isProUser): ?>
+      <div class="upgrade-banner">
+        <strong>Founder Pricing:</strong> Upgrade to Pro for $5/month to unlock premium exports, multiple calendars, and 5% off shop purchases.
+        <a href="<?= e($upgradeUrl) ?>">Upgrade now</a>
+      </div>
+    <?php endif; ?>
+
     <?php if ($flash): ?>
       <div class="flash"><?= e($flash) ?></div>
     <?php endif; ?>
@@ -419,7 +458,13 @@ $commonTimezones = [
           Paste an iCal URL from Google Calendar, Apple Calendar, Outlook, or another calendar service that provides ICS feeds.
         </p>
 
-        <form method="post" action="<?= e(base_url('/tools/calendars.php' . ($editingCalendar ? '?edit=' . (int)$editingCalendar['id'] : ''))) ?>">
+        <?php if (!$isProUser): ?>
+          <p class="small-note" style="margin-top:-.25rem;margin-bottom:1rem;">
+            Free accounts can connect one calendar. Upgrade to Pro to add more.
+          </p>
+        <?php endif; ?>
+
+        <form id="calendarForm" method="post" action="<?= e(base_url('/tools/calendars.php' . ($editingCalendar ? '?edit=' . (int)$editingCalendar['id'] : ''))) ?>" onsubmit="return handleCalendarFormSubmit(event)">
           <input type="hidden" name="action" value="<?= $editingCalendar ? 'update' : 'create' ?>">
           <?php if ($editingCalendar): ?>
             <input type="hidden" name="calendar_id" value="<?= (int)$editingCalendar['id'] ?>">
@@ -586,8 +631,62 @@ $commonTimezones = [
   </div>
 </main>
 
+<div id="upgradeModal" class="upgrade-modal" hidden>
+  <div class="upgrade-modal-backdrop" onclick="closeUpgradeModal()"></div>
+  <div class="upgrade-modal-card" role="dialog" aria-modal="true" aria-labelledby="upgradeModalTitle">
+    <button type="button" class="upgrade-modal-close" onclick="closeUpgradeModal()" aria-label="Close">&times;</button>
+    <p class="eyebrow">Pro Feature</p>
+    <h2 id="upgradeModalTitle">Upgrade to Pro to unlock this feature</h2>
+    <p class="tools-muted" style="margin-bottom:1rem;">
+      Get the full Ready Set Shows workflow with founder pricing.
+    </p>
+    <ul style="margin:0 0 1.2rem 1.1rem; color:rgba(255,255,255,.82); line-height:1.8;">
+      <li>Multiple calendars</li>
+      <li>Bandsintown export</li>
+      <li>Pretty print views</li>
+      <li>Full date range access</li>
+      <li><strong>5% off all shop purchases</strong></li>
+    </ul>
+    <div style="display:flex; gap:.75rem; flex-wrap:wrap;">
+      <a class="btn btn-primary" href="<?= e($upgradeUrl) ?>">Upgrade to Pro — $5/mo</a>
+      <button type="button" class="btn btn-secondary" onclick="closeUpgradeModal()">Keep Exploring</button>
+    </div>
+    <p class="small-note" style="margin-top:1rem;">Founder pricing is available now for early users.</p>
+  </div>
+</div>
+
 <?php include __DIR__ . '/../../includes/footer.php'; ?>
 <script>
+const IS_PRO_USER = <?= $isProUser ? 'true' : 'false' ?>;
+const EXISTING_CALENDAR_COUNT = <?= (int)$existingCalendarCount ?>;
+const IS_EDITING_CALENDAR = <?= $editingCalendar ? 'true' : 'false' ?>;
+
+function openUpgradeModal() {
+  const modal = document.getElementById("upgradeModal");
+  if (modal) modal.hidden = false;
+}
+
+function closeUpgradeModal() {
+  const modal = document.getElementById("upgradeModal");
+  if (modal) modal.hidden = true;
+}
+
+function requirePro() {
+  if (IS_PRO_USER) return true;
+  openUpgradeModal();
+  return false;
+}
+
+function handleCalendarFormSubmit(event) {
+  if (IS_EDITING_CALENDAR) return true;
+  if (EXISTING_CALENDAR_COUNT >= 1 && !IS_PRO_USER) {
+    if (event) event.preventDefault();
+    openUpgradeModal();
+    return false;
+  }
+  return true;
+}
+
   (function () {
     const colorInput = document.getElementById('color');
     const colorValue = document.getElementById('colorValue');

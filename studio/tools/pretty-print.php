@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../_private/_core/bootstrap.php';
+require_once __DIR__ . '/../_private/_core/tool_access.php';
 
 if (!Auth::isLoggedIn()) {
 	$_SESSION['login_next'] = base_url('/tools/pretty-print.php');
@@ -12,6 +13,9 @@ if (!$user) {
 	header('Location: ' . base_url('/member/login.php'));
 	exit;
 }
+
+$isProUser = rss_current_user_is_pro($pdo);
+$upgradeUrl = rss_tool_upgrade_url();
 
 $today = new DateTime('today');
 $oneMonthOut = (clone $today)->modify('+1 month');
@@ -313,6 +317,28 @@ if (!in_array($selectedFormat, ['newsletter', 'spreadsheet', 'print'], true)) {
       margin-bottom:1rem;
     }
 
+    
+    .upgrade-banner{
+      margin-bottom:1rem;
+      padding:.9rem 1rem;
+      border-radius:16px;
+      background:rgba(212,175,55,.10);
+      border:1px solid rgba(212,175,55,.22);
+      color:#fff;
+    }
+
+    .upgrade-banner a{
+      color:#f2d67c;
+      text-decoration:none;
+      font-weight:600;
+    }
+
+    .upgrade-modal[hidden]{display:none;}
+    .upgrade-modal{position:fixed;inset:0;z-index:9999;}
+    .upgrade-modal-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);}
+    .upgrade-modal-card{position:relative;z-index:2;width:min(560px, calc(100% - 2rem));margin:8vh auto 0;padding:1.5rem;border-radius:22px;background:#111;border:1px solid rgba(255,255,255,.1);box-shadow:0 24px 60px rgba(0,0,0,.4);}
+    .upgrade-modal-close{position:absolute;top:.85rem;right:.95rem;background:none;border:none;color:#fff;font-size:1.8rem;cursor:pointer;}
+
     @media (max-width:980px){
       .tools-layout{
         grid-template-columns:1fr;
@@ -409,6 +435,14 @@ if (!in_array($selectedFormat, ['newsletter', 'spreadsheet', 'print'], true)) {
         <i class="fa-solid fa-link"></i> Manage Calendars
       </a>
     </nav>
+
+
+    <?php if (!$isProUser): ?>
+      <div class="upgrade-banner">
+        <strong>Founder Pricing:</strong> Upgrade to Pro for $5/month to unlock premium exports, multiple calendars, and 5% off shop purchases.
+        <a href="<?= e($upgradeUrl) ?>">Upgrade now</a>
+      </div>
+    <?php endif; ?>
 
     <div class="tools-layout">
       <aside class="tools-stack">
@@ -518,7 +552,7 @@ if (!in_array($selectedFormat, ['newsletter', 'spreadsheet', 'print'], true)) {
               <button class="btn btn-secondary" type="button" onclick="exportTXT()">
                 <i class="fa-regular fa-file-lines"></i>&nbsp; Export TXT
               </button>
-              <button class="btn btn-secondary" type="button" onclick="window.print()">
+              <button class="btn btn-secondary" type="button" onclick="printOutput()">
                 <i class="fa-solid fa-print"></i>&nbsp; Print
               </button>
             </div>
@@ -556,11 +590,53 @@ if (!in_array($selectedFormat, ['newsletter', 'spreadsheet', 'print'], true)) {
   </div>
 </main>
 
+<div id="upgradeModal" class="upgrade-modal" hidden>
+  <div class="upgrade-modal-backdrop" onclick="closeUpgradeModal()"></div>
+  <div class="upgrade-modal-card" role="dialog" aria-modal="true" aria-labelledby="upgradeModalTitle">
+    <button type="button" class="upgrade-modal-close" onclick="closeUpgradeModal()" aria-label="Close">&times;</button>
+    <p class="eyebrow">Pro Feature</p>
+    <h2 id="upgradeModalTitle">Upgrade to Pro to unlock this feature</h2>
+    <p class="tools-muted" style="margin-bottom:1rem;">
+      Get the full Ready Set Shows workflow with founder pricing.
+    </p>
+    <ul style="margin:0 0 1.2rem 1.1rem; color:rgba(255,255,255,.82); line-height:1.8;">
+      <li>Multiple calendars</li>
+      <li>Bandsintown export</li>
+      <li>Pretty print views</li>
+      <li>Full date range access</li>
+      <li><strong>5% off all shop purchases</strong></li>
+    </ul>
+    <div style="display:flex; gap:.75rem; flex-wrap:wrap;">
+      <a class="btn btn-primary" href="<?= e($upgradeUrl) ?>">Upgrade to Pro — $5/mo</a>
+      <button type="button" class="btn btn-secondary" onclick="closeUpgradeModal()">Keep Exploring</button>
+    </div>
+    <p class="small-note" style="margin-top:1rem;">Founder pricing is available now for early users.</p>
+  </div>
+</div>
+
 <?php include __DIR__ . '/../../includes/footer.php'; ?>
 
 <?php if ($hasCalendars): ?>
 <script>
 const USER_TIMEZONE = <?= json_encode($userTimezone) ?>;
+const IS_PRO_USER = <?= $isProUser ? 'true' : 'false' ?>;
+
+
+function openUpgradeModal() {
+  const modal = document.getElementById("upgradeModal");
+  if (modal) modal.hidden = false;
+}
+
+function closeUpgradeModal() {
+  const modal = document.getElementById("upgradeModal");
+  if (modal) modal.hidden = true;
+}
+
+function requirePro() {
+  if (IS_PRO_USER) return true;
+  openUpgradeModal();
+  return false;
+}
 
 async function fetchEvents(calendarId, start, end) {
   const url = `<?= e(base_url('/api/fetch_ics.php')) ?>?id=${encodeURIComponent(calendarId)}&start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`;
@@ -750,12 +826,14 @@ async function generatePrettyPrint(event) {
 function copyOutput() {
   const text = document.getElementById("output").textContent;
   if (!text.trim()) return;
+  if (!requirePro()) return;
   navigator.clipboard.writeText(text);
 }
 
 function exportCSV() {
   const text = document.getElementById("output").textContent;
   if (!text.trim()) return;
+  if (!requirePro()) return;
 
   const blob = new Blob([text], { type: "text/csv;charset=utf-8" });
   const a = document.createElement("a");
@@ -768,6 +846,7 @@ function exportCSV() {
 function exportTXT() {
   const text = document.getElementById("output").textContent;
   if (!text.trim()) return;
+  if (!requirePro()) return;
 
   const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
   const a = document.createElement("a");
@@ -775,6 +854,11 @@ function exportTXT() {
   a.download = "calendar_export.txt";
   a.click();
   URL.revokeObjectURL(a.href);
+}
+
+function printOutput() {
+  if (!requirePro()) return;
+  window.print();
 }
 
 document.addEventListener("DOMContentLoaded", () => {

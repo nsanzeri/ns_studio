@@ -75,7 +75,7 @@ if (!$isProUser) {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Calendar Tools | Nick Sanzeri</title>
+  <title>Availability | Ready Set Shows</title>
   <meta name="description" content="Check shared availability across multiple calendars, print useful views, and export dates for Bands In Town.">
   <link rel="stylesheet" href="<?= e(base_url('../assets/css/style.css')) ?>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -381,7 +381,7 @@ if (!$isProUser) {
   </style>
 </head>
 <body>
-<?php include __DIR__ . '/../../includes/header.php'; ?>
+<?php include __DIR__ . '/../../includes/tools_header.php'; ?>
 
 <main class="tools-shell">
   <div class="container">
@@ -396,23 +396,6 @@ if (!$isProUser) {
         Signed in as <?= e($user['email'] ?? 'your account') ?>
       </div>
     </div>
-
-    <nav class="tools-subnav" aria-label="Calendar tools navigation">
-      <a class="active" href="<?= e(base_url('/tools/index.php')) ?>">
-        <i class="fa-regular fa-calendar-check"></i> Availability
-      </a>
-      <a href="<?= e(base_url('/tools/pretty-print.php')) ?>">
-        <i class="fa-solid fa-print"></i> Print Views
-      </a>
-      <a href="<?= e(base_url('/tools/bandsintown.php')) ?>">
-        <i class="fa-solid fa-file-csv"></i> Bands In Town Export
-      </a>
-      <a href="<?= e(base_url('/tools/calendars.php')) ?>">
-        <i class="fa-solid fa-link"></i> Manage Calendars
-      </a>
-    </nav>
-
-
     <?php if (!$isProUser): ?>
       <div class="upgrade-banner">
         <strong>Founder Pricing:</strong> Upgrade to Pro for $5/month to unlock premium exports, multiple calendars, and 5% off shop purchases.
@@ -514,35 +497,6 @@ if (!$isProUser) {
               </div>
             </div>
           </form>
-        </section>
-
-        <section class="tools-card">
-          <h3>Quick Links</h3>
-          <div class="quick-links">
-            <a href="<?= e(base_url('/tools/calendars.php')) ?>">
-              <div>
-                <strong>Manage Calendars</strong><br>
-                <span>Add or remove iCal feeds</span>
-              </div>
-              <i class="fa-solid fa-chevron-right"></i>
-            </a>
-
-            <a href="<?= e(base_url('/tools/pretty-print.php')) ?>">
-              <div>
-                <strong>Printable Views</strong><br>
-                <span>Create clean date lists and schedules</span>
-              </div>
-              <i class="fa-solid fa-chevron-right"></i>
-            </a>
-
-            <a href="<?= e(base_url('/tools/bandsintown.php')) ?>">
-              <div>
-                <strong>Bands In Town Export</strong><br>
-                <span>Generate a CSV for upload workflows</span>
-              </div>
-              <i class="fa-solid fa-chevron-right"></i>
-            </a>
-          </div>
         </section>
       </aside>
 
@@ -649,7 +603,7 @@ if (!$isProUser) {
   </div>
 </div>
 
-<?php include __DIR__ . '/../../includes/footer.php'; ?>
+<?php include __DIR__ . '/../../includes/tools_footer.php'; ?>
 
 <script>
 const USER_TIMEZONE = <?= json_encode($userTimezone) ?>;
@@ -956,8 +910,9 @@ async function findAvailableDates(event) {
 
 document.addEventListener("DOMContentLoaded", () => {
   const form = document.getElementById("availabilityForm");
-
-  form.addEventListener("submit", findAvailableDates);
+  if (form) {
+    form.addEventListener("submit", findAvailableDates);
+  }
 
   const hasCalendars = <?= $hasCalendars ? 'true' : 'false' ?>;
   if (hasCalendars) {
@@ -966,23 +921,38 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 document.addEventListener("DOMContentLoaded", function () {
+  const fromInput = document.getElementById("date_from");
   const toInput = document.getElementById("date_to");
   if (!toInput) return;
+
+  if (IS_PRO_USER) {
+    toInput.removeAttribute("max");
+    toInput.removeAttribute("readonly");
+    toInput.removeAttribute("aria-disabled");
+
+    if (fromInput) {
+      fromInput.removeAttribute("readonly");
+      fromInput.removeAttribute("aria-disabled");
+    }
+    return;
+  }
 
   const maxDate = getMaxToDate();
   toInput.max = maxDate;
 
-  if (!IS_PRO_USER) {
-    toInput.addEventListener("focus", function () {
-      openUpgradeModal();
-      this.blur();
-    });
-
-    toInput.addEventListener("click", function (e) {
-      openUpgradeModal();
-      e.preventDefault();
-    });
+  if (toInput.value && toInput.value > maxDate) {
+    toInput.value = maxDate;
   }
+
+  toInput.addEventListener("focus", function () {
+    openUpgradeModal();
+    this.blur();
+  });
+
+  toInput.addEventListener("click", function (e) {
+    openUpgradeModal();
+    e.preventDefault();
+  });
 });
 
 function getMaxToDate() {

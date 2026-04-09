@@ -428,7 +428,7 @@ if (!in_array($selectedFormat, ['newsletter', 'spreadsheet', 'print'], true)) {
   </style>
 </head>
 <body>
-<?php include __DIR__ . '/../../includes/header.php'; ?>
+<?php include __DIR__ . '/../../includes/tools_header.php'; ?>
 
 <main class="tools-shell">
   <div class="container">
@@ -640,7 +640,7 @@ if (!in_array($selectedFormat, ['newsletter', 'spreadsheet', 'print'], true)) {
   </div>
 </div>
 
-<?php include __DIR__ . '/../../includes/footer.php'; ?>
+<?php include __DIR__ . '/../../includes/tools_footer.php'; ?>
 
 <?php if ($hasCalendars): ?>
 <script>

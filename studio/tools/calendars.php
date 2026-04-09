@@ -400,7 +400,7 @@ $commonTimezones = [
   </style>
 </head>
 <body>
-<?php include __DIR__ . '/../../includes/header.php'; ?>
+<?php include __DIR__ . '/../../includes/tools_header.php'; ?>
 
 <main class="tools-shell">
   <div class="container">
@@ -658,7 +658,7 @@ $commonTimezones = [
   </div>
 </div>
 
-<?php include __DIR__ . '/../../includes/footer.php'; ?>
+<?php include __DIR__ . '/../../includes/tools_footer.php'; ?>
 <script>
 const IS_PRO_USER = <?= $isProUser ? 'true' : 'false' ?>;
 const EXISTING_CALENDAR_COUNT = <?= (int)$existingCalendarCount ?>;

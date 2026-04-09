@@ -1313,3 +1313,31 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   }
 }
 }
+
+
+.trial-countdown-banner{
+  background: rgba(212,175,55,0.12);
+  border-top: 1px solid rgba(212,175,55,0.24);
+  border-bottom: 1px solid rgba(212,175,55,0.24);
+}
+
+.trial-countdown-banner__inner{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:1rem;
+  padding:.7rem 0;
+  font-size:.95rem;
+}
+
+.trial-countdown-banner__meta{
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+@media (max-width: 680px){
+  .trial-countdown-banner__inner{
+    flex-direction:column;
+    align-items:flex-start;
+  }
+}

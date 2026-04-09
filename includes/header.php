@@ -8,6 +8,11 @@ if ($isShop) {
 	require_once __DIR__ . '/../studio/_private/_core/bootstrap.php';
 }
 
+$trialStatus = null;
+if ($isShop && isset($pdo) && function_exists('rss_get_current_user_trial_status')) {
+	$trialStatus = rss_get_current_user_trial_status($pdo);
+}
+
 $isLocal = str_contains($currentPath, '/ns_studio/');
 $siteBase   = $isLocal ? '/ns_studio' : '';
 $studioBase = $siteBase . '/studio';
@@ -43,5 +48,15 @@ function nav_active(bool $condition): string
         </nav>
     </div>
 </header>
+
+
+<?php if ($trialStatus): ?>
+<div class="trial-countdown-banner">
+    <div class="container trial-countdown-banner__inner">
+        <span><strong>Free trial:</strong> your access ends in <?= (int)$trialStatus['days_remaining'] ?> day<?= ((int)$trialStatus['days_remaining'] === 1 ? '' : 's') ?>.</span>
+        <span class="trial-countdown-banner__meta">Ends <?= htmlspecialchars($trialStatus['expires_on'], ENT_QUOTES, 'UTF-8') ?></span>
+    </div>
+</div>
+<?php endif; ?>
 
 <?php include __DIR__ . '/studio_subnav.php'; ?>

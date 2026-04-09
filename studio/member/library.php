@@ -14,7 +14,8 @@ SELECT
     p.kind,
     p.file_path,
     MAX(e.created_at) AS granted_at,
-    MAX(e.source) AS source
+    MAX(e.source) AS source,
+    MAX(e.expires_at) AS expires_at
 FROM entitlements e
 JOIN products p
     ON p.id = e.product_id
@@ -63,7 +64,18 @@ $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
           <div>
             <div style="font-weight:600;"><?= e($it['name']) ?></div>
             <div class="muted" style="font-size:0.92rem;">
-              <?= ($it['source'] ?? '') === 'subscription' ? 'Included with membership' : 'Purchased' ?>
+              <?php
+                $source = (string)($it['source'] ?? '');
+                $expiresAt = !empty($it['expires_at']) ? strtotime((string)$it['expires_at']) : false;
+                if ($source === 'manual_grant' && $expiresAt) {
+                    $daysRemaining = max(1, (int) ceil(($expiresAt - time()) / 86400));
+                    echo 'Trial access · ends in ' . $daysRemaining . ' day' . ($daysRemaining === 1 ? '' : 's');
+                } elseif ($source === 'subscription') {
+                    echo 'Included with membership';
+                } else {
+                    echo 'Purchased';
+                }
+              ?>
             </div>
           </div>
 

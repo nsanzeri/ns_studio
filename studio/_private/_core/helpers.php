@@ -72,3 +72,56 @@ if (!function_exists('sync_user_entitlements')) {
 		$stmt->execute([$userId]);
 	}
 }
+
+
+if (!function_exists('rss_get_current_user_trial_status')) {
+	function rss_get_current_user_trial_status(PDO $pdo): ?array
+	{
+		if (!class_exists('Auth') || !Auth::isLoggedIn()) {
+			return null;
+		}
+
+		$user = Auth::currentUser($pdo);
+		$userId = (int)($user['id'] ?? 0);
+		if ($userId <= 0) {
+			return null;
+		}
+
+		$stmt = $pdo->prepare("
+            SELECT e.expires_at, p.name AS product_name
+            FROM entitlements e
+            JOIN products p ON p.id = e.product_id
+            WHERE e.user_id = ?
+              AND e.source = 'manual_grant'
+              AND e.status = 'active'
+              AND e.expires_at IS NOT NULL
+              AND e.expires_at > NOW()
+            ORDER BY e.expires_at ASC
+            LIMIT 1
+        ");
+		$stmt->execute([$userId]);
+		$row = $stmt->fetch(PDO::FETCH_ASSOC);
+		if (!$row || empty($row['expires_at'])) {
+			return null;
+		}
+
+		$expiresTs = strtotime((string)$row['expires_at']);
+		if (!$expiresTs) {
+			return null;
+		}
+
+		$secondsRemaining = $expiresTs - time();
+		if ($secondsRemaining <= 0) {
+			return null;
+		}
+
+		$daysRemaining = (int) ceil($secondsRemaining / 86400);
+
+		return [
+			'expires_at' => (string)$row['expires_at'],
+			'expires_on' => date('M j, Y', $expiresTs),
+			'days_remaining' => max(1, $daysRemaining),
+			'product_name' => (string)($row['product_name'] ?? ''),
+		];
+	}
+}

@@ -87,7 +87,7 @@ try {
 			throw new RuntimeException('Logged-in user is missing required account data.');
 		}
 		
-		$successUrl = rtrim(SITE_URL, '/') . '/member/pricing.php?upgraded=1&session_id={CHECKOUT_SESSION_ID}';
+		$successUrl = rtrim(SITE_URL, '/') . '/tools/index.php?upgraded=1&session_id={CHECKOUT_SESSION_ID}';
 		$cancelUrl  = rtrim(SITE_URL, '/') . '/member/pricing.php?canceled=1';
 		
 		$stripeCustomerId = null;

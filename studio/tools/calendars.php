@@ -415,22 +415,6 @@ $commonTimezones = [
       </div>
     </div>
 
-    <nav class="tools-subnav" aria-label="Calendar tools navigation">
-      <a href="<?= e(base_url('/tools/index.php')) ?>">
-        <i class="fa-regular fa-calendar-check"></i> Availability
-      </a>
-      <a href="<?= e(base_url('/tools/pretty-print.php')) ?>">
-        <i class="fa-solid fa-print"></i> Print Views
-      </a>
-      <a href="<?= e(base_url('/tools/bandsintown.php')) ?>">
-        <i class="fa-solid fa-file-csv"></i> Bands In Town Export
-      </a>
-      <a class="active" href="<?= e(base_url('/tools/calendars.php')) ?>">
-        <i class="fa-solid fa-link"></i> Manage Calendars
-      </a>
-    </nav>
-
-
     <?php if (!$isProUser): ?>
       <div class="upgrade-banner">
         <strong>Founder Pricing:</strong> Upgrade to Pro for $5/month to unlock premium exports, multiple calendars, and 5% off shop purchases.

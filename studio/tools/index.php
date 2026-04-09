@@ -649,20 +649,32 @@ function guardLockedInteraction(event) {
   return false;
 }
 
-function installLockedDateRange(fieldIds) {
-  if (IS_PRO_USER) return;
+function installLockedDateRange() {
+  const fromInput = document.getElementById("date_from");
+  const toInput = document.getElementById("date_to");
+  if (!fromInput || !toInput) return;
 
-  fieldIds.forEach(id => {
-    const field = document.getElementById(id);
-    if (!field) return;
+  // From date should always be editable and unrestricted
+  fromInput.removeAttribute("readonly");
+  fromInput.removeAttribute("aria-disabled");
+  fromInput.removeAttribute("min");
+  fromInput.removeAttribute("max");
 
-    field.setAttribute('readonly', 'readonly');
-    field.setAttribute('aria-disabled', 'true');
+  // To date should always be editable, but capped at one month out for free users
+  toInput.removeAttribute("readonly");
+  toInput.removeAttribute("aria-disabled");
 
-    ['click', 'focus', 'mousedown', 'keydown', 'touchstart'].forEach(evtName => {
-      field.addEventListener(evtName, guardLockedInteraction);
-    });
-  });
+  if (IS_PRO_USER) {
+    toInput.removeAttribute("max");
+    return;
+  }
+
+  const maxDate = getMaxToDate();
+  toInput.max = maxDate;
+
+  if (toInput.value && toInput.value > maxDate) {
+    toInput.value = maxDate;
+  }
 }
 
 function protectOutputElement(element) {
@@ -758,7 +770,7 @@ function renderResults(freeDates, startStr, endStr) {
 
     if (monthHeader !== currentMonth) {
       if (text.trim() !== "") {
-        text += `\n\n`;
+        text += `\n`;
       }
       currentMonth = monthHeader;
       text += `${monthHeader}\n-------------\n`;

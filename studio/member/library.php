@@ -72,7 +72,7 @@ $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
               Download
             </a>
           <?php else: ?>
-            <a class="btn btn-outline" href="#">View</a>
+            <a class="btn btn-outline" href="<?= e(base_url('/tools/index.php')) ?>">LAUNCH TOOLS</a>
           <?php endif; ?>
         </div>
       <?php endforeach; ?>

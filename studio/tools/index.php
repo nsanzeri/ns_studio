@@ -402,6 +402,11 @@ if (!$isProUser) {
         <a href="<?= e($upgradeUrl) ?>">Upgrade now</a>
       </div>
     <?php endif; ?>
+	<?php if (isset($_GET['trial_started'])): ?>
+	  <div class="upgrade-banner">
+	    <strong>Trial Active:</strong> Your 30-day Pro access has started. Explore everything.
+	  </div>
+	<?php endif; ?>
 
     <div class="tools-layout">
       <aside class="tools-stack">
@@ -410,7 +415,6 @@ if (!$isProUser) {
           <p class="tools-muted" style="margin-top:-.25rem; margin-bottom:1rem;">
             Pick your calendars, choose a date range, and see which dates are truly open.
           </p>
-
           <form id="availabilityForm" method="get" action="<?= e(base_url('/tools/index.php')) ?>">
             <div class="tools-stack">
               <div class="tools-field">
@@ -918,6 +922,12 @@ document.addEventListener("DOMContentLoaded", () => {
   if (hasCalendars) {
     findAvailableDates();
   }
+
+  // 🔒 Apply Pro locks cleanly
+  installLockedDateRange(['date_from', 'date_to']);
+
+  const output = document.getElementById("availabilityTextOutput");
+  protectOutputElement(output);
 });
 
 document.addEventListener("DOMContentLoaded", function () {

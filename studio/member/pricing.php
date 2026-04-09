@@ -60,11 +60,23 @@ if (isset($_GET['canceled'])) {
       <p class="muted">Explore the tools with a free account, then unlock the full workflow with Pro. Early users can lock in founder pricing.</p>
     </section>
 
-    <?php if ($flash): ?>
-      <div class="pricing-alert <?= e($flash['type']) ?>">
-        <?= e($flash['text']) ?>
-      </div>
-    <?php endif; ?>
+	<?php if ($flash): ?>
+	  <div class="pricing-alert <?= e($flash['type']) ?>">
+	    <?= e($flash['text']) ?>
+	  </div>
+	<?php endif; ?>
+	
+	<?php if (isset($_GET['trial_started'])): ?>
+	  <div class="pricing-alert success">
+	    Your 30-day Pro trial is active. Jump into the tools.
+	  </div>
+	<?php endif; ?>
+	
+	<?php if (isset($_GET['trial']) && $_GET['trial'] === 'used'): ?>
+	  <div class="pricing-alert muted">
+	    You’ve already used your free trial. Upgrade to Pro to keep access.
+	  </div>
+	<?php endif; ?>
 
     <section class="pricing-grid">
       <article class="pricing-card">
@@ -94,17 +106,25 @@ if (isset($_GET['canceled'])) {
           <li>Full date range access</li>
           <li><strong>5% off all shop purchases</strong></li>
         </ul>
-
-        <?php if (!$user): ?>
-          <a class="btn btn-primary" href="<?= e(base_url('/member/login.php')) ?>">Log in to upgrade</a>
-          <p class="checkout-note">Pro is tied to your member account so the existing tool soft-lock can unlock instantly.</p>
-        <?php elseif ($isProUser): ?>
-          <button class="btn btn-primary" disabled>You already have Pro</button>
-          <p class="checkout-note">Your account already has active Pro access.</p>
-        <?php else: ?>
-          <button id="upgradeButton" class="btn btn-primary" type="button">Upgrade to Pro</button>
-          <p class="checkout-note">Checkout uses Stripe subscription mode and access unlocks from the webhook.</p>
-        <?php endif; ?>
+		<a class="btn btn-outline" href="<?= e(base_url('/member/trial.php')) ?>">
+		  Activate Free 30-Day Trial
+		</a>
+		
+		<?php if (!$user): ?>
+		  <a class="btn btn-primary" href="<?= e(base_url('/member/login.php')) ?>">
+		    Log in to upgrade
+		  </a>
+		
+		<?php elseif ($isProUser): ?>
+		  <a class="btn btn-primary" href="<?= e(base_url('/tools/index.php')) ?>">
+		    Open Tools
+		  </a>
+		
+		<?php else: ?>
+		  <button id="upgradeButton" class="btn btn-primary" type="button">
+		    Upgrade to Pro
+		  </button>
+		<?php endif; ?>
 
         <p class="small-pricing-note">Lock in founder pricing now. Future users may pay more.</p>
       </article>

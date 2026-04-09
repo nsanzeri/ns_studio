@@ -954,6 +954,32 @@ document.addEventListener("DOMContentLoaded", () => {
     generateBIT();
   }
 });
+
+document.addEventListener("DOMContentLoaded", function () {
+  const toInput = document.querySelector('input[name="to_date"]');
+  if (!toInput) return;
+
+  const maxDate = getMaxToDate();
+  toInput.max = maxDate;
+
+  if (!IS_PRO_USER) {
+    toInput.addEventListener("focus", function () {
+      openUpgradeModal();
+      this.blur();
+    });
+
+    toInput.addEventListener("click", function (e) {
+      openUpgradeModal();
+      e.preventDefault();
+    });
+  }
+});
+
+function getMaxToDate() {
+  const d = new Date();
+  d.setMonth(d.getMonth() + 1);
+  return d.toISOString().split('T')[0];
+}
 </script>
 <?php endif; ?>
 </body>

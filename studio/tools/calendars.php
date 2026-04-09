@@ -3,15 +3,15 @@ require_once __DIR__ . '/../_private/_core/bootstrap.php';
 require_once __DIR__ . '/../_private/_core/tool_access.php';
 
 if (!Auth::isLoggedIn()) {
-    $_SESSION['login_next'] = base_url('/tools/calendars.php');
-    header('Location: ' . base_url('/member/login.php'));
-    exit;
+	$_SESSION['login_next'] = base_url('/tools/calendars.php');
+	header('Location: ' . base_url('/member/login.php'));
+	exit;
 }
 
 $user = Auth::currentUser($pdo);
 if (!$user) {
-    header('Location: ' . base_url('/member/login.php'));
-    exit;
+	header('Location: ' . base_url('/member/login.php'));
+	exit;
 }
 
 $isProUser = rss_current_user_is_pro($pdo);
@@ -28,47 +28,47 @@ $existingCalendarCount = (int)$existingCalendarCountStmt->fetchColumn();
 
 function redirect_tools_calendars(): void
 {
-    header('Location: ' . base_url('/tools/calendars.php'));
-    exit;
+	header('Location: ' . base_url('/tools/calendars.php'));
+	exit;
 }
 
 function normalize_hex_color(?string $value): ?string
 {
-    $value = trim((string)$value);
-    if ($value === '') {
-        return null;
-    }
-
-    if ($value[0] !== '#') {
-        $value = '#' . $value;
-    }
-
-    if (preg_match('/^#[0-9a-fA-F]{6}$/', $value)) {
-        return strtoupper($value);
-    }
-
-    return null;
+	$value = trim((string)$value);
+	if ($value === '') {
+		return null;
+	}
+	
+	if ($value[0] !== '#') {
+		$value = '#' . $value;
+	}
+	
+	if (preg_match('/^#[0-9a-fA-F]{6}$/', $value)) {
+		return strtoupper($value);
+	}
+	
+	return null;
 }
 
 function normalize_timezone(?string $value): ?string
 {
-    $value = trim((string)$value);
-    if ($value === '') {
-        return null;
-    }
-
-    return in_array($value, timezone_identifiers_list(), true) ? $value : null;
+	$value = trim((string)$value);
+	if ($value === '') {
+		return null;
+	}
+	
+	return in_array($value, timezone_identifiers_list(), true) ? $value : null;
 }
 
 function posted_calendar_defaults(): array
 {
-    return [
-        'name' => trim((string)($_POST['name'] ?? '')),
-        'ics_url' => trim((string)($_POST['ics_url'] ?? '')),
-        'color' => trim((string)($_POST['color'] ?? '')),
-        'timezone' => trim((string)($_POST['timezone'] ?? '')),
-        'is_active' => isset($_POST['is_active']) ? 1 : 0,
-    ];
+	return [
+			'name' => trim((string)($_POST['name'] ?? '')),
+			'ics_url' => trim((string)($_POST['ics_url'] ?? '')),
+			'color' => trim((string)($_POST['color'] ?? '')),
+			'timezone' => trim((string)($_POST['timezone'] ?? '')),
+			'is_active' => isset($_POST['is_active']) ? 1 : 0,
+	];
 }
 
 $formData = posted_calendar_defaults();
@@ -76,75 +76,75 @@ $editingId = isset($_GET['edit']) ? (int)$_GET['edit'] : 0;
 $editingCalendar = null;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $action = (string)($_POST['action'] ?? '');
-
-    if ($action === 'create' || $action === 'update') {
-        $calendarId = (int)($_POST['calendar_id'] ?? 0);
-        $name = trim((string)($_POST['name'] ?? ''));
-        $icsUrl = trim((string)($_POST['ics_url'] ?? ''));
-        $color = normalize_hex_color($_POST['color'] ?? '');
-        $timezone = normalize_timezone($_POST['timezone'] ?? '');
-        $isActive = isset($_POST['is_active']) ? 1 : 0;
-
-        if ($name === '') {
-            $errors[] = 'Please give this calendar a name.';
-        }
-
-        if ($icsUrl === '') {
-            $errors[] = 'Please enter an iCal URL.';
-        } elseif (!filter_var($icsUrl, FILTER_VALIDATE_URL)) {
-            $errors[] = 'Please enter a valid URL.';
-        }
-
-        if (trim((string)($_POST['color'] ?? '')) !== '' && $color === null) {
-            $errors[] = 'Calendar color must be a 6-digit hex value like #D4AF37.';
-        }
-
-        if (trim((string)($_POST['timezone'] ?? '')) !== '' && $timezone === null) {
-            $errors[] = 'Timezone is not recognized.';
-        }
-
-        if (!$errors) {
-            if ($action === 'create' && !$isProUser && $existingCalendarCount >= 1) {
-                $errors[] = 'Free accounts can connect one calendar. Upgrade to Pro to add more.';
-            }
-
-            if ($action === 'create') {
-                $stmt = $pdo->prepare("
+	$action = (string)($_POST['action'] ?? '');
+	
+	if ($action === 'create' || $action === 'update') {
+		$calendarId = (int)($_POST['calendar_id'] ?? 0);
+		$name = trim((string)($_POST['name'] ?? ''));
+		$icsUrl = trim((string)($_POST['ics_url'] ?? ''));
+		$color = normalize_hex_color($_POST['color'] ?? '');
+		$timezone = normalize_timezone($_POST['timezone'] ?? '');
+		$isActive = isset($_POST['is_active']) ? 1 : 0;
+		
+		if ($name === '') {
+			$errors[] = 'Please give this calendar a name.';
+		}
+		
+		if ($icsUrl === '') {
+			$errors[] = 'Please enter an iCal URL.';
+		} elseif (!filter_var($icsUrl, FILTER_VALIDATE_URL)) {
+			$errors[] = 'Please enter a valid URL.';
+		}
+		
+		if (trim((string)($_POST['color'] ?? '')) !== '' && $color === null) {
+			$errors[] = 'Calendar color must be a 6-digit hex value like #D4AF37.';
+		}
+		
+		if (trim((string)($_POST['timezone'] ?? '')) !== '' && $timezone === null) {
+			$errors[] = 'Timezone is not recognized.';
+		}
+		
+		if (!$errors) {
+			if ($action === 'create' && !$isProUser && $existingCalendarCount >= 1) {
+				$errors[] = 'Free accounts can connect one calendar. Upgrade to Pro to add more.';
+			}
+			
+			if ($action === 'create') {
+				$stmt = $pdo->prepare("
                     INSERT INTO calendars
                         (user_id, name, color, ics_url, timezone, is_active, is_default, sync_status, created_at)
                     VALUES
                         (:user_id, :name, :color, :ics_url, :timezone, :is_active, 0, 'never', NOW())
                 ");
-                $stmt->execute([
-                    ':user_id' => $userId,
-                    ':name' => $name,
-                    ':color' => $color,
-                    ':ics_url' => $icsUrl,
-                    ':timezone' => $timezone,
-                    ':is_active' => $isActive,
-                ]);
-
-                $_SESSION['tools_flash'] = 'Calendar added.';
-                redirect_tools_calendars();
-            }
-
-            if ($action === 'update') {
-                $ownStmt = $pdo->prepare("
+				$stmt->execute([
+						':user_id' => $userId,
+						':name' => $name,
+						':color' => $color,
+						':ics_url' => $icsUrl,
+						':timezone' => $timezone,
+						':is_active' => $isActive,
+				]);
+				
+				$_SESSION['tools_flash'] = 'Calendar added.';
+				redirect_tools_calendars();
+			}
+			
+			if ($action === 'update') {
+				$ownStmt = $pdo->prepare("
                     SELECT id
                     FROM calendars
                     WHERE id = :id AND user_id = :user_id
                     LIMIT 1
                 ");
-                $ownStmt->execute([
-                    ':id' => $calendarId,
-                    ':user_id' => $userId,
-                ]);
-
-                if (!$ownStmt->fetch()) {
-                    $errors[] = 'Calendar not found.';
-                } else {
-                    $stmt = $pdo->prepare("
+				$ownStmt->execute([
+						':id' => $calendarId,
+						':user_id' => $userId,
+				]);
+				
+				if (!$ownStmt->fetch()) {
+					$errors[] = 'Calendar not found.';
+				} else {
+					$stmt = $pdo->prepare("
                         UPDATE calendars
                         SET
                             name = :name,
@@ -156,67 +156,67 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         WHERE id = :id AND user_id = :user_id
                         LIMIT 1
                     ");
-                    $stmt->execute([
-                        ':id' => $calendarId,
-                        ':user_id' => $userId,
-                        ':name' => $name,
-                        ':color' => $color,
-                        ':ics_url' => $icsUrl,
-                        ':timezone' => $timezone,
-                        ':is_active' => $isActive,
-                    ]);
-
-                    $_SESSION['tools_flash'] = 'Calendar updated.';
-                    redirect_tools_calendars();
-                }
-            }
-        }
-
-        $editingId = $action === 'update' ? $calendarId : 0;
-        $formData = [
-            'name' => $name,
-            'ics_url' => $icsUrl,
-            'color' => trim((string)($_POST['color'] ?? '')),
-            'timezone' => trim((string)($_POST['timezone'] ?? '')),
-            'is_active' => $isActive,
-        ];
-    }
-
-    if ($action === 'toggle') {
-        $calendarId = (int)($_POST['calendar_id'] ?? 0);
-
-        $stmt = $pdo->prepare("
+					$stmt->execute([
+							':id' => $calendarId,
+							':user_id' => $userId,
+							':name' => $name,
+							':color' => $color,
+							':ics_url' => $icsUrl,
+							':timezone' => $timezone,
+							':is_active' => $isActive,
+					]);
+					
+					$_SESSION['tools_flash'] = 'Calendar updated.';
+					redirect_tools_calendars();
+				}
+			}
+		}
+		
+		$editingId = $action === 'update' ? $calendarId : 0;
+		$formData = [
+				'name' => $name,
+				'ics_url' => $icsUrl,
+				'color' => trim((string)($_POST['color'] ?? '')),
+				'timezone' => trim((string)($_POST['timezone'] ?? '')),
+				'is_active' => $isActive,
+		];
+	}
+	
+	if ($action === 'toggle') {
+		$calendarId = (int)($_POST['calendar_id'] ?? 0);
+		
+		$stmt = $pdo->prepare("
             UPDATE calendars
             SET is_active = CASE WHEN is_active = 1 THEN 0 ELSE 1 END,
                 updated_at = NOW()
             WHERE id = :id AND user_id = :user_id
             LIMIT 1
         ");
-        $stmt->execute([
-            ':id' => $calendarId,
-            ':user_id' => $userId,
-        ]);
-
-        $_SESSION['tools_flash'] = 'Calendar status updated.';
-        redirect_tools_calendars();
-    }
-
-    if ($action === 'delete') {
-        $calendarId = (int)($_POST['calendar_id'] ?? 0);
-
-        $stmt = $pdo->prepare("
+		$stmt->execute([
+				':id' => $calendarId,
+				':user_id' => $userId,
+		]);
+		
+		$_SESSION['tools_flash'] = 'Calendar status updated.';
+		redirect_tools_calendars();
+	}
+	
+	if ($action === 'delete') {
+		$calendarId = (int)($_POST['calendar_id'] ?? 0);
+		
+		$stmt = $pdo->prepare("
             DELETE FROM calendars
             WHERE id = :id AND user_id = :user_id
             LIMIT 1
         ");
-        $stmt->execute([
-            ':id' => $calendarId,
-            ':user_id' => $userId,
-        ]);
-
-        $_SESSION['tools_flash'] = 'Calendar deleted.';
-        redirect_tools_calendars();
-    }
+		$stmt->execute([
+				':id' => $calendarId,
+				':user_id' => $userId,
+		]);
+		
+		$_SESSION['tools_flash'] = 'Calendar deleted.';
+		redirect_tools_calendars();
+	}
 }
 
 $calStmt = $pdo->prepare("
@@ -241,31 +241,31 @@ $calStmt->execute([':user_id' => $userId]);
 $calendars = $calStmt->fetchAll(PDO::FETCH_ASSOC);
 
 if ($editingId > 0) {
-    foreach ($calendars as $calendar) {
-        if ((int)$calendar['id'] === $editingId) {
-            $editingCalendar = $calendar;
-            break;
-        }
-    }
-
-    if ($editingCalendar && $_SERVER['REQUEST_METHOD'] !== 'POST') {
-        $formData = [
-            'name' => (string)$editingCalendar['name'],
-            'ics_url' => (string)$editingCalendar['ics_url'],
-            'color' => (string)($editingCalendar['color'] ?? ''),
-            'timezone' => (string)($editingCalendar['timezone'] ?? ''),
-            'is_active' => (int)($editingCalendar['is_active'] ?? 0),
-        ];
-    }
+	foreach ($calendars as $calendar) {
+		if ((int)$calendar['id'] === $editingId) {
+			$editingCalendar = $calendar;
+			break;
+		}
+	}
+	
+	if ($editingCalendar && $_SERVER['REQUEST_METHOD'] !== 'POST') {
+		$formData = [
+				'name' => (string)$editingCalendar['name'],
+				'ics_url' => (string)$editingCalendar['ics_url'],
+				'color' => (string)($editingCalendar['color'] ?? ''),
+				'timezone' => (string)($editingCalendar['timezone'] ?? ''),
+				'is_active' => (int)($editingCalendar['is_active'] ?? 0),
+		];
+	}
 }
 
 $commonTimezones = [
-    'America/Chicago',
-    'America/New_York',
-    'America/Denver',
-    'America/Los_Angeles',
-    'America/Phoenix',
-    'UTC',
+		'America/Chicago',
+		'America/New_York',
+		'America/Denver',
+		'America/Los_Angeles',
+		'America/Phoenix',
+		'UTC',
 ];
 ?>
 <!doctype html>
@@ -536,7 +536,7 @@ $commonTimezones = [
             </label>
 
             <div class="tools-actions">
-              <button class="btn btn-primary" type="submit">
+              <button class="btn btn-primary" type="submit" id="calendarSubmitButton">
                 <i class="fa-solid fa-save"></i>&nbsp;
                 <?= $editingCalendar ? 'Update Calendar' : 'Add Calendar' ?>
               </button>
@@ -689,6 +689,23 @@ function handleCalendarFormSubmit(event) {
   }
   return true;
 }
+
+
+document.addEventListener('DOMContentLoaded', () => {
+  const submitButton = document.getElementById('calendarSubmitButton');
+  if (!submitButton) return;
+
+  ['click', 'mousedown', 'touchstart'].forEach(evtName => {
+    submitButton.addEventListener(evtName, function (event) {
+      if (IS_EDITING_CALENDAR) return;
+      if (EXISTING_CALENDAR_COUNT >= 1 && !IS_PRO_USER) {
+        event.preventDefault();
+        event.stopPropagation();
+        openUpgradeModal();
+      }
+    });
+  });
+});
 
   (function () {
     const colorInput = document.getElementById('color');

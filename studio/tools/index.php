@@ -14,8 +14,12 @@ if (!$user) {
 	exit;
 }
 
+
+
 $isProUser = rss_current_user_is_pro($pdo);
 $upgradeUrl = rss_tool_upgrade_url();
+
+
 
 $today = new DateTime('today');
 $oneMonthOut = (clone $today)->modify('+1 month');
@@ -57,6 +61,13 @@ if (!$selectedCalendarIds && $hasCalendars) {
 			fn($c) => (int)$c['id'],
 			$connectedCalendars
 			);
+}
+
+if (!$isProUser) {
+	$maxDate = (new DateTime())->modify('+1 month')->format('Y-m-d');
+	if ($dateTo > $maxDate) {
+		$dateTo = $maxDate;
+	}
 }
 ?>
 <!doctype html>
@@ -953,6 +964,32 @@ document.addEventListener("DOMContentLoaded", () => {
     findAvailableDates();
   }
 });
+
+document.addEventListener("DOMContentLoaded", function () {
+  const toInput = document.getElementById("date_to");
+  if (!toInput) return;
+
+  const maxDate = getMaxToDate();
+  toInput.max = maxDate;
+
+  if (!IS_PRO_USER) {
+    toInput.addEventListener("focus", function () {
+      openUpgradeModal();
+      this.blur();
+    });
+
+    toInput.addEventListener("click", function (e) {
+      openUpgradeModal();
+      e.preventDefault();
+    });
+  }
+});
+
+function getMaxToDate() {
+  const d = new Date();
+  d.setMonth(d.getMonth() + 1);
+  return d.toISOString().split('T')[0];
+}
 </script>
 </body>
 </html>

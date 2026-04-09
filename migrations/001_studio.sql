@@ -1,3 +1,5 @@
+--mysqldump -u root ns_studio --no-data --routines --triggers --databases ns_studio> ns_studio_schema.sql
+-- 
 -- MariaDB dump 10.19  Distrib 10.4.32-MariaDB, for Win64 (AMD64)
 --
 -- Host: localhost    Database: ns_studio
@@ -22,6 +24,33 @@
 CREATE DATABASE /*!32312 IF NOT EXISTS*/ `ns_studio` /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci */;
 
 USE `ns_studio`;
+
+--
+-- Table structure for table `calendars`
+--
+
+DROP TABLE IF EXISTS `calendars`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `calendars` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `user_id` int(10) unsigned NOT NULL,
+  `name` varchar(255) NOT NULL,
+  `color` varchar(16) DEFAULT NULL,
+  `ics_url` varchar(512) NOT NULL,
+  `timezone` varchar(64) DEFAULT NULL,
+  `is_active` tinyint(1) NOT NULL DEFAULT 1,
+  `is_default` tinyint(1) NOT NULL DEFAULT 0,
+  `last_sync_at` datetime DEFAULT NULL,
+  `sync_status` enum('ok','error','never') NOT NULL DEFAULT 'never',
+  `sync_error_message` text DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NULL DEFAULT NULL ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_calendars_user` (`user_id`),
+  CONSTRAINT `fk_calendars_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
 --
 -- Table structure for table `download_log`
@@ -49,7 +78,7 @@ CREATE TABLE `download_log` (
   KEY `idx_session` (`checkout_session_id`,`created_at`),
   CONSTRAINT `fk_dl_purchase` FOREIGN KEY (`purchase_id`) REFERENCES `purchases` (`id`) ON DELETE SET NULL,
   CONSTRAINT `fk_dl_token` FOREIGN KEY (`token_id`) REFERENCES `download_tokens` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB AUTO_INCREMENT=20 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=27 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -100,7 +129,7 @@ CREATE TABLE `download_tokens` (
   KEY `idx_product` (`product_id`),
   CONSTRAINT `fk_tokens_product` FOREIGN KEY (`product_id`) REFERENCES `products` (`id`) ON DELETE SET NULL,
   CONSTRAINT `fk_tokens_purchase` FOREIGN KEY (`purchase_id`) REFERENCES `purchases` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB AUTO_INCREMENT=21 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=24 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -150,7 +179,7 @@ CREATE TABLE `entitlements` (
   KEY `idx_ent_status` (`status`),
   CONSTRAINT `fk_ent_product` FOREIGN KEY (`product_id`) REFERENCES `products` (`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_ent_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -209,7 +238,7 @@ CREATE TABLE `products` (
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`id`),
   UNIQUE KEY `uniq_products_slug` (`slug`)
-) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -294,6 +323,56 @@ CREATE TABLE `stripe_webhook_events` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
+-- Table structure for table `subscription_plans`
+--
+
+DROP TABLE IF EXISTS `subscription_plans`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `subscription_plans` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `slug` varchar(64) NOT NULL,
+  `name` varchar(120) NOT NULL,
+  `price_monthly_cents` int(10) unsigned NOT NULL DEFAULT 0,
+  `shop_discount_percent` decimal(5,2) NOT NULL DEFAULT 0.00,
+  `is_active` tinyint(1) NOT NULL DEFAULT 1,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_subscription_plans_slug` (`slug`)
+) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `user_subscriptions`
+--
+
+DROP TABLE IF EXISTS `user_subscriptions`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `user_subscriptions` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `user_id` int(10) unsigned NOT NULL,
+  `subscription_plan_id` int(10) unsigned NOT NULL,
+  `stripe_subscription_id` varchar(255) DEFAULT NULL,
+  `stripe_customer_id` varchar(255) DEFAULT NULL,
+  `status` enum('trialing','active','past_due','canceled','expired') NOT NULL DEFAULT 'active',
+  `current_period_start` datetime DEFAULT NULL,
+  `current_period_end` datetime DEFAULT NULL,
+  `canceled_at` datetime DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_user_plan_active` (`user_id`,`subscription_plan_id`,`stripe_subscription_id`),
+  KEY `idx_user_subscriptions_user` (`user_id`),
+  KEY `idx_user_subscriptions_status` (`status`),
+  KEY `fk_user_subscriptions_plan` (`subscription_plan_id`),
+  CONSTRAINT `fk_user_subscriptions_plan` FOREIGN KEY (`subscription_plan_id`) REFERENCES `subscription_plans` (`id`),
+  CONSTRAINT `fk_user_subscriptions_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
 -- Table structure for table `users`
 --
 
@@ -305,6 +384,7 @@ CREATE TABLE `users` (
   `email` varchar(190) NOT NULL,
   `google_sub` varchar(191) DEFAULT NULL,
   `display_name` varchar(190) DEFAULT NULL,
+  `timezone` varchar(64) DEFAULT NULL,
   `password_hash` varchar(255) NOT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `updated_at` timestamp NULL DEFAULT NULL ON UPDATE current_timestamp(),
@@ -317,4 +397,8 @@ CREATE TABLE `users` (
 
 --
 -- Dumping routines for database 'ns_studio'
+--
+
+--
+-- Current Database: `ns_studio`
 --

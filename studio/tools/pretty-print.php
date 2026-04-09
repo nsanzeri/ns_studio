@@ -23,8 +23,15 @@ $oneMonthOut = (clone $today)->modify('+1 month');
 $defaultDateFrom = $today->format('Y-m-d');
 $defaultDateTo   = $oneMonthOut->format('Y-m-d');
 
-$dateFrom = $isProUser ? ($_GET['date_from'] ?? $defaultDateFrom) : $defaultDateFrom;
-$dateTo   = $isProUser ? ($_GET['date_to'] ?? $defaultDateTo) : $defaultDateTo;
+$dateFrom = $_GET['date_from'] ?? $defaultDateFrom;
+$dateTo   = $_GET['date_to'] ?? $defaultDateTo;
+
+if (!$isProUser) {
+	$maxFreeDateTo = $defaultDateTo;
+	if ($dateTo > $maxFreeDateTo) {
+		$dateTo = $maxFreeDateTo;
+	}
+}
 
 $userTimezone = $user['timezone'] ?? 'America/Chicago';
 
@@ -477,9 +484,9 @@ if (!in_array($selectedFormat, ['newsletter', 'spreadsheet', 'print'], true)) {
 
               <div class="tools-field">
                 <label for="endDate">End Date</label>
-                <input class="tools-input" type="date" id="endDate" name="date_to" value="<?= e($dateTo) ?>">
+                <input class="tools-input" type="date" id="endDate" name="date_to" value="<?= e($dateTo) ?>" <?= !$isProUser ? 'max="'. e($defaultDateTo) .'"' : '' ?>>
                 <?php if (!$isProUser): ?>
-                  <p class="pro-locked-note">Free accounts can preview the next month. Upgrade to Pro to choose a custom date range.</p>
+                  <p class="pro-locked-note">Free accounts can choose any start date, but the end date is limited to one month from today. Upgrade to Pro to unlock a custom end date.</p>
                 <?php endif; ?>
               </div>
 
@@ -600,7 +607,7 @@ if (!in_array($selectedFormat, ['newsletter', 'spreadsheet', 'print'], true)) {
         <?php else: ?>
           <div id="errorBox" class="error-box" style="display:none;"></div>
 
-          <div class="output-wrap">
+          <div class="output-wrap <?= !$isProUser ? 'pro-locked-output' : '' ?>">
             <pre class="pretty-output" id="output">Choose a calendar and click Generate.</pre>
           </div>
         <?php endif; ?>
@@ -667,19 +674,20 @@ function guardLockedInteraction(event) {
   return false;
 }
 
-function installLockedDateRange(fieldIds) {
+function lockFreeUserEndDate() {
   if (IS_PRO_USER) return;
 
-  fieldIds.forEach(id => {
-    const field = document.getElementById(id);
-    if (!field) return;
+  const endDateField = document.getElementById('endDate');
+  if (!endDateField) return;
 
-    field.setAttribute('readonly', 'readonly');
-    field.setAttribute('aria-disabled', 'true');
+  const maxDate = <?= json_encode($defaultDateTo) ?>;
+  endDateField.value = maxDate;
+  endDateField.max = maxDate;
+  endDateField.setAttribute('readonly', 'readonly');
+  endDateField.setAttribute('aria-disabled', 'true');
 
-    ['click', 'focus', 'mousedown', 'keydown', 'touchstart'].forEach(evtName => {
-      field.addEventListener(evtName, guardLockedInteraction);
-    });
+  ['click', 'focus', 'mousedown', 'keydown', 'touchstart'].forEach(evtName => {
+    endDateField.addEventListener(evtName, guardLockedInteraction);
   });
 }
 
@@ -918,12 +926,45 @@ function printOutput() {
 
 document.addEventListener("DOMContentLoaded", () => {
   const form = document.getElementById("prettyPrintForm");
-  form.addEventListener("submit", generatePrettyPrint);
+  const output = document.getElementById("output");
+
+  if (form) {
+    form.addEventListener("submit", generatePrettyPrint);
+  }
+
+  lockFreeUserEndDate();
+  protectOutputElement(output);
 
   if (document.querySelector("input[name='calendar_id']:checked")) {
     generatePrettyPrint();
   }
 });
+
+document.addEventListener("DOMContentLoaded", function () {
+  const toInput = document.querySelector('input[name="to_date"]');
+  if (!toInput) return;
+
+  const maxDate = getMaxToDate();
+  toInput.max = maxDate;
+
+  if (!IS_PRO_USER) {
+    toInput.addEventListener("focus", function () {
+      openUpgradeModal();
+      this.blur();
+    });
+
+    toInput.addEventListener("click", function (e) {
+      openUpgradeModal();
+      e.preventDefault();
+    });
+  }
+});
+
+function getMaxToDate() {
+  const d = new Date();
+  d.setMonth(d.getMonth() + 1);
+  return d.toISOString().split('T')[0];
+}
 </script>
 <?php endif; ?>
 </body>

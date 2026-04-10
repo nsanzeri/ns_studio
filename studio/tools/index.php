@@ -82,6 +82,7 @@ if (!$isProUser) {
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;700&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
   <style>
     .tools-shell{
       padding: 2rem 0 4rem;
@@ -364,6 +365,17 @@ if (!$isProUser) {
     .upgrade-modal-card{position:relative;z-index:2;width:min(560px, calc(100% - 2rem));margin:8vh auto 0;padding:1.5rem;border-radius:22px;background:#111;border:1px solid rgba(255,255,255,.1);box-shadow:0 24px 60px rgba(0,0,0,.4);}
     .upgrade-modal-close{position:absolute;top:.85rem;right:.95rem;background:none;border:none;color:#fff;font-size:1.8rem;cursor:pointer;}
 
+	.ical-help-link{
+	  margin-left: .35rem;
+	  font-size: .92em;
+	  text-decoration: underline;
+	  color: #f2d67c;
+	}
+	
+	.ical-help-link:hover{
+	  color: #fff;
+	}
+
     @media (max-width: 980px){
       .tools-layout{
         grid-template-columns:1fr;
@@ -550,7 +562,10 @@ if (!$isProUser) {
             <div class="tools-card" style="padding:1.1rem; background:rgba(255,255,255,.03);">
               <h3 style="margin-top:0;">How it works</h3>
               <ol class="empty-steps">
-                <li>Add one or more iCal links</li>
+                <li>
+				  Add one or more iCal links
+				  <a href="#" id="openIcalHelp" class="ical-help-link">(Where do I find this?)</a>
+				</li>
                 <li>Select a date range and calendars</li>
                 <li>Find real open dates across the group</li>
                 <li>Print or export the results</li>
@@ -982,6 +997,60 @@ function getMaxToDate() {
   d.setMonth(d.getMonth() + 1);
   return d.toISOString().split('T')[0];
 }
+
+
+$(function () {
+  $('#openIcalHelp').on('click', function (e) {
+    e.preventDefault();
+    $('#icalHelpModal').prop('hidden', false);
+  });
+
+  $('#closeIcalHelpModal, #icalHelpModal .upgrade-modal-backdrop').on('click', function () {
+    $('#icalHelpModal').prop('hidden', true);
+  });
+
+  $(document).on('keydown', function (e) {
+    if (e.key === 'Escape') {
+      $('#icalHelpModal').prop('hidden', true);
+    }
+  });
+});
+
 </script>
+
+<div id="icalHelpModal" class="upgrade-modal" hidden>
+  <div class="upgrade-modal-backdrop"></div>
+  <div class="upgrade-modal-card" role="dialog" aria-modal="true" aria-labelledby="icalHelpTitle">
+    <button type="button" class="upgrade-modal-close" id="closeIcalHelpModal" aria-label="Close">&times;</button>
+
+    <p class="eyebrow">Calendar Help</p>
+    <h2 id="icalHelpTitle">Where do I find my iCal link?</h2>
+    <p class="tools-muted" style="margin-bottom:1rem;">
+      You can connect your calendar by copying its iCal/ICS link.
+    </p>
+
+    <h3 style="margin-bottom:.5rem;">Google Calendar</h3>
+    <ol style="margin:0 0 1rem 1.1rem; color:rgba(255,255,255,.82); line-height:1.8;">
+      <li>Open Google Calendar</li>
+      <li>In the left sidebar, hover over your calendar and click the 3 dots</li>
+      <li>Choose <strong>Settings and sharing</strong></li>
+      <li>Scroll to <strong>Integrate calendar</strong></li>
+      <li>Copy the <strong>Secret address in iCal format</strong> for private use, or the public iCal link if you intentionally made it public</li>
+    </ol>
+
+    <h3 style="margin-bottom:.5rem;">Apple Calendar (Mac)</h3>
+    <ol style="margin:0 0 1rem 1.1rem; color:rgba(255,255,255,.82); line-height:1.8;">
+      <li>Open Calendar on your Mac</li>
+      <li>Control-click the calendar in the sidebar</li>
+      <li>Choose <strong>Share Calendar</strong></li>
+      <li>Enable <strong>Public Calendar</strong> if needed</li>
+      <li>Copy the calendar link</li>
+    </ol>
+
+    <p class="small-note" style="margin-top:1rem;">
+      Paste that link into your calendar connection page and we’ll read the events from it.
+    </p>
+  </div>
+</div>
 </body>
 </html>

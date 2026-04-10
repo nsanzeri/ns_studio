@@ -280,6 +280,7 @@ $commonTimezones = [
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;700&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
   <style>
     .tools-shell{padding:2rem 0 4rem;}
     .tools-topbar{display:flex;justify-content:space-between;align-items:flex-end;gap:1.25rem;margin-bottom:1.25rem;}
@@ -546,7 +547,7 @@ $commonTimezones = [
           <div class="empty-state">
             <h3 style="margin-top:0;">No calendars connected yet</h3>
             <p class="tools-muted" style="margin-bottom:0;">
-              Add your first iCal feed on the left to get started.
+              Add your first iCal feed on the left to get started. <a href="#" id="openIcalHelp" class="ical-help-link">(Where do I find this?)</a>
             </p>
           </div>
         <?php else: ?>
@@ -704,6 +705,59 @@ document.addEventListener('DOMContentLoaded', () => {
       syncColorLabel();
     }
   })();
+  
+  $(function () {
+  $('#openIcalHelp').on('click', function (e) {
+    e.preventDefault();
+    $('#icalHelpModal').prop('hidden', false);
+  });
+
+  $('#closeIcalHelpModal, #icalHelpModal .upgrade-modal-backdrop').on('click', function () {
+    $('#icalHelpModal').prop('hidden', true);
+  });
+
+  $(document).on('keydown', function (e) {
+    if (e.key === 'Escape') {
+      $('#icalHelpModal').prop('hidden', true);
+    }
+  });
+});
+  
 </script>
+
+<div id="icalHelpModal" class="upgrade-modal" hidden>
+  <div class="upgrade-modal-backdrop"></div>
+  <div class="upgrade-modal-card" role="dialog" aria-modal="true" aria-labelledby="icalHelpTitle">
+    <button type="button" class="upgrade-modal-close" id="closeIcalHelpModal" aria-label="Close">&times;</button>
+
+    <p class="eyebrow">Calendar Help</p>
+    <h2 id="icalHelpTitle">Where do I find my iCal link?</h2>
+    <p class="tools-muted" style="margin-bottom:1rem;">
+      You can connect your calendar by copying its iCal/ICS link.
+    </p>
+
+    <h3 style="margin-bottom:.5rem;">Google Calendar</h3>
+    <ol style="margin:0 0 1rem 1.1rem; color:rgba(255,255,255,.82); line-height:1.8;">
+      <li>Open Google Calendar</li>
+      <li>In the left sidebar, hover over your calendar and click the 3 dots</li>
+      <li>Choose <strong>Settings and sharing</strong></li>
+      <li>Scroll to <strong>Integrate calendar</strong></li>
+      <li>Copy the <strong>Secret address in iCal format</strong> for private use, or the public iCal link if you intentionally made it public</li>
+    </ol>
+
+    <h3 style="margin-bottom:.5rem;">Apple Calendar (Mac)</h3>
+    <ol style="margin:0 0 1rem 1.1rem; color:rgba(255,255,255,.82); line-height:1.8;">
+      <li>Open Calendar on your Mac</li>
+      <li>Control-click the calendar in the sidebar</li>
+      <li>Choose <strong>Share Calendar</strong></li>
+      <li>Enable <strong>Public Calendar</strong> if needed</li>
+      <li>Copy the calendar link</li>
+    </ol>
+
+    <p class="small-note" style="margin-top:1rem;">
+      Paste that link into your calendar connection page and we’ll read the events from it.
+    </p>
+  </div>
+</div>
 </body>
 </html>

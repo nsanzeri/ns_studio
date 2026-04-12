@@ -627,6 +627,50 @@ if (!$isProUser) {
 <script>
 const USER_TIMEZONE = <?= json_encode($userTimezone) ?>;
 const IS_PRO_USER = <?= $isProUser ? 'true' : 'false' ?>;
+const TOOL_USAGE_ENDPOINT = <?= json_encode(base_url('/api/log_tool_usage.php')) ?>;
+let LAST_AVAILABILITY_RESULT_COUNT = 0;
+
+function trackToolUsage(payload) {
+  try {
+    fetch(TOOL_USAGE_ENDPOINT, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "same-origin",
+      body: JSON.stringify(payload || {})
+    }).catch(() => {});
+  } catch (e) {
+    // no-op
+  }
+}
+
+function getSelectedCalendarIds() {
+  return Array.from(document.querySelectorAll("input[name='calendar_ids[]']:checked")).map(c => c.value);
+}
+
+function getSelectedDayValues() {
+  return Array.from(document.querySelectorAll("input[name='days[]']:checked")).map(c => c.value);
+}
+
+function getAvailabilityInputContext() {
+  return {
+    date_from: document.getElementById("date_from")?.value || null,
+    date_to: document.getElementById("date_to")?.value || null,
+    calendar_ids: getSelectedCalendarIds(),
+    days: getSelectedDayValues()
+  };
+}
+
+function trackAvailabilityUsage(actionKey, status = "success", extra = {}) {
+  trackToolUsage({
+    feature_key: "availability_check",
+    action_key: actionKey,
+    status,
+    calendar_count: getSelectedCalendarIds().length,
+    result_count: LAST_AVAILABILITY_RESULT_COUNT,
+    input: getAvailabilityInputContext(),
+    ...extra
+  });
+}
 
 function escapeHtml(value) {
   return String(value)
@@ -648,18 +692,27 @@ function closeUpgradeModal() {
   if (modal) modal.hidden = true;
 }
 
-function requirePro() {
+function requirePro(actionKey = "pro_locked_action", note = "Pro feature attempted", extra = {}) {
   if (IS_PRO_USER) return true;
+  trackAvailabilityUsage(actionKey, "blocked", { note, ...extra });
   openUpgradeModal();
   return false;
 }
 
-function guardLockedInteraction(event) {
+function guardLockedInteraction(event, actionKey = "locked_interaction", note = "Locked interaction attempted") {
   if (IS_PRO_USER) return true;
   if (event) {
     event.preventDefault();
     event.stopPropagation();
   }
+  trackAvailabilityUsage(actionKey, "blocked", {
+    note,
+    input: {
+      ...getAvailabilityInputContext(),
+      target_id: event?.target?.id || null,
+      target_name: event?.target?.name || null
+    }
+  });
   openUpgradeModal();
   return false;
 }
@@ -762,6 +815,8 @@ function renderResults(freeDates, startStr, endStr) {
   availabilityTextWrap.style.display = "none";
   availabilityTextOutput.textContent = "";
 
+  LAST_AVAILABILITY_RESULT_COUNT = freeDates.length;
+
   if (!freeDates.length) {
     resultsEmpty.style.display = "block";
     resultsEmpty.innerHTML = `
@@ -801,14 +856,15 @@ function renderResults(freeDates, startStr, endStr) {
 function copyAvailabilityOutput() {
   const text = document.getElementById("availabilityTextOutput").textContent;
   if (!text.trim()) return;
-  if (!requirePro()) return;
+  if (!requirePro("copy_output", "Free user attempted to copy availability output")) return;
   navigator.clipboard.writeText(text);
+  trackAvailabilityUsage("copy_output", "success");
 }
 
 function exportAvailabilityTXT() {
   const text = document.getElementById("availabilityTextOutput").textContent;
   if (!text.trim()) return;
-  if (!requirePro()) return;
+  if (!requirePro("export_txt", "Free user attempted to export availability TXT")) return;
 
   const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
   const a = document.createElement("a");
@@ -816,10 +872,12 @@ function exportAvailabilityTXT() {
   a.download = "available_dates.txt";
   a.click();
   URL.revokeObjectURL(a.href);
+  trackAvailabilityUsage("export_txt", "success");
 }
 
 function printAvailabilityOutput() {
-  if (!requirePro()) return;
+  if (!requirePro("print_output", "Free user attempted to print availability output")) return;
+  trackAvailabilityUsage("print_output", "success");
   window.print();
 }
 
@@ -844,6 +902,9 @@ async function findAvailableDates(event) {
     availabilityTextOutput.textContent = "";
     resultsError.style.display = "block";
     resultsError.textContent = "Please select both dates.";
+    trackAvailabilityUsage("run", "error", {
+      note: "Missing start or end date"
+    });
     return;
   }
 
@@ -861,6 +922,9 @@ async function findAvailableDates(event) {
     availabilityTextOutput.textContent = "";
     resultsError.style.display = "block";
     resultsError.textContent = "Select at least one weekday.";
+    trackAvailabilityUsage("run", "error", {
+      note: "No weekdays selected"
+    });
     return;
   }
 
@@ -875,6 +939,9 @@ async function findAvailableDates(event) {
     availabilityTextOutput.textContent = "";
     resultsError.style.display = "block";
     resultsError.textContent = "Select at least one calendar.";
+    trackAvailabilityUsage("run", "error", {
+      note: "No calendars selected"
+    });
     return;
   }
 
@@ -929,6 +996,7 @@ async function findAvailableDates(event) {
     }
 
     renderResults(freeDates, startStr, endStr);
+    trackAvailabilityUsage("run", "success");
   } catch (err) {
     resultsLoading.style.display = "none";
     availabilityTextWrap.style.display = "none";
@@ -936,6 +1004,9 @@ async function findAvailableDates(event) {
     resultsEmpty.style.display = "none";
     resultsError.style.display = "block";
     resultsError.textContent = "Error: " + err.message;
+    trackAvailabilityUsage("run", "error", {
+      note: (err && err.message) ? String(err.message).slice(0, 255) : "Unknown error"
+    });
   }
 }
 
@@ -981,14 +1052,13 @@ document.addEventListener("DOMContentLoaded", function () {
     toInput.value = maxDate;
   }
 
-  toInput.addEventListener("focus", function () {
-    openUpgradeModal();
+  toInput.addEventListener("focus", function (e) {
+    guardLockedInteraction(e, "locked_date_range", "Free user attempted to change the end date");
     this.blur();
   });
 
   toInput.addEventListener("click", function (e) {
-    openUpgradeModal();
-    e.preventDefault();
+    guardLockedInteraction(e, "locked_date_range", "Free user attempted to change the end date");
   });
 });
 

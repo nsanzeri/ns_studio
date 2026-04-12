@@ -560,7 +560,45 @@ if (!$selectedCalendarId && $hasCalendars) {
 <script>
 const USER_TIMEZONE = <?= json_encode($userTimezone) ?>;
 const IS_PRO_USER = <?= $isProUser ? 'true' : 'false' ?>;
+const TOOL_USAGE_ENDPOINT = <?= json_encode(base_url('/api/log_tool_usage.php')) ?>;
 let FINAL_CSV = "";
+let LAST_BIT_RESULT_COUNT = 0;
+
+function trackToolUsage(payload) {
+  try {
+    fetch(TOOL_USAGE_ENDPOINT, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "same-origin",
+      body: JSON.stringify(payload || {})
+    }).catch(() => {});
+  } catch (e) {
+    // no-op
+  }
+}
+
+function getBandsintownInputContext() {
+  const selectedCalendar = document.querySelector("input[name='calendar_id']:checked");
+  return {
+    artist_name: document.getElementById("artistName")?.value?.trim() || null,
+    date_from: document.getElementById("startDate")?.value || null,
+    date_to: document.getElementById("endDate")?.value || null,
+    calendar_id: selectedCalendar ? selectedCalendar.value : null
+  };
+}
+
+function trackBandsintownUsage(actionKey, status = "success", extra = {}) {
+  const selectedCalendar = document.querySelector("input[name='calendar_id']:checked");
+  trackToolUsage({
+    feature_key: "bandsintown_export",
+    action_key: actionKey,
+    status,
+    calendar_count: selectedCalendar ? 1 : 0,
+    result_count: LAST_BIT_RESULT_COUNT,
+    input: getBandsintownInputContext(),
+    ...extra
+  });
+}
 
 
 function openUpgradeModal() {
@@ -573,18 +611,27 @@ function closeUpgradeModal() {
   if (modal) modal.hidden = true;
 }
 
-function requirePro() {
+function requirePro(actionKey = "pro_locked_action", note = "Pro feature attempted", extra = {}) {
   if (IS_PRO_USER) return true;
+  trackBandsintownUsage(actionKey, "blocked", { note, ...extra });
   openUpgradeModal();
   return false;
 }
 
-function guardLockedInteraction(event) {
+function guardLockedInteraction(event, actionKey = "locked_interaction", note = "Locked interaction attempted") {
   if (IS_PRO_USER) return true;
   if (event) {
     event.preventDefault();
     event.stopPropagation();
   }
+  trackBandsintownUsage(actionKey, "blocked", {
+    note,
+    input: {
+      ...getBandsintownInputContext(),
+      target_id: event?.target?.id || null,
+      target_name: event?.target?.name || null
+    }
+  });
   openUpgradeModal();
   return false;
 }
@@ -600,7 +647,9 @@ function installLockedDateRange(fieldIds) {
     field.setAttribute('aria-disabled', 'true');
 
     ['click', 'focus', 'mousedown', 'keydown', 'touchstart'].forEach(evtName => {
-      field.addEventListener(evtName, guardLockedInteraction);
+      field.addEventListener(evtName, function(e) {
+        guardLockedInteraction(e, "locked_date_range", "Free user attempted to change the date range");
+      });
     });
   });
 }
@@ -806,6 +855,9 @@ async function generateBIT(event) {
 
   if (!artist || !calendar || !start || !end) {
     showError("Please complete all fields.");
+    trackBandsintownUsage("run", "error", {
+      note: "Missing artist, calendar, or date range"
+    });
     return;
   }
 
@@ -891,40 +943,51 @@ async function generateBIT(event) {
     }
 
     FINAL_CSV = csvRows.join("\n");
+    LAST_BIT_RESULT_COUNT = previewRows.length;
     renderPreview(headers, previewRows);
+    trackBandsintownUsage("run", "success", {
+      result_count: previewRows.length
+    });
 
     if (!previewRows.length) {
       showError("No events found for the selected range.");
     }
   } catch (err) {
+    LAST_BIT_RESULT_COUNT = 0;
     showError("Error: " + err.message);
+    trackBandsintownUsage("run", "error", {
+      note: (err && err.message) ? String(err.message).slice(0, 255) : "Unknown error"
+    });
   }
 }
 
 function downloadCSV() {
   if (!FINAL_CSV.trim()) return;
-  if (!requirePro()) return;
+  if (!requirePro("download_csv", "Free user attempted to download Bandsintown CSV")) return;
   const blob = new Blob([FINAL_CSV], { type: "text/csv;charset=utf-8" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
   a.download = "bandsintown_export.csv";
   a.click();
   URL.revokeObjectURL(a.href);
+  trackBandsintownUsage("download_csv", "success");
 }
 
 function copyCSV() {
   if (!FINAL_CSV.trim()) return;
-  if (!requirePro()) return;
+  if (!requirePro("copy_csv", "Free user attempted to copy Bandsintown CSV")) return;
   navigator.clipboard.writeText(FINAL_CSV);
+  trackBandsintownUsage("copy_csv", "success");
 }
 
 function openCSV() {
   if (!FINAL_CSV.trim()) return;
-  if (!requirePro()) return;
+  if (!requirePro("open_csv", "Free user attempted to open Bandsintown CSV")) return;
   const w = window.open("", "_blank");
   if (!w) return;
   w.document.write("<pre>" + FINAL_CSV.replace(/</g, "&lt;") + "</pre>");
   w.document.close();
+  trackBandsintownUsage("open_csv", "success");
 }
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -947,14 +1010,13 @@ document.addEventListener("DOMContentLoaded", function () {
   toInput.max = maxDate;
 
   if (!IS_PRO_USER) {
-    toInput.addEventListener("focus", function () {
-      openUpgradeModal();
+    toInput.addEventListener("focus", function (e) {
+      guardLockedInteraction(e, "locked_date_range", "Free user attempted to change the end date");
       this.blur();
     });
 
     toInput.addEventListener("click", function (e) {
-      openUpgradeModal();
-      e.preventDefault();
+      guardLockedInteraction(e, "locked_date_range", "Free user attempted to change the end date");
     });
   }
 });

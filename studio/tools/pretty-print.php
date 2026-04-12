@@ -630,6 +630,45 @@ if (!in_array($selectedFormat, ['newsletter', 'spreadsheet', 'print'], true)) {
 <script>
 const USER_TIMEZONE = <?= json_encode($userTimezone) ?>;
 const IS_PRO_USER = <?= $isProUser ? 'true' : 'false' ?>;
+const TOOL_USAGE_ENDPOINT = <?= json_encode(base_url('/api/log_tool_usage.php')) ?>;
+let LAST_PRETTY_PRINT_RESULT_COUNT = 0;
+
+function trackToolUsage(payload) {
+  try {
+    fetch(TOOL_USAGE_ENDPOINT, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "same-origin",
+      body: JSON.stringify(payload || {})
+    }).catch(() => {});
+  } catch (e) {
+    // no-op
+  }
+}
+
+function getPrettyPrintInputContext() {
+  const selectedCalendar = document.querySelector("input[name='calendar_id']:checked");
+  const selectedFormat = document.querySelector("input[name='format']:checked");
+  return {
+    date_from: document.getElementById("startDate")?.value || null,
+    date_to: document.getElementById("endDate")?.value || null,
+    calendar_id: selectedCalendar ? selectedCalendar.value : null,
+    format: selectedFormat ? selectedFormat.value : null
+  };
+}
+
+function trackPrettyPrintUsage(actionKey, status = "success", extra = {}) {
+  const selectedCalendar = document.querySelector("input[name='calendar_id']:checked");
+  trackToolUsage({
+    feature_key: "pretty_print",
+    action_key: actionKey,
+    status,
+    calendar_count: selectedCalendar ? 1 : 0,
+    result_count: LAST_PRETTY_PRINT_RESULT_COUNT,
+    input: getPrettyPrintInputContext(),
+    ...extra
+  });
+}
 
 
 function openUpgradeModal() {
@@ -642,18 +681,27 @@ function closeUpgradeModal() {
   if (modal) modal.hidden = true;
 }
 
-function requirePro() {
+function requirePro(actionKey = "pro_locked_action", note = "Pro feature attempted", extra = {}) {
   if (IS_PRO_USER) return true;
+  trackPrettyPrintUsage(actionKey, "blocked", { note, ...extra });
   openUpgradeModal();
   return false;
 }
 
-function guardLockedInteraction(event) {
+function guardLockedInteraction(event, actionKey = "locked_interaction", note = "Locked interaction attempted") {
   if (IS_PRO_USER) return true;
   if (event) {
     event.preventDefault();
     event.stopPropagation();
   }
+  trackPrettyPrintUsage(actionKey, "blocked", {
+    note,
+    input: {
+      ...getPrettyPrintInputContext(),
+      target_id: event?.target?.id || null,
+      target_name: event?.target?.name || null
+    }
+  });
   openUpgradeModal();
   return false;
 }
@@ -671,7 +719,9 @@ function lockFreeUserEndDate() {
   endDateField.setAttribute('aria-disabled', 'true');
 
   ['click', 'focus', 'mousedown', 'keydown', 'touchstart'].forEach(evtName => {
-    endDateField.addEventListener(evtName, guardLockedInteraction);
+    endDateField.addEventListener(evtName, function(e) {
+      guardLockedInteraction(e, "locked_date_range", "Free user attempted to change the end date");
+    });
   });
 }
 
@@ -785,6 +835,9 @@ async function generatePrettyPrint(event) {
     output.textContent = "";
     errorBox.style.display = "block";
     errorBox.textContent = "Please select a calendar.";
+    trackPrettyPrintUsage("run", "error", {
+      note: "No calendar selected"
+    });
     return;
   }
 
@@ -794,6 +847,9 @@ async function generatePrettyPrint(event) {
     output.textContent = "";
     errorBox.style.display = "block";
     errorBox.textContent = "Please select a start and end date.";
+    trackPrettyPrintUsage("run", "error", {
+      note: "Missing start or end date"
+    });
     return;
   }
 
@@ -804,7 +860,12 @@ async function generatePrettyPrint(event) {
     events.sort((a, b) => new Date(a.start) - new Date(b.start));
 
     if (!events.length) {
+      LAST_PRETTY_PRINT_RESULT_COUNT = 0;
       output.textContent = "No events found for the selected range.";
+      trackPrettyPrintUsage("run", "success", {
+        result_count: 0,
+        note: "No events found for selected range"
+      });
       return;
     }
 
@@ -829,7 +890,11 @@ async function generatePrettyPrint(event) {
 	    text += `${dateStr}, ${summary}\n`;
 	  }
 	
+	  LAST_PRETTY_PRINT_RESULT_COUNT = events.length;
 	  output.textContent = text.trim();
+      trackPrettyPrintUsage("run", "success", {
+        result_count: events.length
+      });
 	  return;
 	}
 
@@ -862,25 +927,33 @@ async function generatePrettyPrint(event) {
       }
     }
 
+    LAST_PRETTY_PRINT_RESULT_COUNT = events.length;
     output.textContent = text.trim();
+    trackPrettyPrintUsage("run", "success", {
+      result_count: events.length
+    });
   } catch (err) {
     output.textContent = "";
     errorBox.style.display = "block";
     errorBox.textContent = "Error: " + err.message;
+    trackPrettyPrintUsage("run", "error", {
+      note: (err && err.message) ? String(err.message).slice(0, 255) : "Unknown error"
+    });
   }
 }
 
 function copyOutput() {
   const text = document.getElementById("output").textContent;
   if (!text.trim()) return;
-  if (!requirePro()) return;
+  if (!requirePro("copy_output", "Free user attempted to copy pretty print output")) return;
   navigator.clipboard.writeText(text);
+  trackPrettyPrintUsage("copy_output", "success");
 }
 
 function exportCSV() {
   const text = document.getElementById("output").textContent;
   if (!text.trim()) return;
-  if (!requirePro()) return;
+  if (!requirePro("export_csv", "Free user attempted to export pretty print CSV")) return;
 
   const blob = new Blob([text], { type: "text/csv;charset=utf-8" });
   const a = document.createElement("a");
@@ -888,12 +961,13 @@ function exportCSV() {
   a.download = "calendar_export.csv";
   a.click();
   URL.revokeObjectURL(a.href);
+  trackPrettyPrintUsage("export_csv", "success");
 }
 
 function exportTXT() {
   const text = document.getElementById("output").textContent;
   if (!text.trim()) return;
-  if (!requirePro()) return;
+  if (!requirePro("export_txt", "Free user attempted to export pretty print TXT")) return;
 
   const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
   const a = document.createElement("a");
@@ -901,10 +975,12 @@ function exportTXT() {
   a.download = "calendar_export.txt";
   a.click();
   URL.revokeObjectURL(a.href);
+  trackPrettyPrintUsage("export_txt", "success");
 }
 
 function printOutput() {
-  if (!requirePro()) return;
+  if (!requirePro("print_output", "Free user attempted to print pretty print output")) return;
+  trackPrettyPrintUsage("print_output", "success");
   window.print();
 }
 
@@ -932,14 +1008,13 @@ document.addEventListener("DOMContentLoaded", function () {
   toInput.max = maxDate;
 
   if (!IS_PRO_USER) {
-    toInput.addEventListener("focus", function () {
-      openUpgradeModal();
+    toInput.addEventListener("focus", function (e) {
+      guardLockedInteraction(e, "locked_date_range", "Free user attempted to change the end date");
       this.blur();
     });
 
     toInput.addEventListener("click", function (e) {
-      openUpgradeModal();
-      e.preventDefault();
+      guardLockedInteraction(e, "locked_date_range", "Free user attempted to change the end date");
     });
   }
 });

@@ -112,8 +112,8 @@ $feature = trim((string) ($_GET['feature'] ?? ''));
 $status = trim((string) ($_GET['status'] ?? ''));
 
 $downloadSecret = envv('DOWNLOAD_SECRET', null);
-$toolUsageEnabled = table_exists($pdo, 'tool_usage_log');
-
+//$toolUsageEnabled = table_exists($pdo, 'tool_usage_log');
+$toolUsageEnabled = true;
 $base = rtrim((string) base_url('studio/'), '/') . '/';
 
 $overview = [

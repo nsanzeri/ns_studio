@@ -1,91 +1,58 @@
 <?php
-
-declare(strict_types=1);
-
 require_once __DIR__ . '/../_private/_core/bootstrap.php';
 require_once __DIR__ . '/../_private/_core/tool_access.php';
 
-if (!class_exists('Auth') || !Auth::isLoggedIn()) {
-    header('Location: ' . base_url('/member/login.php?next=' . urlencode(base_url('/member/trial.php'))));
-    exit;
-}
+Auth::requireLogin(rss_studio_root_url() . '/member/trial.php');
 
 $user = Auth::currentUser($pdo);
-$userId = (int)($user['id'] ?? 0);
-
+$userId = (int) ($user['id'] ?? 0);
 if ($userId <= 0) {
-    http_response_code(403);
-    echo 'Unable to resolve your account.';
-    exit;
+    redirect(rss_studio_root_url() . '/member/login.php');
 }
 
-if (rss_current_user_is_pro($pdo)) {
-    header('Location: ' . base_url('/tools/index.php?already_pro=1'));
-    exit;
+$state = rss_current_tools_access_state($pdo);
+if ($state === 'paid') {
+    flash_set('pricing_notice', 'Pro is already active on your account.');
+    redirect(rss_tool_upgrade_url());
+}
+if ($state === 'trial') {
+    flash_set('pricing_notice', 'Your free trial is already active.');
+    redirect(rss_tool_upgrade_url());
 }
 
-/**
- * Trial rules
- * - one manual trial ever per user
- * - 30 day expiration
- * - canonical product slug = rss-pro
- */
-
-function rss_find_product_id_by_slug(PDO $pdo, string $slug): ?int
-{
-    $stmt = $pdo->prepare('SELECT id FROM products WHERE slug = ? LIMIT 1');
-    $stmt->execute([$slug]);
-    $id = (int)($stmt->fetchColumn() ?: 0);
-    return $id > 0 ? $id : null;
+if (!rss_table_exists($pdo, 'entitlements') || !rss_table_exists($pdo, 'products')) {
+    flash_set('pricing_notice', 'The trial could not be started because the tools product has not been set up yet.');
+    redirect(rss_tool_upgrade_url());
 }
 
-function rss_user_has_ever_used_manual_trial(PDO $pdo, int $userId): bool
-{
-    $stmt = $pdo->prepare("
-        SELECT 1
-        FROM entitlements
-        WHERE user_id = ?
-          AND source = 'manual_grant'
-        LIMIT 1
-    ");
-    $stmt->execute([$userId]);
-    return (bool)$stmt->fetchColumn();
+$productStmt = $pdo->prepare(
+    'SELECT id, slug, name FROM products WHERE slug IN (?, ?, ?, ?, ?) ORDER BY FIELD(slug, ?, ?, ?, ?, ?) LIMIT 1'
+);
+$slugs = rss_tools_product_slugs();
+$productStmt->execute(array_merge($slugs, $slugs));
+$product = $productStmt->fetch(PDO::FETCH_ASSOC) ?: null;
+
+if (!$product) {
+    flash_set('pricing_notice', 'The trial could not be started because no Calendar Tools product was found in products.');
+    redirect(rss_tool_upgrade_url());
 }
 
-$productId = rss_find_product_id_by_slug($pdo, 'rss-pro');
+$expiresAt = (new DateTimeImmutable('now'))->modify('+30 days')->format('Y-m-d H:i:s');
 
-if (!$productId) {
-    http_response_code(500);
-    echo 'Trial product is not configured.';
-    exit;
-}
-
-if (rss_user_has_ever_used_manual_trial($pdo, $userId)) {
-    header('Location: ' . base_url('/member/pricing.php?trial=used'));
-    exit;
-}
-
-$expiresAt = (new DateTimeImmutable('now'))->add(new DateInterval('P30D'))->format('Y-m-d H:i:s');
-
+$pdo->beginTransaction();
 try {
-    $pdo->beginTransaction();
-
-    $stmt = $pdo->prepare("
+    $insert = $pdo->prepare("
         INSERT INTO entitlements (user_id, product_id, source, status, expires_at)
         VALUES (?, ?, 'manual_grant', 'active', ?)
     ");
-    $stmt->execute([$userId, $productId, $expiresAt]);
-
+    $insert->execute([$userId, (int) $product['id'], $expiresAt]);
     $pdo->commit();
 } catch (Throwable $e) {
     if ($pdo->inTransaction()) {
         $pdo->rollBack();
     }
-
-    http_response_code(500);
-    echo 'Unable to activate trial.';
-    exit;
+    throw $e;
 }
 
-header('Location: ' . base_url('/tools/index.php?trial_started=1'));
-exit;
+flash_set('pricing_notice', 'Your 30-day Calendar Tools trial is active now.');
+redirect(rss_tool_library_url());

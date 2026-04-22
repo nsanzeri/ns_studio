@@ -51,14 +51,29 @@ ORDER BY e_best.created_at DESC, p.name ASC;
 $stmt->execute([$userId]);
 $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-$toolsBadge = rss_tools_access_badge($pdo);
-$toolsState = $toolsBadge['state'];
-$toolsActions = [
-		'launch_url'  => rss_tool_launch_url(),
-		'pricing_url' => rss_tool_upgrade_url(),
-		'trial_url'   => rss_tool_trial_url(),
+// Hide tool-membership products from the library list because the dedicated
+// Calendar Tools card above already represents that access.
+$toolSynonymSlugs = [
+		'ready-set-shows-pro',
+		'calendar-tools-pro',
+		'rss-pro',
+		'calendar-tools',
+		'ready-set-shows',
 ];
-?>
+
+$items = array_values(array_filter($items, static function (array $it) use ($toolSynonymSlugs): bool {
+	$slug = strtolower(trim((string)($it['slug'] ?? '')));
+	return !in_array($slug, $toolSynonymSlugs, true);
+}));
+	
+	$toolsBadge = rss_tools_access_badge($pdo);
+	$toolsState = $toolsBadge['state'];
+	$toolsActions = [
+			'launch_url'  => rss_tool_launch_url(),
+			'pricing_url' => rss_tool_upgrade_url(),
+			'trial_url'   => rss_tool_trial_url(),
+	];
+	?>
 <!doctype html>
 <html lang="en">
 <head>
@@ -113,6 +128,12 @@ $toolsActions = [
       </div>
     <?php else: ?>
       <?php foreach ($items as $it): ?>
+        <?php
+          $actionHtml = '';
+          if (($it['kind'] ?? '') === 'digital') {
+              $actionHtml = '<a class="btn btn-primary" href="' . e(rss_studio_root_url() . '/member/download.php') . '?product_id=' . (int)$it['id'] . '">Download</a>';
+          }
+        ?>
         <div class="card" style="padding:1.15rem; display:flex; align-items:center; justify-content:space-between; gap:1rem; flex-wrap:wrap;">
           <div>
             <div style="font-weight:600;"><?= e($it['name']) ?></div>
@@ -132,10 +153,8 @@ $toolsActions = [
             </div>
           </div>
 
-          <?php if (($it['kind'] ?? '') === 'digital'): ?>
-            <a class="btn btn-primary" href="<?= e(rss_studio_root_url() . '/member/download.php') ?>?product_id=<?= (int)$it['id'] ?>">Download</a>
-          <?php else: ?>
-            <a class="btn btn-outline" href="#">View</a>
+          <?php if ($actionHtml !== ''): ?>
+            <?= $actionHtml ?>
           <?php endif; ?>
         </div>
       <?php endforeach; ?>

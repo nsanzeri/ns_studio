@@ -46,15 +46,23 @@ $launchUrl = rss_tool_launch_url();
   </style>
 </head>
 <body>
-<?php include __DIR__ . '/../../includes/header.php'; ?>
+<?php include __DIR__ . '/../../includes/tools_header_lite.php'; ?>
 
 <main class="pricing-shell">
   <div class="container">
-    <section class="pricing-hero">
-      <p class="eyebrow">Ready Set Shows</p>
-      <h1 style="margin-bottom:.6rem;">Calendar Tools Access</h1>
-      <p class="muted" style="max-width:58ch;margin:0 auto;">Every logged-in user gets the free version. Start a 30-day trial when you want the full Pro workflow, then upgrade when it proves itself.</p>
-      <div style="margin-top:1rem; display:flex; justify-content:center; gap:.7rem; flex-wrap:wrap;">
+<section class="pricing-hero">
+  <p class="eyebrow">Ready Set Shows</p>
+  <h1 style="margin-bottom:.4rem;">The System I Use to Manage 100+ Gigs a Year</h1>
+  
+  <p style="font-size:.95rem; color:rgba(255,255,255,.6); margin-bottom:.8rem;">
+    by Nick Sanzeri — Live Musician (140+ gigs/year)
+  </p>
+
+  <p class="muted" style="max-width: 58ch; margin: 0 auto;">
+    Stop double-booking, send availability in seconds, and stay consistent on Bandsintown without extra work.
+    This is the exact system I use to keep everything organized and running smoothly.
+  </p>
+				<div style="margin-top:1rem; display:flex; justify-content:center; gap:.7rem; flex-wrap:wrap;">
         <span class="state-pill">Current status: <?= e($access['label']) ?></span>
         <?php if ($user): ?>
           <a class="btn btn-outline" href="<?= e($libraryUrl) ?>">Go to Library</a>
@@ -63,6 +71,13 @@ $launchUrl = rss_tool_launch_url();
         <?php endif; ?>
       </div>
     </section>
+    <p class="muted" style="margin-top:1rem;">
+Used by working musicians to:
+<br>
+• Combine multiple calendars into one clear view<br>  
+• Send availability in seconds  <br>
+• Keep Bands In Town and clients in sync<br>  
+</p>
 
     <?php if ($flash): ?>
       <div class="pricing-alert"><?= e($flash) ?></div>
@@ -75,12 +90,12 @@ $launchUrl = rss_tool_launch_url();
           <div class="price">$0</div>
           <div class="price-unit">forever</div>
         </div>
-        <p class="muted">Good for getting inside the tool and proving the concept before you pay.</p>
-        <ul>
-          <li>Visible in every logged-in user's library</li>
-          <li>Open the Calendar Tools right away</li>
-          <li>Free limits stay in place until you trial or upgrade</li>
-        </ul>
+        <p class="muted">Perfect if you're just getting started or want to test how the tools fit into your workflow.</p>
+		<ul>
+		  <li>Check availability across your calendar</li>
+		  <li>Preview your schedule in a clean, readable format</li>
+		  <li>Get a feel for how the system works before upgrading</li>
+		</ul>
         <?php if (!$user): ?>
           <a class="btn btn-primary" href="<?= e($registerUrl) ?>">Create Free Account</a>
         <?php else: ?>
@@ -94,12 +109,13 @@ $launchUrl = rss_tool_launch_url();
           <div class="price">$0</div>
           <div class="price-unit">for 30 days</div>
         </div>
-        <p class="muted">This is the bridge between free and paid. Let people feel the full Pro experience before asking them to commit.</p>
-        <ul>
-          <li>Unlock the Pro version for 30 days</li>
-          <li>Perfect for free users who are actually engaged</li>
-          <li>Shows up as <strong>Trial active</strong> in the library</li>
-        </ul>
+        <p class="muted">Unlock everything and see how much time you actually save when the limits are gone.</p>
+<ul>
+  <li>Unlimited calendars — see your full schedule in one place</li>
+  <li>Export clean availability for email, text, or print</li>
+  <li>Bands In Town-ready CSV for quick uploads</li>
+  <li>Run real gigs through the system with no limits</li>
+</ul>
         <?php if (!$user): ?>
           <a class="btn btn-primary" href="<?= e($loginUrl) ?>">Log In to Start Trial</a>
         <?php elseif ($access['state'] === 'trial'): ?>
@@ -109,7 +125,7 @@ $launchUrl = rss_tool_launch_url();
         <?php else: ?>
           <a class="btn btn-primary" href="<?= e($trialUrl) ?>">Start Free Trial</a>
         <?php endif; ?>
-        <div class="small-pricing-note">This endpoint grants a temporary manual entitlement, so it works even before your subscription automation is fully finished.</div>
+        <div class="small-pricing-note">No risk — if it doesn’t make your life easier, don’t keep it.</div>
       </article>
 
       <article class="pricing-card">
@@ -118,12 +134,13 @@ $launchUrl = rss_tool_launch_url();
           <div class="price">$5</div>
           <div class="price-unit">/ month</div>
         </div>
-        <p class="muted">For musicians using the tool regularly enough that the limits are costing them time.</p>
-        <ul>
-          <li>Full Pro workflow</li>
-          <li>The paid state shows as <strong>Pro active</strong> in the library</li>
-          <li>Use trial first, then send serious users here</li>
-        </ul>
+        <p class="muted">For working musicians who are booking regularly and don’t want to waste time juggling calendars, emails, and availability.</p>
+<ul>
+  <li>Unlimited calendars — no more juggling sources</li>
+  <li>Instant availability output for email, text, or printed sheets</li>
+  <li>Bands In Town CSV export to stay consistent everywhere</li>
+  <li>Respond to booking requests faster and more professionally</li>
+</ul>
         <?php if (!$user): ?>
           <a class="btn btn-primary" href="<?= e($loginUrl) ?>">Log In First</a>
         <?php elseif ($access['state'] === 'paid'): ?>
@@ -131,12 +148,12 @@ $launchUrl = rss_tool_launch_url();
         <?php else: ?>
           <a class="btn btn-primary" href="#" onclick="alert('Wire this button to your Pro checkout flow once your Stripe price is live.'); return false;">Upgrade to Pro</a>
         <?php endif; ?>
-        <div class="small-pricing-note">This page is ready for the three states now: free, trial, and paid.</div>
+        <div class="small-pricing-note">If you're playing regularly, this pays for itself quickly.</div>
       </article>
     </section>
   </div>
 </main>
 
-<?php include __DIR__ . '/../../includes/footer.php'; ?>
+<?php include __DIR__ . '/../../includes/tools_footer_lite.php'; ?>
 </body>
 </html>

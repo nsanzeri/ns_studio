@@ -45,7 +45,7 @@ $toolsActions = [
   <title>My Library • Nick Sanzeri Studio</title>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;700&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <link rel="stylesheet" href="<?= e(rss_public_root_url() . '/assets/css/style.css') ?>">
+  <link rel="stylesheet" href="<?= e(base_url('../assets/css/style.css')) ?>">
 </head>
 <body>
 <?php include __DIR__ . '/../../includes/header.php'; ?>

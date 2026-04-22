@@ -13,7 +13,7 @@ $toolsAccess = $user ? rss_tools_access_badge($pdo) : ['state' => 'free', 'label
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Shop | Nick Sanzeri</title>
-  <link rel="stylesheet" href="<?= e(rss_public_root_url() . '/assets/css/style.css') ?>">
+  <link rel="stylesheet" href="<?= e(base_url('../assets/css/style.css')) ?>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;700&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
@@ -57,6 +57,15 @@ $toolsAccess = $user ? rss_tools_access_badge($pdo) : ['state' => 'free', 'label
               <?php endif; ?>
             </div>
           </div>
+<div class="product-art">
+            <a class="product-image-link" href="<?= e(rss_studio_root_url() . '/tools/index.php') ?>">
+              <img
+                class="product-image"
+                src="<?= e(base_url('../assets/img/rss-tools.png')) ?>"
+                alt="Ready Set Shows Calendar Tools"
+              >
+            </a>
+          </div>
         </article>
 
         <article class="product-row">
@@ -77,16 +86,16 @@ $toolsAccess = $user ? rss_tools_access_badge($pdo) : ['state' => 'free', 'label
 
             <a class="btn btn-primary" href="<?= e(rss_studio_root_url() . '/shop/blueprint.php') ?>">View Product</a>
           </div>
-
-          <div class="product-art">
+                         <div class="product-art">
             <a class="product-image-link" href="<?= e(rss_studio_root_url() . '/shop/blueprint.php') ?>">
               <img
                 class="product-image"
-                src="<?= e(rss_public_root_url() . '/assets/img/BackingTrackBlueprint.png') ?>"
+                src="<?= e(base_url('../assets/img/BackingTrackBlueprint.png')) ?>"
                 alt="Backing Track Blueprint cover"
               >
             </a>
           </div>
+          
         </article>
       </div>
     </div>

@@ -1,16 +1,23 @@
 <?php
-$currentPath = str_replace('\\', '/', $_SERVER['PHP_SELF'] ?? '');
-$isLocal = str_contains($currentPath, '/ns_studio/');
-$siteBase   = $isLocal ? '/ns_studio' : '';
-$studioBase = $siteBase . '/studio';
+$user = isset($pdo) && class_exists('Auth') ? Auth::currentUser($pdo) : null;
+
+$libraryUrl = $user
+? base_url('member/library.php')
+: base_url('member/login.php');
+
+$homeUrl = base_url('index.php');
 ?>
 
 <footer class="site-footer tools-site-footer">
     <div class="container footer-inner tools-footer-inner">
         <div class="footer-left">
             <ul class="tools-footer-links">
-                <li><a href="<?= htmlspecialchars($studioBase . '/member/library.php') ?>">Library</a></li>
-                <li><a href="<?= htmlspecialchars($siteBase . '/index.php') ?>">Main Site</a></li>
+                <li>
+                    <a href="<?= htmlspecialchars($libraryUrl, ENT_QUOTES, 'UTF-8') ?>">
+                        <?= $user ? 'Library' : 'Log In' ?>
+                    </a>
+                </li>
+                <li><a href="<?= htmlspecialchars($homeUrl, ENT_QUOTES, 'UTF-8') ?>">Main Site</a></li>
             </ul>
             <p>© <span id="year"></span> Ready Set Shows</p>
             <p class="footer-location">Built by Nick Sanzeri</p>
@@ -27,41 +34,6 @@ document.addEventListener('DOMContentLoaded', function () {
     const yearEl = document.getElementById('year');
     if (yearEl) {
         yearEl.textContent = new Date().getFullYear();
-    }
-
-    const navToggle = document.getElementById('toolsNavToggle');
-    const mobileNav = document.getElementById('toolsMobileNav');
-
-    if (navToggle && mobileNav) {
-        navToggle.addEventListener('click', function () {
-            const willOpen = mobileNav.hasAttribute('hidden');
-            if (willOpen) {
-                mobileNav.removeAttribute('hidden');
-            } else {
-                mobileNav.setAttribute('hidden', '');
-            }
-            navToggle.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
-            navToggle.classList.toggle('is-active', willOpen);
-        });
-
-        mobileNav.querySelectorAll('a').forEach(function (link) {
-            link.addEventListener('click', function () {
-                mobileNav.setAttribute('hidden', '');
-                navToggle.setAttribute('aria-expanded', 'false');
-                navToggle.classList.remove('is-active');
-            });
-        });
-
-        document.addEventListener('click', function (event) {
-            const clickedInsideNav = mobileNav.contains(event.target);
-            const clickedToggle = navToggle.contains(event.target);
-
-            if (!clickedInsideNav && !clickedToggle && !mobileNav.hasAttribute('hidden')) {
-                mobileNav.setAttribute('hidden', '');
-                navToggle.setAttribute('aria-expanded', 'false');
-                navToggle.classList.remove('is-active');
-            }
-        });
     }
 
     const backToTop = document.getElementById('backToTop');

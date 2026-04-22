@@ -15,16 +15,38 @@ SELECT
     p.name,
     p.kind,
     p.file_path,
-    e.source,
-    e.expires_at,
-    e.created_at AS granted_at
-FROM entitlements e
-JOIN products p
-    ON p.id = e.product_id
-WHERE e.user_id = ?
-  AND e.status = 'active'
-  AND (e.expires_at IS NULL OR e.expires_at > NOW())
-ORDER BY e.created_at DESC, p.name ASC;
+    e_best.source,
+    e_best.expires_at,
+    e_best.created_at AS granted_at
+FROM products p
+JOIN (
+    SELECT
+        e1.user_id,
+        e1.product_id,
+        e1.source,
+        e1.expires_at,
+        e1.created_at,
+        e1.id
+    FROM entitlements e1
+    JOIN (
+        SELECT
+            user_id,
+            product_id,
+            MAX(created_at) AS max_created_at,
+            MAX(id) AS max_id
+        FROM entitlements
+        WHERE user_id = ?
+          AND status = 'active'
+          AND (expires_at IS NULL OR expires_at > NOW())
+        GROUP BY user_id, product_id
+    ) latest
+      ON latest.user_id = e1.user_id
+     AND latest.product_id = e1.product_id
+     AND latest.max_created_at = e1.created_at
+     AND latest.max_id = e1.id
+) e_best
+    ON p.id = e_best.product_id
+ORDER BY e_best.created_at DESC, p.name ASC;
 ");
 $stmt->execute([$userId]);
 $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -32,9 +54,9 @@ $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
 $toolsBadge = rss_tools_access_badge($pdo);
 $toolsState = $toolsBadge['state'];
 $toolsActions = [
-    'launch_url'  => rss_tool_launch_url(),
-    'pricing_url' => rss_tool_upgrade_url(),
-    'trial_url'   => rss_tool_trial_url(),
+		'launch_url'  => rss_tool_launch_url(),
+		'pricing_url' => rss_tool_upgrade_url(),
+		'trial_url'   => rss_tool_trial_url(),
 ];
 ?>
 <!doctype html>

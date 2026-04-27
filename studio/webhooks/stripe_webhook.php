@@ -457,7 +457,8 @@ if (!function_exists('handle_paid_product_checkout')) {
             "Download your guide: {$downloadUrl}\n" .
             "View your success page: {$successUrl}\n\n" .
             "A couple notes:\n" .
-            "- Your download link expires and has limited uses.\n" .
+            "- Your download link is temporary and has limited uses.\n" .
+            "- For permanent access, create a free login with this same email and open My Products.\n" .
             "- If anything gives you trouble, just reply to this email.\n\n" .
             "Thanks again,\n" .
             "Nick Sanzeri\n";
@@ -485,7 +486,7 @@ if (!function_exists('handle_paid_product_checkout')) {
         <a href="' . htmlspecialchars($successUrl, ENT_QUOTES, 'UTF-8') . '" style="color:#7a5a16; text-decoration:underline;">View your success page</a>
       </p>
       <p style="margin:0 0 8px; font-size:14px; line-height:1.6; color:#5f5648;"><strong>A couple notes:</strong></p>
-      <p style="margin:0 0 8px; font-size:14px; line-height:1.6; color:#5f5648;">• Your download link expires and has limited uses.<br>• If anything gives you trouble, just reply to this email.</p>
+      <p style="margin:0 0 8px; font-size:14px; line-height:1.6; color:#5f5648;">• Your download link is temporary and has limited uses.<br>• For permanent access, create a free login with this same email and open My Products.<br>• If anything gives you trouble, just reply to this email.</p>
       <p style="margin:24px 0 0; font-size:16px; line-height:1.6;">Thanks again,<br>Nick Sanzeri</p>
     </div>
   </div>

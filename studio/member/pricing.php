@@ -150,7 +150,7 @@ if (isset($_GET['upgraded'])) {
       <div style="margin-top:1rem; display:flex; justify-content:center; gap:.7rem; flex-wrap:wrap;">
         <span class="state-pill">Current status: <?= e($access['label']) ?></span>
         <?php if ($user): ?>
-          <a class="btn btn-outline" href="<?= e($libraryUrl) ?>">Go to Library</a>
+          <a class="btn btn-outline" href="<?= e($libraryUrl) ?>">Go to My Products</a>
         <?php else: ?>
           <a class="btn btn-outline" href="<?= e($loginUrl) ?>">Log In</a>
         <?php endif; ?>

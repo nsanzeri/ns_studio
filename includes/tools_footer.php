@@ -10,7 +10,7 @@ $studioBase = $siteBase . '/studio';
         <div class="footer-left">
             <ul class="tools-footer-links">
                 <li><a href="<?= htmlspecialchars($studioBase . '/tools/index.php') ?>">Availability</a></li>
-                <li><a href="<?= htmlspecialchars($studioBase . '/member/library.php') ?>">Library</a></li>
+                <li><a href="<?= htmlspecialchars($studioBase . '/member/library.php') ?>">My Products</a></li>
                 <li><a href="<?= htmlspecialchars($siteBase . '/contact.php') ?>">Support</a></li>
                 <li><a href="<?= htmlspecialchars($siteBase . '/index.php') ?>">Main Site</a></li>
             </ul>

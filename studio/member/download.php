@@ -47,7 +47,7 @@ $user = Auth::currentUser($pdo);
 
 $token = bin2hex(random_bytes(32));
 $expiresAt = (new DateTimeImmutable('now'))
-->add(new DateInterval('PT60M'))
+->add(new DateInterval('P3D'))
 ->format('Y-m-d H:i:s');
 
 $stmt = $pdo->prepare("
@@ -75,7 +75,7 @@ $stmt->execute([
 ]);
 
 $studioRoot = rtrim(dirname(dirname($_SERVER['SCRIPT_NAME'] ?? '')), '/');
-$url = $studioRoot . '/download.php?t=' . urlencode($token);
+	$url = $studioRoot . '/download.php?t=' . urlencode($token) . '&download=1';
 
 $downloadSecret = env('DOWNLOAD_SECRET');
 if ($downloadSecret) {

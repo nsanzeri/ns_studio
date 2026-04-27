@@ -301,22 +301,25 @@ try {
 				</p>
 
 				<p>
-					This is the real-world approach behind making tracks support the show instead of fighting it.
+					<strong>You also get permanent access in My Products.</strong> Create a free login with the same email you used at checkout, and your purchase will be available there anytime.
 				</p>
 
 				<p>
-					Best move: download it now, read through it once, and pull out one or two ideas you can use immediately.
+					Best move: download your PDF now, save it to your device, and create your login so you can always get back to it later.
 				</p>
 			</div>
 
-			<p style="margin:30px 0 0;">
-				<a class="btn" href="<?= htmlspecialchars($downloadUrl) ?>" download>
-					Download Your Guide
+			<p style="margin:30px 0 0; display:flex; gap:12px; justify-content:center; flex-wrap:wrap;">
+				<a class="btn" href="<?= htmlspecialchars($downloadUrl) ?>">
+					Continue to Download
+				</a>
+				<a class="btn" style="background:#fff; color:#1c2230; border:1px solid rgba(0,0,0,.18); box-shadow:none;" href="<?= htmlspecialchars(base_url('member/register.php') . (!empty($email) ? '?email=' . urlencode((string)$email) : '')) ?>">
+					Create Free Login
 				</a>
 			</p>
 
 			<p class="note">
-				This link expires and has limited uses to protect the product.
+				The download link is temporary and has limited uses. Your login gives you ongoing access through My Products.
 				If anything goes sideways, reply to your receipt email.
 			</p>
 		</div>

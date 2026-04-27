@@ -79,7 +79,7 @@ $items = array_values(array_filter($items, static function (array $it) use ($too
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>My Library • Nick Sanzeri Studio</title>
+  <title>My Products • Nick Sanzeri Studio</title>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;700&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="<?= e(base_url('../assets/css/style.css')) ?>">
@@ -89,7 +89,7 @@ $items = array_values(array_filter($items, static function (array $it) use ($too
 <main class="container" style="padding:3rem 0;">
   <div style="display:flex; align-items:baseline; justify-content:space-between; gap:1rem; flex-wrap:wrap;">
     <div>
-      <h1 style="margin:0;">My Library</h1>
+      <h1 style="margin:0;">My Products</h1>
       <p class="muted" style="margin:.4rem 0 0;">Signed in as <?= e($user['email'] ?? '') ?></p>
     </div>
   </div>
@@ -122,7 +122,7 @@ $items = array_values(array_filter($items, static function (array $it) use ($too
 
     <?php if (!$items): ?>
       <div class="card" style="padding:1.25rem;">
-        <p style="margin:0 0 0.75rem;">No purchased products are in your library yet.</p>
+        <p style="margin:0 0 0.75rem;">No purchased products are in My Products yet.</p>
         <p class="muted" style="margin:0 0 1rem;">Your free Calendar Tools access is already live above. When you buy something in the shop, it will appear here automatically.</p>
         <a class="btn btn-primary" href="<?= e(rss_studio_root_url() . '/shop/') ?>">Browse the Shop</a>
       </div>

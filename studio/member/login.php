@@ -48,7 +48,7 @@ if (is_post()) {
 <?php include __DIR__ . '/../../includes/header.php'; ?>
 <main class="container" style="padding:3rem 0; max-width:720px;">
   <h1>Log in</h1>
-  <p class="muted">Access your library, re-download past purchases, and manage your account.</p>
+  <p class="muted">Access My Products, re-download past purchases, and manage your account.</p>
 
   <?php if ($msg = flash_get('success')): ?>
     <div class="alert" style="margin:1rem 0;"><?= e($msg) ?></div>

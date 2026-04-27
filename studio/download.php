@@ -11,6 +11,80 @@ function ip_to_bin(?string $ip): ?string {
 	return $bin === false ? null : $bin;
 }
 
+
+function download_page_h(string $value): string {
+	return htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
+}
+
+function render_download_landing(array $row, string $downloadName, string $token, ?string $sig): void {
+	$productTitle = trim((string)($row['product_key'] ?? '')) === 'btb' ? 'Backing Track Blueprint' : 'your product';
+	$email = trim((string)($row['purchaser_email'] ?? ''));
+	$query = ['t' => $token, 'download' => '1'];
+	if ($sig) { $query['s'] = $sig; }
+	$downloadUrl = base_url('download.php') . '?' . http_build_query($query);
+	$registerUrl = base_url('member/register.php') . ($email !== '' ? '?email=' . urlencode($email) : '');
+	$loginUrl = base_url('member/login.php');
+	$productsUrl = base_url('member/library.php');
+	?>
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Download <?= download_page_h($productTitle) ?></title>
+	<style>
+		:root{--bg:#020611;--panel:#fffdf8;--text:#171717;--muted:#5e6472;--gold1:#e8c65c;--gold2:#c99b2d;--goldText:#1c1505;}
+		*{box-sizing:border-box} body{margin:0;min-height:100vh;font-family:Arial,Helvetica,sans-serif;background:radial-gradient(circle at top,#061327 0%,var(--bg) 55%);color:var(--text);} .wrap{max-width:860px;margin:0 auto;padding:56px 20px}.card{background:var(--panel);border:1px solid rgba(184,141,43,.28);border-radius:24px;padding:42px 30px;box-shadow:0 18px 50px rgba(0,0,0,.28)} h1{margin:0 0 14px;font-size:clamp(32px,5vw,48px);line-height:1.08}.lead{font-size:20px;line-height:1.55;color:#242424;margin:0 0 22px}.callout{background:#fff2c8;border:1px solid rgba(184,141,43,.35);border-radius:18px;padding:18px;margin:22px 0;color:#332508}.muted{color:var(--muted);line-height:1.65}.actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:26px}.btn{display:inline-block;padding:14px 22px;border-radius:999px;text-decoration:none;font-weight:800;letter-spacing:.08em;text-transform:uppercase}.btn-primary{background:linear-gradient(180deg,var(--gold1),var(--gold2));color:var(--goldText)}.btn-outline{border:1px solid rgba(0,0,0,.22);color:#1c2230;background:#fff}.small{font-size:14px;margin-top:20px}@media(max-width:640px){.card{padding:30px 20px}.btn{width:100%;text-align:center}}
+	</style>
+</head>
+<body>
+	<div class="wrap"><div class="card">
+		<h1>Your download is ready.</h1>
+		<p class="lead">This is a temporary download link for <strong><?= download_page_h($productTitle) ?></strong>. Click below to download the PDF, then save it to your device.</p>
+		<div class="callout"><strong>Want permanent access?</strong><br>Create a free login using the same email you used at checkout. Your purchase will appear in <strong>My Products</strong>, where you can access it again anytime.</div>
+		<div class="actions">
+			<a class="btn btn-primary" href="<?= download_page_h($downloadUrl) ?>">Download PDF</a>
+			<a class="btn btn-outline" href="<?= download_page_h($registerUrl) ?>">Create Free Login</a>
+			<a class="btn btn-outline" href="<?= download_page_h($loginUrl) ?>">Log In</a>
+		</div>
+		<p class="muted small">Already logged in? Go to <a href="<?= download_page_h($productsUrl) ?>">My Products</a> to access your purchases and tools.</p>
+	</div></div>
+</body>
+</html>
+	<?php
+}
+
+function logged_in_user_has_download_access(PDO $pdo, array $row): bool {
+	if (!class_exists('Auth') || !Auth::isLoggedIn()) {
+		return false;
+	}
+
+	$userId = (int)(Auth::userId() ?? 0);
+	if ($userId <= 0) {
+		return false;
+	}
+
+	$productId = (int)($row['product_id'] ?? 0);
+	$productKey = trim((string)($row['product_key'] ?? ''));
+
+	if ($productId > 0) {
+		$stmt = $pdo->prepare("\n\t\t\tSELECT 1\n\t\t\tFROM entitlements e\n\t\t\tWHERE e.user_id = ?\n\t\t\t  AND e.product_id = ?\n\t\t\t  AND e.status = 'active'\n\t\t\t  AND (e.expires_at IS NULL OR e.expires_at > NOW())\n\t\t\tLIMIT 1\n\t\t");
+		$stmt->execute([$userId, $productId]);
+		if ($stmt->fetchColumn()) {
+			return true;
+		}
+	}
+
+	if ($productKey !== '') {
+		$stmt = $pdo->prepare("\n\t\t\tSELECT 1\n\t\t\tFROM entitlements e\n\t\t\tJOIN products p ON p.id = e.product_id\n\t\t\tWHERE e.user_id = ?\n\t\t\t  AND p.slug = ?\n\t\t\t  AND e.status = 'active'\n\t\t\t  AND (e.expires_at IS NULL OR e.expires_at > NOW())\n\t\t\tLIMIT 1\n\t\t");
+		$stmt->execute([$userId, $productKey]);
+		return (bool)$stmt->fetchColumn();
+	}
+
+	return false;
+}
+
+
 function log_download(PDO $pdo, array $data): void {
 	$stmt = $pdo->prepare("
         INSERT INTO download_log
@@ -241,6 +315,18 @@ try {
 	}
 	
 	$downloadName = basename($filePath);
+
+	// Show the human-friendly download page only for initial purchase/email links.
+	// Logged-in members who already own the product should get the file immediately.
+	$isExplicitDownload = (($_GET['download'] ?? '') === '1');
+	$isMemberGeneratedToken = str_starts_with((string)($row['checkout_session_id'] ?? ''), 'member-');
+	$isLoggedInOwner = logged_in_user_has_download_access($pdo, $row);
+
+	if (!$isExplicitDownload && !$isMemberGeneratedToken && !$isLoggedInOwner) {
+		$pdo->commit();
+		render_download_landing($row, $downloadName, $token, $_GET['s'] ?? null);
+		exit;
+	}
 	
 	// -----------------------------
 	// "Signed streaming" / direct-access prevention:

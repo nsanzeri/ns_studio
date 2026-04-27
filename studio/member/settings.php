@@ -93,7 +93,7 @@ if (is_post()) {
 
   <section class="card" style="padding:1.5rem; margin:1.5rem 0; border-color:#c77;">
     <h3 class="form-title">Delete Account</h3>
-    <p class="muted">This removes your login. If you register again later with the same purchase email, your library can be rebuilt from past purchases.</p>
+    <p class="muted">This removes your login. If you register again later with the same purchase email, My Products can be rebuilt from past purchases.</p>
     <form  class="form" method="post">
       <input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>">
       <input type="hidden" name="action" value="delete">

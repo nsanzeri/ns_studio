@@ -41,7 +41,7 @@ $toolsAccess = $user ? rss_tools_access_badge($pdo) : ['state' => 'free', 'label
             </h2>
 
             <p class="product-description">
-              Free, trial, and Pro access for the Ready Set Shows calendar workflow. Every logged-in user gets the free version in the library.
+              Free, trial, and Pro access for the Ready Set Shows calendar workflow. Every logged-in user gets the free version in My Products.
             </p>
 
             <p class="muted" style="margin-top:.8rem;">Current tools state: <?= e($toolsAccess['label']) ?></p>
@@ -81,7 +81,7 @@ $toolsAccess = $user ? rss_tools_access_badge($pdo) : ['state' => 'free', 'label
             </p>
 
             <?php if (Auth::isLoggedIn()): ?>
-              <p class="muted" style="margin-top:.8rem;">Already have an account? Your purchases will appear in your library.</p>
+              <p class="muted" style="margin-top:.8rem;">Already have an account? Your purchases will appear in My Products.</p>
             <?php endif; ?>
 
             <a class="btn btn-primary" href="<?= e(rss_studio_root_url() . '/shop/blueprint.php') ?>">View Product</a>

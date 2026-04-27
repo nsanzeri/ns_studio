@@ -42,7 +42,7 @@ if (!function_exists('product_file_map')) {
             'btb' => [
                 'file_path'        => $root . '/private_downloads/backing-track-blueprint.pdf',
                 'download_name'    => 'backing-track-blueprint.pdf',
-                'expires_minutes'  => 60,
+                'expires_minutes'  => 4320,
                 'uses'             => 3,
                 'price_id'         => stripe_price_for_mode('STRIPE_PRICE_BTB'),
                 'title'            => 'Backing Track Blueprint',

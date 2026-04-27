@@ -21,7 +21,7 @@ $esc = function (string $value): string {
   <div class="container" style="display:flex; gap:1rem; flex-wrap:wrap; padding:0.9rem 0 0;">
     <a class="text-link" href="<?= $esc($studioBase . '/shop/') ?>">Shop</a>
     <?php if (class_exists('Auth') && Auth::isLoggedIn()): ?>
-      <a class="text-link" href="<?= $esc($studioBase . '/member/library.php') ?>">Library</a>
+      <a class="text-link" href="<?= $esc($studioBase . '/member/library.php') ?>">My Products</a>
       <a class="text-link" href="<?= $esc($studioBase . '/member/settings.php') ?>">Settings</a>
       <a class="text-link" href="<?= $esc($studioBase . '/member/logout.php') ?>">Log out</a>
     <?php else: ?>

@@ -37,7 +37,7 @@ if (!function_exists('nav_active')) {
         <nav class="setmaxx-desktop-nav" aria-label="Set Maxx navigation">
             <ul>
                 <li><a href="<?= htmlspecialchars($studioBase . '/setmaxx/index.php') ?>" class="<?= nav_active($currentPage === 'index.php' && str_contains($currentPath, '/setmaxx/')) ?>">Dashboard</a></li>
-                <li><a href="<?= htmlspecialchars($studioBase . '/member/library.php') ?>" class="<?= nav_active($currentPage === 'library.php') ?>">Library</a></li>
+                <li><a href="<?= htmlspecialchars($studioBase . '/member/library.php') ?>" class="<?= nav_active($currentPage === 'library.php') ?>">My Products</a></li>
                 <li><a href="<?= htmlspecialchars($studioBase . '/tools/index.php') ?>">Calendar Tools</a></li>
             </ul>
         </nav>
@@ -46,7 +46,7 @@ if (!function_exists('nav_active')) {
     <nav class="setmaxx-mobile-nav" id="setmaxxMobileNav" aria-label="Mobile Set Maxx navigation" hidden>
         <div class="setmaxx-mobile-nav-inner">
             <a href="<?= htmlspecialchars($studioBase . '/setmaxx/index.php') ?>" class="<?= nav_active($currentPage === 'index.php' && str_contains($currentPath, '/setmaxx/')) ?>">Dashboard</a>
-            <a href="<?= htmlspecialchars($studioBase . '/member/library.php') ?>" class="<?= nav_active($currentPage === 'library.php') ?>">Library</a>
+            <a href="<?= htmlspecialchars($studioBase . '/member/library.php') ?>" class="<?= nav_active($currentPage === 'library.php') ?>">My Products</a>
             <a href="<?= htmlspecialchars($studioBase . '/tools/index.php') ?>">Calendar Tools</a>
             <div class="setmaxx-mobile-extra">
                 <a href="<?= htmlspecialchars($siteBase . '/index.php') ?>">← Back to Main Site</a>

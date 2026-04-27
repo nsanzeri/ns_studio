@@ -14,7 +14,7 @@ $homeUrl = base_url('index.php');
             <ul class="tools-footer-links">
                 <li>
                     <a href="<?= htmlspecialchars($libraryUrl, ENT_QUOTES, 'UTF-8') ?>">
-                        <?= $user ? 'Library' : 'Log In' ?>
+                        <?= $user ? 'My Products' : 'Log In' ?>
                     </a>
                 </li>
                 <li><a href="<?= htmlspecialchars($homeUrl, ENT_QUOTES, 'UTF-8') ?>">Main Site</a></li>

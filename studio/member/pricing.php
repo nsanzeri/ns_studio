@@ -1,86 +1,99 @@
 <?php
+
+declare(strict_types=1);
+
 require_once __DIR__ . '/../_private/_core/bootstrap.php';
 require_once __DIR__ . '/../_private/_core/tool_access.php';
+require_once __DIR__ . '/../_private/config/stripe.php';
 
 $loginUrl = base_url('member/login.php');
 $registerUrl = base_url('member/register.php');
 $pricingUrl = base_url('member/pricing.php');
 $libraryUrl = rss_tool_library_url();
 $launchUrl = rss_tool_launch_url();
+$checkoutUrl = base_url('api/create_checkout_session.php');
+$planKey = 'rss-pro';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && (($_POST['action'] ?? '') === 'start_trial')) {
-	Auth::requireLogin($pricingUrl);
-	
-	$user = Auth::currentUser($pdo);
-	$userId = (int) ($user['id'] ?? 0);
-	
-	if ($userId <= 0) {
-		redirect($loginUrl);
-	}
-	
-	$state = rss_current_tools_access_state($pdo);
-	
-	if ($state === 'paid') {
-		flash_set('pricing_notice', 'Pro is already active on your account.');
-		redirect($pricingUrl);
-	}
-	
-	if ($state === 'trial') {
-		flash_set('pricing_notice', 'Your free trial is already active.');
-		redirect($pricingUrl);
-	}
-	
-	if (!rss_table_exists($pdo, 'entitlements') || !rss_table_exists($pdo, 'products')) {
-		flash_set('pricing_notice', 'The trial could not be started because the tools product has not been set up yet.');
-		redirect($pricingUrl);
-	}
-	
-	$productStmt = $pdo->prepare(
-			'SELECT id, slug, name
+    Auth::requireLogin($pricingUrl);
+
+    $user = Auth::currentUser($pdo);
+    $userId = (int) ($user['id'] ?? 0);
+
+    if ($userId <= 0) {
+        redirect($loginUrl);
+    }
+
+    $state = rss_current_tools_access_state($pdo);
+
+    if ($state === 'paid') {
+        flash_set('pricing_notice', 'Pro is already active on your account.');
+        redirect($pricingUrl);
+    }
+
+    if ($state === 'trial') {
+        flash_set('pricing_notice', 'Your free trial is already active. You can upgrade to the monthly plan anytime.');
+        redirect($pricingUrl);
+    }
+
+    if (!rss_table_exists($pdo, 'entitlements') || !rss_table_exists($pdo, 'products')) {
+        flash_set('pricing_notice', 'The trial could not be started because the tools product has not been set up yet.');
+        redirect($pricingUrl);
+    }
+
+    $slugs = rss_tools_product_slugs();
+    $productStmt = $pdo->prepare(
+        'SELECT id, slug, name
          FROM products
          WHERE slug IN (?, ?, ?, ?, ?)
          ORDER BY FIELD(slug, ?, ?, ?, ?, ?)
          LIMIT 1'
-			);
-	
-	$slugs = rss_tools_product_slugs();
-	$productStmt->execute(array_merge($slugs, $slugs));
-	$product = $productStmt->fetch(PDO::FETCH_ASSOC) ?: null;
-	
-	if (!$product) {
-		flash_set('pricing_notice', 'The trial could not be started because no Calendar Tools product was found in products.');
-		redirect($pricingUrl);
-	}
-	
-	$expiresAt = (new DateTimeImmutable('now'))->modify('+30 days')->format('Y-m-d H:i:s');
-	
-	$pdo->beginTransaction();
-	try {
-		$insert = $pdo->prepare("
-            INSERT INTO entitlements (user_id, product_id, source, status, expires_at)
-            VALUES (?, ?, 'manual_grant', 'active', ?)
-        ");
-		$insert->execute([$userId, (int) $product['id'], $expiresAt]);
-		$pdo->commit();
-	} catch (Throwable $e) {
-		if ($pdo->inTransaction()) {
-			$pdo->rollBack();
-		}
-		throw $e;
-	}
-	
-	flash_set('pricing_notice', 'Your 30-day Calendar Tools trial is active now.');
-	redirect($libraryUrl);
+    );
+    $productStmt->execute(array_merge($slugs, $slugs));
+    $product = $productStmt->fetch(PDO::FETCH_ASSOC) ?: null;
+
+    if (!$product) {
+        flash_set('pricing_notice', 'The trial could not be started because no Calendar Tools product was found in products.');
+        redirect($pricingUrl);
+    }
+
+    $expiresAt = (new DateTimeImmutable('now'))->modify('+30 days')->format('Y-m-d H:i:s');
+
+    $pdo->beginTransaction();
+    try {
+        $insert = $pdo->prepare(
+            "INSERT INTO entitlements (user_id, product_id, source, status, expires_at)
+             VALUES (?, ?, 'manual_grant', 'active', ?)"
+        );
+        $insert->execute([$userId, (int) $product['id'], $expiresAt]);
+        $pdo->commit();
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        throw $e;
+    }
+
+    flash_set('pricing_notice', 'Your 30-day Calendar Tools trial is active now.');
+    redirect($libraryUrl);
 }
 
 $user = Auth::currentUser($pdo);
 $access = $user ? rss_tools_access_badge($pdo) : [
-		'state' => 'free',
-		'label' => 'Free plan',
-		'description' => 'Create an account to use the free version.',
+    'state' => 'free',
+    'label' => 'Free plan',
+    'description' => 'Create an account to use the free version.',
 ];
 
+$planMeta = find_subscription_plan_meta($planKey);
+$checkoutEnabled = $user && $access['state'] !== 'paid' && !empty($planMeta['price_id']);
 $flash = flash_get('pricing_notice');
+
+if (isset($_GET['upgraded'])) {
+    $flash = 'Thanks — your checkout completed. Stripe is processing your subscription now.';
+} elseif (isset($_GET['canceled'])) {
+    $flash = 'No problem — your checkout was canceled. You can still use the free version or start your trial.';
+}
 ?>
 <!doctype html>
 <html lang="en">
@@ -107,9 +120,12 @@ $flash = flash_get('pricing_notice');
     .small-pricing-note{margin-top:.85rem;color:rgba(255,255,255,.62);font-size:.9rem;line-height:1.5;}
     .pricing-card .btn{margin-top:auto;text-align:center;}
     .pricing-alert{max-width:860px;margin:0 auto 1.25rem;border-radius:16px;padding:1rem 1.15rem;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);}
+    .pricing-error{max-width:860px;margin:0 auto 1.25rem;border-radius:16px;padding:1rem 1.15rem;border:1px solid rgba(255,120,120,.22);background:rgba(120,0,0,.15);color:#ffd2d2;display:none;}
     .state-pill{display:inline-flex;padding:.35rem .7rem;border-radius:999px;background:rgba(255,255,255,.08);font-size:.82rem;font-weight:600;}
     .trial-form{margin-top:auto;}
     .trial-form .btn{width:100%;border:none;cursor:pointer;}
+    .stack-actions{margin-top:auto;display:grid;gap:.75rem;}
+    .stack-actions .btn{width:100%;}
     @media (max-width:980px){.pricing-grid{grid-template-columns:1fr;}}
   </style>
 </head>
@@ -126,8 +142,8 @@ $flash = flash_get('pricing_notice');
         by Nick Sanzeri — Live Musician (140+ gigs/year)
       </p>
 
-      <p class="muted" style="max-width: 58ch; margin: 0 auto;">
-        Stop double-booking, send availability in seconds, and stay consistent on Bandsintown without extra work.
+      <p class="muted" style="max-width:58ch; margin:0 auto;">
+        Stop double-booking, send availability in seconds, and stay consistent on Bands In Town without extra work.
         This is the exact system I use to keep everything organized and running smoothly.
       </p>
 
@@ -142,16 +158,16 @@ $flash = flash_get('pricing_notice');
     </section>
 
     <p class="muted" style="margin-top:1rem;">
-      Used by working musicians to:
-      <br>
+      Used by working musicians to:<br>
       • Combine multiple calendars into one clear view<br>
       • Send availability in seconds<br>
-      • Keep Bandsintown and clients in sync<br>
+      • Keep Bands In Town and clients in sync
     </p>
 
     <?php if ($flash): ?>
       <div class="pricing-alert"><?= e($flash) ?></div>
     <?php endif; ?>
+    <div class="pricing-error" id="checkoutErr"></div>
 
     <section class="pricing-grid">
       <article class="pricing-card">
@@ -183,14 +199,16 @@ $flash = flash_get('pricing_notice');
         <ul>
           <li>Unlimited calendars — see your full schedule in one place</li>
           <li>Export clean availability for email, text, or print</li>
-          <li>Bandsintown-ready CSV for quick uploads</li>
+          <li>Bands In Town-ready CSV for quick uploads</li>
           <li>Run real gigs through the system with no limits</li>
         </ul>
 
         <?php if (!$user): ?>
           <a class="btn btn-primary" href="<?= e($loginUrl) ?>">Log In to Start Trial</a>
         <?php elseif ($access['state'] === 'trial'): ?>
-          <a class="btn btn-primary" href="<?= e($launchUrl) ?>">Trial Is Active</a>
+          <div class="stack-actions">
+            <a class="btn btn-primary" href="<?= e($launchUrl) ?>">Trial Is Active</a>
+          </div>
         <?php elseif ($access['state'] === 'paid'): ?>
           <a class="btn btn-primary" href="<?= e($launchUrl) ?>">Pro Already Active</a>
         <?php else: ?>
@@ -200,7 +218,7 @@ $flash = flash_get('pricing_notice');
           </form>
         <?php endif; ?>
 
-        <div class="small-pricing-note">No risk — if it doesn’t make your life easier, don’t keep it.</div>
+        <div class="small-pricing-note">No risk — if it doesn't make your life easier, don't keep it.</div>
       </article>
 
       <article class="pricing-card">
@@ -209,26 +227,99 @@ $flash = flash_get('pricing_notice');
           <div class="price">$5</div>
           <div class="price-unit">/ month</div>
         </div>
-        <p class="muted">For working musicians who are booking regularly and don’t want to waste time juggling calendars, emails, and availability.</p>
+        <p class="muted">For working musicians who are booking regularly and don't want to waste time juggling calendars, emails, and availability.</p>
         <ul>
-          <li>Unlimited calendars — no more juggling sources</li>
-          <li>Instant availability output for email, text, or printed sheets</li>
-          <li>Bandsintown CSV export to stay consistent everywhere</li>
-          <li>Respond to booking requests faster and more professionally</li>
+          <li>Unlimited calendars — no more juggling sources.  </li>
+          <li>Instant availability output for clear communication</li>
+          <li>Get list of shows for email, promo, book-keeping etc.</li>
+          <li>Bands In Town CSV export to stay consistent everywhere, and dramatically cut workload, and manual input errors</li>
+          <li>Respond to booking requests faster and more professionally, and with higher confidence</li>
         </ul>
+
         <?php if (!$user): ?>
-          <a class="btn btn-primary" href="<?= e($loginUrl) ?>">Log In First</a>
+          <a class="btn btn-primary" href="<?= e($loginUrl) ?>">Log In to Upgrade</a>
         <?php elseif ($access['state'] === 'paid'): ?>
           <a class="btn btn-primary" href="<?= e($launchUrl) ?>">Open Pro Tools</a>
+        <?php elseif ($checkoutEnabled): ?>
+          <button class="btn btn-primary" type="button" id="upgradeBtn">
+            <?= $access['state'] === 'trial' ? 'Upgrade to Pro Now' : 'Upgrade to Pro' ?>
+          </button>
         <?php else: ?>
-          <a class="btn btn-primary" href="#" onclick="alert('Wire this button to your Pro checkout flow once your Stripe price is live.'); return false;">Upgrade to Pro</a>
+          <a class="btn btn-primary" href="<?= e($loginUrl) ?>">Log In to Upgrade</a>
         <?php endif; ?>
-        <div class="small-pricing-note">If you're playing regularly, this pays for itself quickly.</div>
+
+        <div class="small-pricing-note">
+          <?php if ($access['state'] === 'trial'): ?>
+            Your free trial is active, but you can still go straight to the monthly subscription checkout now.
+          <?php else: ?>
+            If you're playing regularly, this pays for itself quickly.
+          <?php endif; ?>
+        </div>
       </article>
     </section>
   </div>
 </main>
 
 <?php include __DIR__ . '/../../includes/tools_footer_lite.php'; ?>
+
+<?php if ($checkoutEnabled): ?>
+<script>
+const upgradeBtn = document.getElementById('upgradeBtn');
+const checkoutErr = document.getElementById('checkoutErr');
+const checkoutUrl = <?= json_encode($checkoutUrl) ?>;
+const planKey = <?= json_encode($planKey) ?>;
+const defaultUpgradeLabel = upgradeBtn ? upgradeBtn.textContent : 'Upgrade to Pro';
+
+async function startUpgradeCheckout() {
+  if (!upgradeBtn) {
+    return;
+  }
+
+  checkoutErr.style.display = 'none';
+  checkoutErr.textContent = '';
+  upgradeBtn.disabled = true;
+  upgradeBtn.textContent = 'Loading checkout...';
+
+  try {
+    const response = await fetch(checkoutUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Accept': 'application/json'
+      },
+      body: new URLSearchParams({ plan_key: planKey })
+    });
+
+    const text = await response.text();
+    let data = {};
+
+    try {
+      data = JSON.parse(text);
+    } catch (e) {
+      throw new Error('Checkout returned an invalid response.');
+    }
+
+    if (response.status === 401 && data.login_url) {
+      window.location.href = data.login_url;
+      return;
+    }
+
+    if (data.url) {
+      window.location.href = data.url;
+      return;
+    }
+
+    throw new Error(data.error || data.detail || 'Checkout error');
+  } catch (e) {
+    checkoutErr.textContent = e.message || 'Something went wrong starting checkout.';
+    checkoutErr.style.display = 'block';
+    upgradeBtn.disabled = false;
+    upgradeBtn.textContent = defaultUpgradeLabel;
+  }
+}
+
+upgradeBtn.addEventListener('click', startUpgradeCheckout);
+</script>
+<?php endif; ?>
 </body>
 </html>

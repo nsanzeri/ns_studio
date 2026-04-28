@@ -349,13 +349,6 @@ if (!in_array($selectedFormat, ['newsletter', 'spreadsheet', 'print'], true)) {
     .upgrade-modal-card{position:relative;z-index:2;width:min(560px, calc(100% - 2rem));margin:8vh auto 0;padding:1.5rem;border-radius:22px;background:#111;border:1px solid rgba(255,255,255,.1);box-shadow:0 24px 60px rgba(0,0,0,.4);}
     .upgrade-modal-close{position:absolute;top:.85rem;right:.95rem;background:none;border:none;color:#fff;font-size:1.8rem;cursor:pointer;}
 
-
-    .pro-locked-output,
-    .pro-locked-output *{
-      user-select:none;
-      -webkit-user-select:none;
-    }
-
     .pro-locked-note{
       margin-top:.85rem;
       color:rgba(255,255,255,.62);
@@ -591,7 +584,7 @@ if (!in_array($selectedFormat, ['newsletter', 'spreadsheet', 'print'], true)) {
         <?php else: ?>
           <div id="errorBox" class="error-box" style="display:none;"></div>
 
-          <div class="output-wrap <?= !$isProUser ? 'pro-locked-output' : '' ?>">
+          <div class="output-wrap">
             <pre class="pretty-output" id="output">Choose a calendar and click Generate.</pre>
           </div>
         <?php endif; ?>
@@ -726,13 +719,9 @@ function lockFreeUserEndDate() {
 }
 
 function protectOutputElement(element) {
-  if (IS_PRO_USER || !element) return;
-
-  element.classList.add('pro-locked-output');
-
-  ['copy', 'cut', 'contextmenu', 'selectstart'].forEach(evtName => {
-    element.addEventListener(evtName, guardLockedInteraction);
-  });
+  // Copying, cutting, right-clicking, and text selection are allowed for all users.
+  // Keep this function as a harmless compatibility hook for older page code.
+  return;
 }
 
 async function fetchEvents(calendarId, start, end) {
@@ -945,7 +934,6 @@ async function generatePrettyPrint(event) {
 function copyOutput() {
   const text = document.getElementById("output").textContent;
   if (!text.trim()) return;
-  if (!requirePro("copy_output", "Free user attempted to copy pretty print output")) return;
   navigator.clipboard.writeText(text);
   trackPrettyPrintUsage("copy_output", "success");
 }

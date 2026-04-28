@@ -746,13 +746,9 @@ function installLockedDateRange() {
 }
 
 function protectOutputElement(element) {
-  if (IS_PRO_USER || !element) return;
-
-  element.classList.add('pro-locked-output');
-
-  ['copy', 'cut', 'contextmenu', 'selectstart'].forEach(evtName => {
-    element.addEventListener(evtName, guardLockedInteraction);
-  });
+  // Copying, cutting, right-clicking, and text selection are allowed for all users.
+  // Keep this function as a harmless compatibility hook for older page code.
+  return;
 }
 
 async function getICalEvents(calendarId, startDate, endDate) {
@@ -856,7 +852,6 @@ function renderResults(freeDates, startStr, endStr) {
 function copyAvailabilityOutput() {
   const text = document.getElementById("availabilityTextOutput").textContent;
   if (!text.trim()) return;
-  if (!requirePro("copy_output", "Free user attempted to copy availability output")) return;
   navigator.clipboard.writeText(text);
   trackAvailabilityUsage("copy_output", "success");
 }

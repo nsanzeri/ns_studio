@@ -119,6 +119,16 @@ include __DIR__ . '/includes/header.php';
                     <p class="testimonial-author">— Michael McDonald (The Doobie Brothers, Steely Dan)</p>
                 </article>
                 <article class="testimonial-card">
+                    <p class="testimonial-text">"Nick sang at our wedding and was truly amazing. His voice was absolutely beautiful and added such a special, emotional, and elegant touch to our day. He created the perfect atmosphere and made the reception feel even more meaningful and unforgettable. <Br><Br>In addition to being incredibly talented, Nick was professional, kind, and wonderful to work with. Our guests could not stop talking about how great he was. We are so thankful he was part of our wedding and would recommend him without hesitation to anyone looking for an exceptional live singer for a wedding or event."</p>
+                    <p class="testimonial-author">— Nancy M., bride</p>
+                </article>
+                
+                
+                
+
+
+                
+                <article class="testimonial-card">
                     <p class="testimonial-text">"Nick is the whole package — he’s a super‑talented musician, knows what people like, and knows how to work the crowd! What’s not to recommend?"</p>
                     <p class="testimonial-author">— Sandy White</p>
                 </article>
@@ -167,7 +177,7 @@ Nick is simply, outstanding!!! As a singer he’s superb, performing in a variet
                     <p class="testimonial-author">— Commenter - Facebook</p>
                 </article>
                 <article class="testimonial-card">
-                    <p class="testimonial-text">"As a musician I'm not crazy about full bands using backing tracks. Solo acts I can appreciate the reason why. That being said I support you. Anybody that can sing like that and play bass at the same time deserves my respect."</p>
+                    <p class="testimonial-text">"I support you. Anybody that can sing like that and play bass at the same time deserves my respect."</p>
                     <p class="testimonial-author">— Commenter - Instagram</p>
                 </article>
             </div>

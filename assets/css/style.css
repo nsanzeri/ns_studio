@@ -444,6 +444,18 @@ a:hover {
   gap: 0.9rem;
 }
 
+.youtube-short-embed {
+  width: 120%;
+  max-width: 360px;
+  aspect-ratio: 9 / 16;
+  margin: 0 auto;
+}
+
+.youtube-short-embed iframe {
+  width: 120%;
+  height: 120%;
+  border-radius: 16px;
+}
 .page-hero {
   padding: 4rem 0 2rem;
   border-bottom: 1px solid rgba(255,255,255,0.06);

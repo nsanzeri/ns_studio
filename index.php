@@ -221,14 +221,23 @@ include __DIR__ . '/includes/header.php';
                     <p>See and hear Nick in action with a curated selection of live and studio performances.</p>
                     <a href="media.php" class="btn btn-primary">Explore videos &amp; original music</a>
                 </div>
-                <div class="video-embed-ratio">
+<!--                 <div class="video-embed-ratio">
                     <iframe src="https://www.youtube.com/embed/xkAh-Np-aIE" 
                             title="Nick Sanzeri Live" 
                             frameborder="0" 
                             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
                             referrerpolicy="strict-origin-when-cross-origin" 
                             allowfullscreen></iframe>
-                </div>
+                </div> -->
+                <div class="youtube-short-embed">
+				  <iframe
+				    src="https://www.youtube.com/embed/dsU-GBFgwcw"
+				    title="YouTube Short"
+				    frameborder="0"
+				    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+				    allowfullscreen>
+				  </iframe>
+				</div>
             </div>
         </section>
 

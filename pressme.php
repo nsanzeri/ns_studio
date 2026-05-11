@@ -3,21 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Media | Nick Sanzeri</title>
+    <title>Random Video Picker | Nick Sanzeri</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;700&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="assets/css/style.css">
     <link rel="icon" type="image/png" sizes="32x32" href="assets/favicons/favicon-32.png">
-	<link rel="icon" type="image/png" sizes="16x16" href="assets/favicons/favicon-16.png">
-	<link rel="apple-touch-icon" sizes="180x180" href="assets/favicons/favicon-180.png">
-	<link rel="manifest" href="site.webmanifest">
-	<link rel="shortcut icon" href="favicons/favicon.ico">
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <link rel="icon" type="image/png" sizes="16x16" href="assets/favicons/favicon-16.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="assets/favicons/favicon-180.png">
+    <link rel="manifest" href="site.webmanifest">
+    <link rel="shortcut icon" href="favicons/favicon.ico">
     <style>
+        .random-picker-wrap {
+            max-width: 880px;
+            margin: 0 auto;
+        }
         .random-picker-card {
-            margin-top: 3rem;
             padding: 2rem;
             border-radius: 24px;
             background: rgba(255,255,255,0.06);
@@ -26,14 +28,17 @@
             text-align: center;
         }
         .random-picker-card .picker-copy {
-            max-width: 760px;
+            max-width: 720px;
             margin: 0 auto 1.5rem;
+            text-align: left;
+        }
+        .random-picker-card .picker-copy p {
+            margin-bottom: 1rem;
         }
         .random-picker-buttons {
             display: grid;
             grid-template-columns: repeat(2, minmax(0, 1fr));
             gap: 1rem;
-            max-width: 760px;
             margin: 1.5rem auto;
         }
         .random-picker-option {
@@ -73,46 +78,27 @@
     </style>
 </head>
 <body id="top">
-<?php 
-include __DIR__ . '/includes/header.php';
-?>
-
+<?php include __DIR__ . '/includes/header.php'; ?>
 
     <main>
         <section class="page-hero">
             <div class="container">
-                <p class="eyebrow">Media</p>
-                <h1>Watch &amp; Listen</h1>
-                <p class="page-intro">
-                    A mix of live clips, studio performances, and original music. New content is added regularly.
-                </p>
+                <p class="eyebrow">Press Me</p>
+                <h1>Nick Sanzeri’s Random Video Picker</h1>
+                <p class="page-intro">Discover random live footage or one of my original songs on YouTube.</p>
             </div>
         </section>
 
         <section class="section">
-            <div class="container">
-                <h2>Featured Videos</h2>
-                <div class="video-grid">
-                    <div class="video-embed-ratio">
-                        <iframe src="https://www.youtube.com/embed/xkAh-Np-aIE" title="Nick Live 1" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
-                    </div>
-                    <div class="video-embed-ratio">
-                        <iframe src="https://www.youtube.com/embed/4BOGCTB05Jk" title="Nick Live 2" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
-                    </div>
-                    <div class="video-embed-ratio">
-                        <iframe src="https://www.youtube.com/embed/fIHKsrJ3jnM" title="Nick Live 3" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
-                    </div>
-                    <div class="video-embed-ratio">
-                        <iframe src="https://www.youtube.com/embed/w70uupRtt6A" title="Nick Live 4" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
-                    </div>
-                </div>
-
+            <div class="container random-picker-wrap">
                 <div class="random-picker-card" id="randomVideoPicker">
-                    <p class="eyebrow">Randomizer</p>
-                    <h2>Not sure where to start?</h2>
+                    <p class="eyebrow">Choose Your Adventure</p>
+                    <h2>Two buttons. Both choices are me.</h2>
+
                     <div class="picker-copy">
-                        <p>Let fate pick the next clip. Choose a random live performance or jump into one of Nick’s original songs on YouTube.</p>
-                        <p>These buttons are like a choose-your-own-adventure book where both choices are me. Sorry about that.</p>
+                        <p>These buttons are like a choose-your-own-adventure book where both choices are me. Lucky you.</p>
+                        <p>The first button picks a live video — if you're lucky, you won't hear someone shouting “Freebird.”</p>
+                        <p>The second button plays an original song — tracks I've written, performed all the instruments and recorded myself.</p>
                     </div>
 
                     <div class="random-picker-buttons">
@@ -120,14 +106,12 @@ include __DIR__ . '/includes/header.php';
                             <button class="btn btn-primary" id="playlistBtn" type="button" disabled>
                                 <i class="fab fa-youtube"></i> Random Live Video
                             </button>
-                            <div class="picker-counter" id="playlistCounter">Clicks: 0</div>
                         </div>
 
                         <div class="random-picker-option">
                             <button class="btn btn-outline" id="channelBtn" type="button" disabled>
                                 <i class="fas fa-random"></i> Random Original Song
                             </button>
-                            <div class="picker-counter" id="channelCounter">Clicks: 0</div>
                         </div>
                     </div>
 
@@ -136,33 +120,9 @@ include __DIR__ . '/includes/header.php';
                 </div>
             </div>
         </section>
-
-        <section class="section section-dark">
-            <div class="container">
-                <h2>Original Music</h2>
-                <p>Stream Nick’s original work on your favorite platform.</p>
-                <div class="platform-buttons">
-                    <a href="https://open.spotify.com/artist/6xRrH2IVMxSkMihQUXcYdJ?si=Qm9EUfTOR3-jG07NvUgWGQ" target="_blank" rel="noopener" class="btn btn-primary">
-                        <i class="fab fa-spotify"></i> Listen on Spotify
-                    </a>
-                    <a href="https://www.youtube.com/channel/UCYPtumRqvkIY8fWJrpHz5SA" target="_blank" rel="noopener" class="btn btn-outline">
-                        <i class="fab fa-youtube"></i> Listen on YouTube
-                    </a>
-                    <a href="https://music.apple.com/us/artist/nick-sanzeri/1444442766" target="_blank" rel="noopener" class="btn btn-outline">
-                        <i class="fab fa-apple"></i> Listen on Apple Music
-                    </a>
-                </div>
-                <div class="spotify-embeds">
-                    <iframe style="border-radius:12px" src="https://open.spotify.com/embed/playlist/3NYiRAYVBNsEj35bOAWL8n?utm_source=generator" width="100%" height="352" frameborder="0" allowfullscreen="" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy"></iframe>
-                    <iframe style="border-radius:12px" src="https://open.spotify.com/embed/playlist/37i9dQZF1DZ06evO3RJFk1?utm_source=generator" width="100%" height="352" frameborder="0" allowfullscreen="" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy"></iframe>
-                    <iframe style="border-radius:12px" src="https://open.spotify.com/embed/playlist/6nfOhOHQCFEV22VVLXHtcF?utm_source=generator" width="100%" height="352" frameborder="0" allowfullscreen="" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy"></iframe>
-                </div>
-            </div>
-        </section>
     </main>
-	<?php 
-	include __DIR__ . '/includes/footer.php';
-	?>
+
+<?php include __DIR__ . '/includes/footer.php'; ?>
 
     <script>
         // ===== RANDOM VIDEO PICKER CONFIGURATION ===== //

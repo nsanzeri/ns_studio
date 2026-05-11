@@ -350,6 +350,15 @@ a:hover {
   color: var(--muted);
 }
 
+.event-location-link {
+    color: inherit;
+    text-decoration: underline;
+}
+
+.event-location-link:hover {
+    opacity: 0.8;
+}
+
 .hero-card-link {
   display: inline-flex;
   align-items: center;

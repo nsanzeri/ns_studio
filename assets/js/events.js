@@ -34,7 +34,11 @@ function buildEvents() {
 
             let title = (event.summary || '').replace(/Nick @/i, '').trim();
             const location = event.location || '';
-            const mapLink = `https://maps.google.com?q=${encodeURIComponent(location)}`;
+            const mapLink = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`;
+
+            const locationHtml = location
+                ? `<a href="${mapLink}" target="_blank" rel="noopener noreferrer" class="event-location-link">${location}</a>`
+                : '';
 
             // For "Up Next" card, grab first 3 upcoming
             if (nextShowsEl && dateObj >= now && nextCount < 3) {
@@ -47,7 +51,7 @@ function buildEvents() {
                         </div>
                         <div class="next-show-info">
                             <p class="next-show-title">${title}</p>
-                            <p class="next-show-location">${location}</p>
+                            <p class="next-show-location">${locationHtml}</p>
                         </div>
                     </div>
                 `;
@@ -63,7 +67,7 @@ function buildEvents() {
                     </div>
                     <div class="next-show-info">
                         <p class="next-show-title">${title}</p>
-                        <p class="next-show-location">${location}</p>
+                        <p class="next-show-location">${locationHtml}</p>
                     </div>
                 </div>
            `;
@@ -73,6 +77,7 @@ function buildEvents() {
         if (eventsListEl) {
             eventsListEl.innerHTML = eventsHtml.join('') || '<p>No upcoming events found.</p>';
         }
+
         if (nextShowsEl) {
             nextShowsEl.innerHTML = nextShowsHtml || '<p>No upcoming shows this week.</p>';
         }

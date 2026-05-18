@@ -112,7 +112,6 @@ include __DIR__ . '/includes/header.php';
                     <h2>Not sure where to start?</h2>
                     <div class="picker-copy">
                         <p>Let fate pick the next clip. Choose a random live performance or jump into one of Nick’s original songs on YouTube.</p>
-                        <p>These buttons are like a choose-your-own-adventure book where both choices are me. Sorry about that.</p>
                     </div>
 
                     <div class="random-picker-buttons">

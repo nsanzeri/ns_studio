@@ -15,74 +15,74 @@ $checkoutUrl = base_url('api/create_checkout_session.php');
 $planKey = 'rss-pro';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && (($_POST['action'] ?? '') === 'start_trial')) {
-    Auth::requireLogin($pricingUrl);
-
-    $user = Auth::currentUser($pdo);
-    $userId = (int) ($user['id'] ?? 0);
-
-    if ($userId <= 0) {
-        redirect($loginUrl);
-    }
-
-    $state = rss_current_tools_access_state($pdo);
-
-    if ($state === 'paid') {
-        flash_set('pricing_notice', 'Pro is already active on your account.');
-        redirect($pricingUrl);
-    }
-
-    if ($state === 'trial') {
-        flash_set('pricing_notice', 'Your free trial is already active. You can upgrade to the monthly plan anytime.');
-        redirect($pricingUrl);
-    }
-
-    if (!rss_table_exists($pdo, 'entitlements') || !rss_table_exists($pdo, 'products')) {
-        flash_set('pricing_notice', 'The trial could not be started because the tools product has not been set up yet.');
-        redirect($pricingUrl);
-    }
-
-    $slugs = rss_tools_product_slugs();
-    $productStmt = $pdo->prepare(
-        'SELECT id, slug, name
+	Auth::requireLogin($pricingUrl);
+	
+	$user = Auth::currentUser($pdo);
+	$userId = (int) ($user['id'] ?? 0);
+	
+	if ($userId <= 0) {
+		redirect($loginUrl);
+	}
+	
+	$state = rss_current_tools_access_state($pdo);
+	
+	if ($state === 'paid') {
+		flash_set('pricing_notice', 'Pro is already active on your account.');
+		redirect($pricingUrl);
+	}
+	
+	if ($state === 'trial') {
+		flash_set('pricing_notice', 'Your free trial is already active. You can upgrade to the monthly plan anytime.');
+		redirect($pricingUrl);
+	}
+	
+	if (!rss_table_exists($pdo, 'entitlements') || !rss_table_exists($pdo, 'products')) {
+		flash_set('pricing_notice', 'The trial could not be started because the tools product has not been set up yet.');
+		redirect($pricingUrl);
+	}
+	
+	$slugs = rss_tools_product_slugs();
+	$productStmt = $pdo->prepare(
+			'SELECT id, slug, name
          FROM products
          WHERE slug IN (?, ?, ?, ?, ?)
          ORDER BY FIELD(slug, ?, ?, ?, ?, ?)
          LIMIT 1'
-    );
-    $productStmt->execute(array_merge($slugs, $slugs));
-    $product = $productStmt->fetch(PDO::FETCH_ASSOC) ?: null;
-
-    if (!$product) {
-        flash_set('pricing_notice', 'The trial could not be started because no Calendar Tools product was found in products.');
-        redirect($pricingUrl);
-    }
-
-    $expiresAt = (new DateTimeImmutable('now'))->modify('+30 days')->format('Y-m-d H:i:s');
-
-    $pdo->beginTransaction();
-    try {
-        $insert = $pdo->prepare(
-            "INSERT INTO entitlements (user_id, product_id, source, status, expires_at)
+			);
+	$productStmt->execute(array_merge($slugs, $slugs));
+	$product = $productStmt->fetch(PDO::FETCH_ASSOC) ?: null;
+	
+	if (!$product) {
+		flash_set('pricing_notice', 'The trial could not be started because no Calendar Tools product was found in products.');
+		redirect($pricingUrl);
+	}
+	
+	$expiresAt = (new DateTimeImmutable('now'))->modify('+30 days')->format('Y-m-d H:i:s');
+	
+	$pdo->beginTransaction();
+	try {
+		$insert = $pdo->prepare(
+				"INSERT INTO entitlements (user_id, product_id, source, status, expires_at)
              VALUES (?, ?, 'manual_grant', 'active', ?)"
-        );
-        $insert->execute([$userId, (int) $product['id'], $expiresAt]);
-        $pdo->commit();
-    } catch (Throwable $e) {
-        if ($pdo->inTransaction()) {
-            $pdo->rollBack();
-        }
-        throw $e;
-    }
-
-    flash_set('pricing_notice', 'Your 30-day Calendar Tools trial is active now.');
-    redirect($libraryUrl);
+				);
+		$insert->execute([$userId, (int) $product['id'], $expiresAt]);
+		$pdo->commit();
+	} catch (Throwable $e) {
+		if ($pdo->inTransaction()) {
+			$pdo->rollBack();
+		}
+		throw $e;
+	}
+	
+	flash_set('pricing_notice', 'Your 30-day Calendar Tools trial is active now.');
+	redirect($libraryUrl);
 }
 
 $user = Auth::currentUser($pdo);
 $access = $user ? rss_tools_access_badge($pdo) : [
-    'state' => 'free',
-    'label' => 'Free plan',
-    'description' => 'Create an account to use the free version.',
+		'state' => 'free',
+		'label' => 'Free plan',
+		'description' => 'Create an account to use the free version.',
 ];
 
 $planMeta = find_subscription_plan_meta($planKey);
@@ -90,9 +90,9 @@ $checkoutEnabled = $user && $access['state'] !== 'paid' && !empty($planMeta['pri
 $flash = flash_get('pricing_notice');
 
 if (isset($_GET['upgraded'])) {
-    $flash = 'Thanks — your checkout completed. Stripe is processing your subscription now.';
+	$flash = 'Thanks — your checkout completed. Stripe is processing your subscription now.';
 } elseif (isset($_GET['canceled'])) {
-    $flash = 'No problem — your checkout was canceled. You can still use the free version or start your trial.';
+	$flash = 'No problem — your checkout was canceled. You can still use the free version or start your trial.';
 }
 ?>
 <!doctype html>
@@ -110,6 +110,15 @@ if (isset($_GET['upgraded'])) {
     .pricing-shell{padding:2.5rem 0 4rem;}
     .pricing-hero{max-width:760px;margin:0 auto 2rem;text-align:center;}
     .pricing-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1.25rem;align-items:stretch;}
+
+    .demo-feature{max-width:1040px;margin:0 auto 2rem;display:grid;grid-template-columns:minmax(0,1.25fr) minmax(280px,.75fr);gap:1.25rem;align-items:center;background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.09);border-radius:24px;padding:1.25rem;box-shadow:0 18px 42px rgba(0,0,0,.22);}
+    .demo-video{position:relative;width:100%;aspect-ratio:16/9;border-radius:18px;overflow:hidden;background:#000;box-shadow:0 14px 32px rgba(0,0,0,.28);}
+    .demo-video iframe{position:absolute;inset:0;width:100%;height:100%;border:0;}
+    .demo-copy{padding:.35rem .35rem .35rem .15rem;}
+    .demo-copy h2{margin:.2rem 0 .65rem;font-size:clamp(1.45rem,2vw,2.1rem);}
+    .demo-copy p{color:rgba(255,255,255,.78);line-height:1.65;margin:0 0 .85rem;}
+    .demo-points{display:grid;gap:.45rem;margin-top:.9rem;color:rgba(255,255,255,.84);}
+    .demo-points span{display:block;}
     .pricing-card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:22px;padding:1.5rem;box-shadow:0 16px 34px rgba(0,0,0,.18);display:flex;flex-direction:column;}
     .pricing-card.featured{border-color:rgba(212,175,55,.45);box-shadow:0 20px 44px rgba(0,0,0,.24);}
     .pricing-badge{display:inline-flex;padding:.4rem .7rem;border-radius:999px;background:rgba(212,175,55,.14);color:#f2d67c;font-size:.78rem;font-weight:600;letter-spacing:.05em;text-transform:uppercase;margin-bottom:1rem;}
@@ -126,7 +135,7 @@ if (isset($_GET['upgraded'])) {
     .trial-form .btn{width:100%;border:none;cursor:pointer;}
     .stack-actions{margin-top:auto;display:grid;gap:.75rem;}
     .stack-actions .btn{width:100%;}
-    @media (max-width:980px){.pricing-grid{grid-template-columns:1fr;}}
+    @media (max-width:980px){.pricing-grid{grid-template-columns:1fr;}.demo-feature{grid-template-columns:1fr;}.demo-copy{padding:.25rem;}}
   </style>
 </head>
 <body>
@@ -157,12 +166,29 @@ if (isset($_GET['upgraded'])) {
       </div>
     </section>
 
-    <p class="muted" style="margin-top:1rem;">
-      Used by working musicians to:<br>
-      • Combine multiple calendars into one clear view<br>
-      • Send availability in seconds<br>
-      • Keep Bands In Town and clients in sync
-    </p>
+    <section class="demo-feature" aria-label="Ready Set Shows video demo">
+      <div class="demo-video">
+        <iframe
+          src="https://www.youtube-nocookie.com/embed/DXlyDfra99o"
+          title="Ready Set Shows product demo"
+          loading="lazy"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          allowfullscreen></iframe>
+      </div>
+      <div class="demo-copy">
+        <p class="eyebrow" style="margin-bottom:.35rem;">Watch the demo</p>
+        <h2>See how Ready Set Shows works before you try it.</h2>
+        <p>
+          In this walkthrough, I show how the tool helps working musicians quickly check availability,
+          turn messy calendar data into clean date lists, and prep events for Bands In Town without retyping everything by hand.
+        </p>
+        <div class="demo-points">
+          <span>✓ Find open dates across multiple calendars</span>
+          <span>✓ Create clean outputs for clients, emails, and promo</span>
+          <span>✓ Bulk-format show dates for Bands In Town</span>
+        </div>
+      </div>
+    </section>
 
     <?php if ($flash): ?>
       <div class="pricing-alert"><?= e($flash) ?></div>

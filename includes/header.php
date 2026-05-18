@@ -17,9 +17,11 @@ $isLocal = str_contains($currentPath, '/ns_studio/');
 $siteBase   = $isLocal ? '/ns_studio' : '';
 $studioBase = $siteBase . '/studio';
 
-function nav_active(bool $condition): string
-{
-	return $condition ? 'active' : '';
+if (!function_exists('nav_active')) {
+	function nav_active(bool $condition): string
+	{
+		return $condition ? 'active' : '';
+	}
 }
 ?>
 
@@ -33,7 +35,7 @@ function nav_active(bool $condition): string
             </span>
         </a>
 
-        <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
+        <button class="nav-toggle" id="navToggle" type="button" aria-label="Toggle navigation" aria-expanded="false" aria-controls="mainNav">
             <span></span><span></span><span></span>
         </button>
 
@@ -60,3 +62,31 @@ function nav_active(bool $condition): string
 <?php endif; ?>
 
 <?php include __DIR__ . '/studio_subnav.php'; ?>
+
+
+<script>
+(function () {
+  function setupMainNavigation() {
+    var navToggle = document.getElementById('navToggle');
+    var mainNav = document.getElementById('mainNav');
+
+    if (!navToggle || !mainNav || navToggle.dataset.bound === 'true') {
+      return;
+    }
+
+    navToggle.dataset.bound = 'true';
+
+    navToggle.addEventListener('click', function () {
+      var isOpen = mainNav.classList.toggle('open');
+      navToggle.classList.toggle('open', isOpen);
+      navToggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setupMainNavigation);
+  } else {
+    setupMainNavigation();
+  }
+})();
+</script>

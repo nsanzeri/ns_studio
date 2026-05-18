@@ -515,7 +515,7 @@ if (!$selectedCalendarId && $hasCalendars) {
           <div id="errorBox" class="error-box"></div>
 
           <p class="preview-note">
-            This preview follows the same basic export logic as your working Sir Gigz version.
+            This preview and export will exclude dates with the word "private" in the title or events without address information.
           </p>
 
           <div class="preview-wrap">
@@ -775,6 +775,25 @@ function extractParts(location, fallbackSummary = "") {
   return result;
 }
 
+
+function hasAddressInformation(parts) {
+  if (!parts || typeof parts !== "object") return false;
+  return Boolean(
+    String(parts.addr || "").trim() ||
+    String(parts.city || "").trim() ||
+    String(parts.region || "").trim() ||
+    String(parts.postalCode || "").trim()
+  );
+}
+
+function shouldSkipBandsintownEvent(summary, parts) {
+  if (/private/i.test(summary || "")) {
+    return true;
+  }
+
+  return !hasAddressInformation(parts);
+}
+
 function formatDate(d) {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: USER_TIMEZONE,
@@ -907,36 +926,40 @@ async function generateBIT(event) {
 
       const parts = extractParts(location, summary);
 
-		const row = [
-		  artist,
-		  parts.venue,
-		  parts.country || "United States",
-		  parts.addr,
-		  parts.city,
-		  parts.region,
-		  parts.postalCode || "",
-		  "",
-		  formatDate(startObj),
-		  formatTime(startObj),
-		  "",
-		  "",
-		  "",
-		  "",
-		  "",
-		  "",
-		  "",
-		  "",
-		  "",
-		  "",
-		  summary,
-		  artist,
-		  description,
-		  "",
-		  "",
-		  "",
-		  "",
-		  ""
-		];
+      if (shouldSkipBandsintownEvent(summary, parts)) {
+        continue;
+      }
+
+      const row = [
+        artist,
+        parts.venue,
+        parts.country || "United States",
+        parts.addr,
+        parts.city,
+        parts.region,
+        parts.postalCode || "",
+        "",
+        formatDate(startObj),
+        formatTime(startObj),
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        summary,
+        artist,
+        description,
+        "",
+        "",
+        "",
+        "",
+        ""
+      ];
 
       previewRows.push(row);
       csvRows.push(row.map(csvEscape).join(","));
@@ -950,7 +973,7 @@ async function generateBIT(event) {
     });
 
     if (!previewRows.length) {
-      showError("No events found for the selected range.");
+      showError("No exportable public events with address information were found for the selected range.");
     }
   } catch (err) {
     LAST_BIT_RESULT_COUNT = 0;

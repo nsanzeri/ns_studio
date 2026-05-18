@@ -22,5 +22,5 @@
         <a href="#top" class="back-to-top" id="backToTop" aria-label="Back to top">
             <i class="fas fa-arrow-up"></i>
         </a>
-        <script src="assets/js/main.js"></script>
-	    <script src="assets/js/events.js"></script>
+        <script src="<?= htmlspecialchars($siteBase . '/assets/js/main.js', ENT_QUOTES, 'UTF-8') ?>"></script>
+	    <script src="<?= htmlspecialchars($siteBase . '/assets/js/events.js', ENT_QUOTES, 'UTF-8') ?>"></script>

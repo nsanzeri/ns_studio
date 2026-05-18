@@ -62,31 +62,3 @@ if (!function_exists('nav_active')) {
 <?php endif; ?>
 
 <?php include __DIR__ . '/studio_subnav.php'; ?>
-
-
-<script>
-(function () {
-  function setupMainNavigation() {
-    var navToggle = document.getElementById('navToggle');
-    var mainNav = document.getElementById('mainNav');
-
-    if (!navToggle || !mainNav || navToggle.dataset.bound === 'true') {
-      return;
-    }
-
-    navToggle.dataset.bound = 'true';
-
-    navToggle.addEventListener('click', function () {
-      var isOpen = mainNav.classList.toggle('open');
-      navToggle.classList.toggle('open', isOpen);
-      navToggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
-    });
-  }
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', setupMainNavigation);
-  } else {
-    setupMainNavigation();
-  }
-})();
-</script>

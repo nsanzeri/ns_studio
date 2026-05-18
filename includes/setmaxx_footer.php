@@ -9,6 +9,9 @@ $studioBase = $siteBase . '/studio';
         <div class="footer-left">
             <ul class="setmaxx-footer-links">
                 <li><a href="<?= htmlspecialchars($studioBase . '/setmaxx/index.php') ?>">Dashboard</a></li>
+                <li><a href="<?= htmlspecialchars($studioBase . '/setmaxx/songs.php') ?>">Songs</a></li>
+                <li><a href="<?= htmlspecialchars($studioBase . '/setmaxx/sessions.php') ?>">Sessions</a></li>
+                <li><a href="<?= htmlspecialchars($studioBase . '/setmaxx/requests.php') ?>">Requests</a></li>
                 <li><a href="<?= htmlspecialchars($studioBase . '/member/library.php') ?>">My Products</a></li>
                 <li><a href="<?= htmlspecialchars($studioBase . '/tools/index.php') ?>">Calendar Tools</a></li>
                 <li><a href="<?= htmlspecialchars($siteBase . '/contact.php') ?>">Support</a></li>

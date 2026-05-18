@@ -84,6 +84,13 @@ $items = array_values(array_filter($items, static function (array $it) use ($too
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;700&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="<?= e(base_url('../assets/css/style.css')) ?>">
+
+  <style>
+    @media (max-width: 820px) {
+      main details { grid-column: 1 / -1; }
+      main .card > div[style*="grid-template-columns"] { grid-template-columns: 1fr !important; }
+    }
+  </style>
 </head>
 <body>
 <?php include __DIR__ . '/../../includes/header.php'; ?>
@@ -96,28 +103,69 @@ $items = array_values(array_filter($items, static function (array $it) use ($too
   </div>
 
   <div style="margin-top:1.25rem; display:grid; gap:1rem;">
-    <div class="card" style="padding:1.15rem; display:flex; align-items:center; justify-content:space-between; gap:1rem; flex-wrap:wrap; border-color:rgba(212,175,55,.28);">
-      <div>
-        <div style="display:flex; align-items:center; gap:.55rem; flex-wrap:wrap;">
-          <div style="font-weight:600;">Calendar Tools</div>
-          <span style="display:inline-flex; align-items:center; padding:.22rem .65rem; border-radius:999px; font-size:.8rem; font-weight:600; background:rgba(212,175,55,.14); color:#f2d67c;">
-            <?= e($toolsBadge['label']) ?>
-          </span>
+    <div class="card" style="padding:1.25rem; border-color:rgba(212,175,55,.28);">
+      <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:1rem; flex-wrap:wrap;">
+        <div style="max-width:720px;">
+          <div style="display:flex; align-items:center; gap:.55rem; flex-wrap:wrap;">
+            <div style="font-weight:700; font-size:1.2rem;">Ready Set Shows Pro</div>
+            <span style="display:inline-flex; align-items:center; padding:.22rem .65rem; border-radius:999px; font-size:.8rem; font-weight:600; background:rgba(212,175,55,.14); color:#f2d67c;">
+              <?= e($toolsBadge['label']) ?>
+            </span>
+          </div>
+          <div class="muted" style="font-size:0.94rem; margin-top:.25rem;">
+            <?= e($toolsBadge['description']) ?>
+          </div>
+          <p class="muted" style="margin:.75rem 0 0; max-width:680px;">
+            One membership for the working-musician toolkit: calendar availability, Bandsintown prep, setlist/request tools, and future publishing/business features.
+          </p>
         </div>
-        <div class="muted" style="font-size:0.92rem; margin-top:.2rem;">
-          <?= e($toolsBadge['description']) ?>
+
+        <div style="display:flex; gap:.65rem; flex-wrap:wrap;">
+          <a class="btn btn-outline" href="<?= e($toolsActions['launch_url']) ?>">Open Calendar Tools</a>
+          <a class="btn btn-outline" href="<?= e(base_url('setmaxx/index.php')) ?>">Open Set Maxx</a>
+          <?php if ($toolsState === 'free'): ?>
+            <a class="btn btn-primary" href="<?= e($toolsActions['trial_url']) ?>">Start Free Trial</a>
+          <?php else: ?>
+            <a class="btn btn-primary" href="<?= e($toolsState === 'paid' ? $toolsActions['settings_url'] : $toolsActions['pricing_url']) ?>">
+              <?= $toolsState === 'trial' ? 'View Pro Plan' : 'Manage Subscription' ?>
+            </a>
+          <?php endif; ?>
         </div>
       </div>
 
-      <div style="display:flex; gap:.65rem; flex-wrap:wrap;">
-        <a class="btn btn-outline" href="<?= e($toolsActions['launch_url']) ?>">Open Tools</a>
-        <?php if ($toolsState === 'free'): ?>
-          <a class="btn btn-primary" href="<?= e($toolsActions['trial_url']) ?>">Start Free Trial</a>
-        <?php else: ?>
-          <a class="btn btn-primary" href="<?= e($toolsState === 'paid' ? $toolsActions['settings_url'] : $toolsActions['pricing_url']) ?>">
-            <?= $toolsState === 'trial' ? 'View Pro Plan' : 'Manage Subscription' ?>
-          </a>
-        <?php endif; ?>
+      <div style="display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.85rem; margin-top:1.15rem;">
+        <details open style="border:1px solid rgba(255,255,255,.08); border-radius:18px; padding:1rem; background:rgba(255,255,255,.03);">
+          <summary style="cursor:pointer; font-weight:700;">Availability & Calendar Tools</summary>
+          <p class="muted" style="margin:.65rem 0 .75rem;">Find open dates across calendars, format availability for clients, and prepare gig data for real-world musician workflows.</p>
+          <ul class="muted" style="margin:0; padding-left:1.2rem; font-size:.92rem;">
+            <li>Multi-calendar availability checking</li>
+            <li>Bandsintown bulk-upload prep</li>
+            <li>Multiple date-output formats</li>
+            <li>Printable/client-friendly calendar views</li>
+          </ul>
+        </details>
+
+        <details style="border:1px solid rgba(255,255,255,.08); border-radius:18px; padding:1rem; background:rgba(255,255,255,.03);">
+          <summary style="cursor:pointer; font-weight:700;">Set Maxx</summary>
+          <p class="muted" style="margin:.65rem 0 .75rem;">A live-performance module for song catalogs, gig sessions, and controlled audience requests.</p>
+          <ul class="muted" style="margin:0 0 .85rem; padding-left:1.2rem; font-size:.92rem;">
+            <li>Requestable song catalog</li>
+            <li>Public gig request pages</li>
+            <li>One active request per song per show</li>
+            <li>Queue, played, and decline workflow</li>
+          </ul>
+          <a class="btn btn-outline" href="<?= e(base_url('setmaxx/index.php')) ?>">Launch Set Maxx</a>
+        </details>
+
+        <details style="border:1px solid rgba(255,255,255,.08); border-radius:18px; padding:1rem; background:rgba(255,255,255,.03);">
+          <summary style="cursor:pointer; font-weight:700;">Publishing Tools <span class="muted" style="font-weight:400;">coming next</span></summary>
+          <p class="muted" style="margin:.65rem 0 0;">Newsletter copy, Facebook-event prep, promo blurbs, and other gig-marketing helpers built from the calendar workflow.</p>
+        </details>
+
+        <details style="border:1px solid rgba(255,255,255,.08); border-radius:18px; padding:1rem; background:rgba(255,255,255,.03);">
+          <summary style="cursor:pointer; font-weight:700;">Business Tracking <span class="muted" style="font-weight:400;">future module</span></summary>
+          <p class="muted" style="margin:.65rem 0 0;">Gig fee, deposit, balance due, payment status, average gig value, and yearly totals once the core tools are solid.</p>
+        </details>
       </div>
     </div>
 

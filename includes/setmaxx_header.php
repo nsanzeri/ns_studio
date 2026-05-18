@@ -37,8 +37,10 @@ if (!function_exists('nav_active')) {
         <nav class="setmaxx-desktop-nav" aria-label="Set Maxx navigation">
             <ul>
                 <li><a href="<?= htmlspecialchars($studioBase . '/setmaxx/index.php') ?>" class="<?= nav_active($currentPage === 'index.php' && str_contains($currentPath, '/setmaxx/')) ?>">Dashboard</a></li>
+                <li><a href="<?= htmlspecialchars($studioBase . '/setmaxx/songs.php') ?>" class="<?= nav_active($currentPage === 'songs.php') ?>">Songs</a></li>
+                <li><a href="<?= htmlspecialchars($studioBase . '/setmaxx/sessions.php') ?>" class="<?= nav_active($currentPage === 'sessions.php') ?>">Sessions</a></li>
+                <li><a href="<?= htmlspecialchars($studioBase . '/setmaxx/requests.php') ?>" class="<?= nav_active($currentPage === 'requests.php') ?>">Requests</a></li>
                 <li><a href="<?= htmlspecialchars($studioBase . '/member/library.php') ?>" class="<?= nav_active($currentPage === 'library.php') ?>">My Products</a></li>
-                <li><a href="<?= htmlspecialchars($studioBase . '/tools/index.php') ?>">Calendar Tools</a></li>
             </ul>
         </nav>
     </div>
@@ -46,6 +48,9 @@ if (!function_exists('nav_active')) {
     <nav class="setmaxx-mobile-nav" id="setmaxxMobileNav" aria-label="Mobile Set Maxx navigation" hidden>
         <div class="setmaxx-mobile-nav-inner">
             <a href="<?= htmlspecialchars($studioBase . '/setmaxx/index.php') ?>" class="<?= nav_active($currentPage === 'index.php' && str_contains($currentPath, '/setmaxx/')) ?>">Dashboard</a>
+            <a href="<?= htmlspecialchars($studioBase . '/setmaxx/songs.php') ?>" class="<?= nav_active($currentPage === 'songs.php') ?>">Songs</a>
+            <a href="<?= htmlspecialchars($studioBase . '/setmaxx/sessions.php') ?>" class="<?= nav_active($currentPage === 'sessions.php') ?>">Sessions</a>
+            <a href="<?= htmlspecialchars($studioBase . '/setmaxx/requests.php') ?>" class="<?= nav_active($currentPage === 'requests.php') ?>">Requests</a>
             <a href="<?= htmlspecialchars($studioBase . '/member/library.php') ?>" class="<?= nav_active($currentPage === 'library.php') ?>">My Products</a>
             <a href="<?= htmlspecialchars($studioBase . '/tools/index.php') ?>">Calendar Tools</a>
             <div class="setmaxx-mobile-extra">

@@ -72,6 +72,7 @@ $items = array_values(array_filter($items, static function (array $it) use ($too
 			'launch_url'  => rss_tool_launch_url(),
 			'pricing_url' => rss_tool_upgrade_url(),
 			'trial_url'   => rss_tool_trial_url(),
+			'settings_url'=> base_url('member/settings.php'),
 	];
 	?>
 <!doctype html>
@@ -113,8 +114,8 @@ $items = array_values(array_filter($items, static function (array $it) use ($too
         <?php if ($toolsState === 'free'): ?>
           <a class="btn btn-primary" href="<?= e($toolsActions['trial_url']) ?>">Start Free Trial</a>
         <?php else: ?>
-          <a class="btn btn-primary" href="<?= e($toolsActions['pricing_url']) ?>">
-            <?= $toolsState === 'trial' ? 'View Pro Plan' : 'Manage Access' ?>
+          <a class="btn btn-primary" href="<?= e($toolsState === 'paid' ? $toolsActions['settings_url'] : $toolsActions['pricing_url']) ?>">
+            <?= $toolsState === 'trial' ? 'View Pro Plan' : 'Manage Subscription' ?>
           </a>
         <?php endif; ?>
       </div>

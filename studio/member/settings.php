@@ -1,10 +1,63 @@
 <?php
 require __DIR__ . '/../_private/_core/bootstrap.php';
-Auth::requireLogin(base_url('studio/member/settings.php'));
+require_once __DIR__ . '/../_private/_core/tool_access.php';
+
+Auth::requireLogin(base_url('member/settings.php'));
 
 $user = Auth::currentUser($pdo);
+$userId = (int)($user['id'] ?? 0);
 $err = null;
 $ok = null;
+
+function ns_active_stripe_subscription_for_user(PDO $pdo, int $userId): ?array
+{
+    if ($userId <= 0 || !rss_table_exists($pdo, 'user_subscriptions') || !rss_table_exists($pdo, 'subscription_plans')) {
+        return null;
+    }
+
+    $toolSlugs = rss_tools_product_slugs();
+    $placeholders = implode(',', array_fill(0, count($toolSlugs), '?'));
+
+    $sql = "
+        SELECT
+            us.id,
+            us.status,
+            us.stripe_subscription_id,
+            us.stripe_customer_id,
+            us.current_period_end,
+            us.canceled_at,
+            sp.name AS plan_name,
+            sp.slug AS plan_slug
+        FROM user_subscriptions us
+        JOIN subscription_plans sp ON sp.id = us.subscription_plan_id
+        WHERE us.user_id = ?
+          AND us.stripe_customer_id IS NOT NULL
+          AND us.stripe_customer_id <> ''
+          AND us.status IN ('trialing', 'active', 'past_due', 'unpaid')
+          AND (us.current_period_end IS NULL OR us.current_period_end > NOW())
+          AND sp.slug IN ($placeholders)
+        ORDER BY
+          CASE us.status
+            WHEN 'active' THEN 1
+            WHEN 'trialing' THEN 2
+            WHEN 'past_due' THEN 3
+            WHEN 'unpaid' THEN 4
+            ELSE 5
+          END,
+          us.id DESC
+        LIMIT 1
+    ";
+
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute(array_merge([$userId], $toolSlugs));
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    return $row ?: null;
+}
+
+$subscription = ns_active_stripe_subscription_for_user($pdo, $userId);
+$hasActiveStripeSubscription = (bool)$subscription;
+$manageSubscriptionUrl = base_url('api/create_customer_portal_session.php');
 
 if (is_post()) {
     if (!csrf_verify($_POST['_csrf'] ?? null)) {
@@ -18,7 +71,7 @@ if (is_post()) {
             $new2 = (string)($_POST['new_password2'] ?? '');
 
             $stmt = $pdo->prepare('SELECT password_hash FROM users WHERE id = ? LIMIT 1');
-            $stmt->execute([(int)$user['id']]);
+            $stmt->execute([$userId]);
             $hash = (string)$stmt->fetchColumn();
 
             if (!password_verify($current, $hash)) {
@@ -29,25 +82,36 @@ if (is_post()) {
                 $err = 'Your new passwords do not match.';
             } else {
                 $stmt = $pdo->prepare('UPDATE users SET password_hash = ? WHERE id = ?');
-                $stmt->execute([password_hash($new1, PASSWORD_DEFAULT), (int)$user['id']]);
+                $stmt->execute([password_hash($new1, PASSWORD_DEFAULT), $userId]);
                 $ok = 'Password updated.';
             }
         }
 
         if ($action === 'delete') {
-            $confirm = trim((string)($_POST['delete_confirmation'] ?? ''));
-            if ($confirm !== 'DELETE') {
-                $err = 'Type DELETE to confirm account removal.';
+            $subscription = ns_active_stripe_subscription_for_user($pdo, $userId);
+            if ($subscription) {
+                $err = 'You have an active subscription. Please cancel your subscription first, then you can delete your account.';
             } else {
-                $stmt = $pdo->prepare('DELETE FROM users WHERE id = ?');
-                $stmt->execute([(int)$user['id']]);
-                Auth::logout();
-                flash_set('success', 'Your account has been deleted.');
-                redirect(base_url('studio/member/register.php'));
+                $confirm = trim((string)($_POST['delete_confirmation'] ?? ''));
+                if ($confirm !== 'DELETE') {
+                    $err = 'Type DELETE to confirm account removal.';
+                } else {
+                    $stmt = $pdo->prepare('DELETE FROM users WHERE id = ?');
+                    $stmt->execute([$userId]);
+                    Auth::logout();
+                    flash_set('success', 'Your account has been deleted.');
+                    redirect(base_url('member/register.php'));
+                }
             }
         }
     }
 }
+
+$subscription = ns_active_stripe_subscription_for_user($pdo, $userId);
+$hasActiveStripeSubscription = (bool)$subscription;
+$periodEnd = !empty($subscription['current_period_end']) ? strtotime((string)$subscription['current_period_end']) : false;
+$cancelScheduled = !empty($subscription['canceled_at']);
+$subscriptionLabel = $subscription['plan_name'] ?? 'Ready Set Shows Pro';
 ?>
 <!doctype html>
 <html lang="en">
@@ -61,7 +125,7 @@ if (is_post()) {
 <?php include __DIR__ . '/../../includes/header.php'; ?>
 <main class="container" style="padding:3rem 0; max-width:760px;">
  <h2 class="form-title">Account Settings</h2>
-  <p class="muted">Manage your password and account.</p>
+  <p class="muted">Manage your password, subscription, and account.</p>
 
   <?php if ($err): ?>
     <div class="alert" style="margin:1rem 0;"><?= e($err) ?></div>
@@ -69,6 +133,31 @@ if (is_post()) {
   <?php if ($ok): ?>
     <div class="alert" style="margin:1rem 0;"><?= e($ok) ?></div>
   <?php endif; ?>
+
+  <section class="card" style="padding:1.5rem; margin:1.5rem 0;">
+    <h3 class="form-title">Subscription</h3>
+
+    <?php if ($hasActiveStripeSubscription): ?>
+      <p style="margin:.25rem 0 .6rem;"><strong><?= e($subscriptionLabel) ?></strong></p>
+      <p class="muted" style="margin:.25rem 0 1rem;">
+        <?php if ($cancelScheduled && $periodEnd): ?>
+          Your subscription is scheduled to end on <?= e(date('M j, Y', $periodEnd)) ?>. You can manage it in Stripe.
+        <?php elseif ($periodEnd): ?>
+          Your subscription is active through <?= e(date('M j, Y', $periodEnd)) ?>. You can cancel or update billing in Stripe.
+        <?php else: ?>
+          Your subscription is active. You can cancel or update billing in Stripe.
+        <?php endif; ?>
+      </p>
+      <div class="alert" id="portalErr" style="display:none; margin:0 0 1rem;"></div>
+      <button class="btn btn-primary" type="button" id="manageSubscriptionBtn">Manage / Cancel Subscription</button>
+      <p class="muted" style="font-size:.92rem; margin:1rem 0 0;">
+        Cancellation is handled securely through Stripe. If you cancel, Pro access usually remains available until the end of the current billing period.
+      </p>
+    <?php else: ?>
+      <p class="muted" style="margin:.25rem 0 1rem;">No active paid subscription was found for this account.</p>
+      <a class="btn btn-outline" href="<?= e(base_url('member/pricing.php')) ?>">View Plans</a>
+    <?php endif; ?>
+  </section>
 
   <section class="card" style="padding:1.5rem; margin:1.5rem 0;">
     <h3 class="form-title">Change Password</h3>
@@ -93,18 +182,88 @@ if (is_post()) {
 
   <section class="card" style="padding:1.5rem; margin:1.5rem 0; border-color:#c77;">
     <h3 class="form-title">Delete Account</h3>
-    <p class="muted">This removes your login. If you register again later with the same purchase email, My Products can be rebuilt from past purchases.</p>
-    <form  class="form" method="post">
-      <input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>">
-      <input type="hidden" name="action" value="delete">
+    <?php if ($hasActiveStripeSubscription): ?>
+      <p class="muted">You have an active subscription. Cancel your subscription first, then you can delete your account.</p>
+      <button class="btn btn-outline" type="button" id="manageSubscriptionBtnDelete">Manage / Cancel Subscription</button>
+    <?php else: ?>
+      <p class="muted">This removes your login. If you register again later with the same purchase email, My Products can be rebuilt from past purchases.</p>
+      <form class="form" method="post">
+        <input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>">
+        <input type="hidden" name="action" value="delete">
 <div class="form-field">
-      <label>Type DELETE to confirm</label>
-      <input type="text" name="delete_confirmation" required>
+        <label>Type DELETE to confirm</label>
+        <input type="text" name="delete_confirmation" required>
 </div>
-      <button class="btn btn-outline" style="margin-top:1.25rem;">Delete account</button>
-    </form>
+        <button class="btn btn-outline" style="margin-top:1.25rem;">Delete account</button>
+      </form>
+    <?php endif; ?>
   </section>
 </main>
 <?php include __DIR__ . '/../../includes/footer.php'; ?>
+
+<?php if ($hasActiveStripeSubscription): ?>
+<script>
+(function () {
+  const portalUrl = <?= json_encode($manageSubscriptionUrl) ?>;
+  const csrf = <?= json_encode(csrf_token()) ?>;
+  const buttons = [
+    document.getElementById('manageSubscriptionBtn'),
+    document.getElementById('manageSubscriptionBtnDelete')
+  ].filter(Boolean);
+  const errBox = document.getElementById('portalErr');
+
+  async function openPortal(button) {
+    const originalText = button.textContent;
+    buttons.forEach(btn => btn.disabled = true);
+    button.textContent = 'Opening Stripe...';
+    if (errBox) {
+      errBox.style.display = 'none';
+      errBox.textContent = '';
+    }
+
+    try {
+      const response = await fetch(portalUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Accept': 'application/json'
+        },
+        body: new URLSearchParams({ _csrf: csrf })
+      });
+
+      const text = await response.text();
+      let data = {};
+      try {
+        data = JSON.parse(text);
+      } catch (e) {
+        throw new Error('Stripe portal returned an invalid response.');
+      }
+
+      if (data.url) {
+        window.location.href = data.url;
+        return;
+      }
+
+      throw new Error(data.error || data.detail || 'Unable to open the billing portal.');
+    } catch (e) {
+      if (errBox) {
+        errBox.textContent = e.message || 'Unable to open the billing portal.';
+        errBox.style.display = 'block';
+      } else {
+        alert(e.message || 'Unable to open the billing portal.');
+      }
+      buttons.forEach(btn => btn.disabled = false);
+      button.textContent = originalText;
+    }
+  }
+
+  buttons.forEach(button => {
+    button.addEventListener('click', function () {
+      openPortal(button);
+    });
+  });
+})();
+</script>
+<?php endif; ?>
 </body>
 </html>

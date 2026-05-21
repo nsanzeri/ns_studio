@@ -121,6 +121,10 @@ include __DIR__ . '/includes/header.php';
                     <p class="muted">
                         Most clients invest between <strong>$700–$1,500</strong> depending on date, length of performance, and travel.
                     </p>
+                    <div class="hero-actions">
+                        <a href="faq.php" class="btn btn-primary">FAQs</a>
+                    </div>
+                    
                 </div>
                 <div>
                     <form class="form" action="booking_submit.php" method="POST">

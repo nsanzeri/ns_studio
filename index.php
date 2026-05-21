@@ -262,6 +262,7 @@ include __DIR__ . '/includes/header.php';
                 <div class="cta-actions">
                     <a href="booking.php" class="btn btn-primary">Start a Booking Inquiry</a>
                     <a href="shows.php" class="text-link">Or come see a show first</a>
+                    <a href="faq.php" class="text-link">FAQs</a>
                 </div>
             </div>
         </section>

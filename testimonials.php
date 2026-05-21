@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Testimonials | Nick Sanzeri</title>
+    <meta name="description" content="Read reviews and testimonials from wedding clients, private event hosts, venues, audience members, and musicians who have heard Nick Sanzeri perform.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;700&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
@@ -16,84 +17,10 @@
 	<link rel="shortcut icon" href="favicons/favicon.ico">
     
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-<script type="application/ld+json">
-{
-  "@context": "https://schema.org",
-  "@type": "PerformingGroup",
-  "name": "Nick Sanzeri - Midwest and Chicago area Private Event Performer",
-  "alternateName": "Live bassist and vocalist provising music for private parties, weddings, corporate events, casinos, restaurants, clubs and more.",
-  "url": "https://nicksanzeri.com",
-  "description": "Singer and bassist with a full bandsound specializing in birthdays, parties, corporate events, reunions and weddings in the Chicago area and beyond",
-  "sameAs": [
-  	"https://www.facebook.com/nicksanzeri13",
-	"https://open.spotify.com/artist/6xRrH2IVMxSkMihQUXcYdJ?si=O4zvZ3xUQyWhO1Jhsq-dnQ",
-    "https://twitter.com/nick_sanzeri",
-    "https://www.tiktok.com/@nicksanzeri?lang=en",
-    "https://www.instagram.com/nick_sanzeri/",
-    "https://www.youtube.com/channel/UCnTEOsjjmdnM0jBZyJY6jfg"
-  }
-  "areaServed": {
-    "@type": "Place",
-    "name": "Chicago, IL"
-  },
-  "hasOfferCatalog": {
-    "@type": "OfferCatalog",
-    "name": "Performance Services",
-    "itemListElement": [
-      {
-        "@type": "Offer",
-        "itemOffered": {
-          "@type": "Service",
-          "name": "Wedding Entertainment and Music",
-          "description": "Singer and bassist with full band sound for weddings receptions and able to provide DJ services and learn songs on request"
-        }
-      },
-      {
-        "@type": "Offer",
-        "itemOffered": {
-          "@type": "Service",
-          "name": "Restaurant, club and bar entertainment",
-          "description": "Live music to keep your patrons interested and staying all night"
-        }
-      },
-      {
-        "@type": "Offer",
-        "itemOffered": {
-          "@type": "Service",
-          "name": "Casino live music",
-          "description": "The perfect background live music for your guests to enjoy a lively night out."
-        }
-      },
-      {
-        "@type": "Offer",
-        "itemOffered": {
-          "@type": "Service",
-          "name": "Private parties, home events, and milestone events",
-          "description": "Thriliing your family and friends with live music and singing. Engaging and inclusive song choices."
-        }
-      },
-      {
-        "@type": "Offer",
-        "itemOffered": {
-          "@type": "Service",
-          "name": "Corporate events",
-          "description": "Building team spirit and bring your team together through the crowd engaging live music and singing."
-        }
-      }
-    ]
-  },
-  "location": {
-    "@type": "Place",
-    "address": {
-      "@type": "PostalAddress",
-      "addressLocality": "Carol Stream",
-      "addressRegion": "IL",
-      "addressCountry": "US"
-    }
-  }
-}
-</script>
-
+    <?php
+    require_once __DIR__ . '/includes/schema-global.php';
+    ns_schema_output('testimonials');
+    ?>
 </head>
 <body id="top">
 <?php 

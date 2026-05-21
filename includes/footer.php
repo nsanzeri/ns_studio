@@ -1,6 +1,7 @@
         <footer class="site-footer">
             <div class="container footer-inner">
                 <div class="footer-left">
+                    <li><a href="<?= htmlspecialchars($siteBase . '/faq.php') ?>" class="<?= nav_active($currentPage === 'faq.php') ?>">FAQs</a></li>
                     <li><a href="<?= htmlspecialchars($siteBase . '/payments.php') ?>" class="<?= nav_active($currentPage === 'payments.php') ?>">Payments</a></li>
                     <li><a href="<?= htmlspecialchars($siteBase . '/about.php') ?>" class="<?= nav_active($currentPage === 'about.php') ?>">About</a></li>
                     <li><a href="<?= htmlspecialchars($siteBase . '/pressme.php') ?>" class="<?= nav_active($currentPage === 'pressme.php') ?>">Random Video Picker</a></li>

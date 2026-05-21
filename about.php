@@ -10,412 +10,446 @@ declare(strict_types=1);
 
 $publicCalendarIcsUrl = 'https://calendar.google.com/calendar/ical/pjjfdgelvdjtuvrr89tun3nu7k%40group.calendar.google.com/public/basic.ics';
 $calendarTimezone = 'America/Chicago';
-$cacheFile = __DIR__ . '/cache/about_calendar_stats.json';
+$cacheFile = __DIR__ . '/cache/about_calendar_stats_v4.json';
 $cacheTtlSeconds = 6 * 60 * 60;
 
 function ns_about_h(string $value): string
 {
-    return htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
+	return htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
 }
 
 function ns_about_unfold_ics(string $raw): array
 {
-    $lines = preg_split("/\r\n|\n|\r/", $raw) ?: [];
-    $out = [];
-
-    foreach ($lines as $line) {
-        if ($out && (strpos($line, ' ') === 0 || strpos($line, "\t") === 0)) {
-            $out[count($out) - 1] .= ltrim($line);
-        } else {
-            $out[] = $line;
-        }
-    }
-
-    return $out;
+	$lines = preg_split("/\r\n|\n|\r/", $raw) ?: [];
+	$out = [];
+	
+	foreach ($lines as $line) {
+		if ($out && (strpos($line, ' ') === 0 || strpos($line, "\t") === 0)) {
+			$out[count($out) - 1] .= ltrim($line);
+		} else {
+			$out[] = $line;
+		}
+	}
+	
+	return $out;
 }
 
 function ns_about_ics_value(string $line): array
 {
-    [$rawKey, $value] = explode(':', $line, 2);
-    $keyParts = explode(';', $rawKey);
-    $key = strtoupper($keyParts[0]);
-    $params = [];
-
-    foreach (array_slice($keyParts, 1) as $part) {
-        if (strpos($part, '=') !== false) {
-            [$paramKey, $paramValue] = explode('=', $part, 2);
-            $params[strtoupper($paramKey)] = trim($paramValue, '"');
-        }
-    }
-
-    return [$key, $value, $params];
+	[$rawKey, $value] = explode(':', $line, 2);
+	$keyParts = explode(';', $rawKey);
+	$key = strtoupper($keyParts[0]);
+	$params = [];
+	
+	foreach (array_slice($keyParts, 1) as $part) {
+		if (strpos($part, '=') !== false) {
+			[$paramKey, $paramValue] = explode('=', $part, 2);
+			$params[strtoupper($paramKey)] = trim($paramValue, '"');
+		}
+	}
+	
+	return [$key, $value, $params];
 }
 
 function ns_about_unescape_ics_text(string $value): string
 {
-    $value = str_replace(['\\n', '\\N'], ' ', $value);
-    $value = str_replace(['\\,', '\\;', '\\\\'], [',', ';', '\\'], $value);
-    return trim(preg_replace('/\s+/', ' ', $value) ?: $value);
+	$value = str_replace(['\\n', '\\N'], ' ', $value);
+	$value = str_replace(['\\,', '\\;', '\\\\'], [',', ';', '\\'], $value);
+	return trim(preg_replace('/\s+/', ' ', $value) ?: $value);
 }
 
 function ns_about_parse_ics_datetime(string $raw, array $params, DateTimeZone $defaultTz): DateTime
 {
-    $raw = trim($raw);
-    $tz = $defaultTz;
-
-    if (!empty($params['TZID'])) {
-        try {
-            $tz = new DateTimeZone($params['TZID']);
-        } catch (Throwable $e) {
-            $tz = $defaultTz;
-        }
-    }
-
-    if (($params['VALUE'] ?? '') === 'DATE' || preg_match('/^\d{8}$/', $raw)) {
-        return DateTime::createFromFormat('!Ymd', $raw, $tz) ?: new DateTime($raw, $tz);
-    }
-
-    if (str_ends_with($raw, 'Z')) {
-        $dt = DateTime::createFromFormat('Ymd\THis\Z', $raw, new DateTimeZone('UTC')) ?: new DateTime($raw, new DateTimeZone('UTC'));
-        return $dt->setTimezone($defaultTz);
-    }
-
-    return DateTime::createFromFormat('Ymd\THis', $raw, $tz) ?: new DateTime($raw, $tz);
+	$raw = trim($raw);
+	$tz = $defaultTz;
+	
+	if (!empty($params['TZID'])) {
+		try {
+			$tz = new DateTimeZone($params['TZID']);
+		} catch (Throwable $e) {
+			$tz = $defaultTz;
+		}
+	}
+	
+	if (($params['VALUE'] ?? '') === 'DATE' || preg_match('/^\d{8}$/', $raw)) {
+		return DateTime::createFromFormat('!Ymd', $raw, $tz) ?: new DateTime($raw, $tz);
+	}
+	
+	if (str_ends_with($raw, 'Z')) {
+		$dt = DateTime::createFromFormat('Ymd\THis\Z', $raw, new DateTimeZone('UTC')) ?: new DateTime($raw, new DateTimeZone('UTC'));
+		return $dt->setTimezone($defaultTz);
+	}
+	
+	return DateTime::createFromFormat('Ymd\THis', $raw, $tz) ?: new DateTime($raw, $tz);
 }
 
 function ns_about_parse_exdates(array $event, DateTimeZone $tz): array
 {
-    $dates = [];
-
-    foreach (($event['EXDATE'] ?? []) as $exdateLine) {
-        $params = $exdateLine['params'] ?? [];
-        foreach (explode(',', (string)($exdateLine['value'] ?? '')) as $raw) {
-            $raw = trim($raw);
-            if ($raw === '') {
-                continue;
-            }
-            try {
-                $dt = ns_about_parse_ics_datetime($raw, $params, $tz);
-                $dates[$dt->format('Y-m-d')] = true;
-            } catch (Throwable $e) {
-            }
-        }
-    }
-
-    return $dates;
+	$dates = [];
+	
+	foreach (($event['EXDATE'] ?? []) as $exdateLine) {
+		$params = $exdateLine['params'] ?? [];
+		foreach (explode(',', (string)($exdateLine['value'] ?? '')) as $raw) {
+			$raw = trim($raw);
+			if ($raw === '') {
+				continue;
+			}
+			try {
+				$dt = ns_about_parse_ics_datetime($raw, $params, $tz);
+				$dates[$dt->format('Y-m-d')] = true;
+			} catch (Throwable $e) {
+			}
+		}
+	}
+	
+	return $dates;
 }
 
 function ns_about_expand_rrule_event(array $event, DateTime $rangeStart, DateTime $rangeEnd, DateTimeZone $tz): array
 {
-    $results = [];
-
-    if (empty($event['DTSTART']['value']) || empty($event['RRULE']['value'])) {
-        return $results;
-    }
-
-    try {
-        $baseStart = ns_about_parse_ics_datetime($event['DTSTART']['value'], $event['DTSTART']['params'] ?? [], $tz);
-        $baseEnd = !empty($event['DTEND']['value'])
-            ? ns_about_parse_ics_datetime($event['DTEND']['value'], $event['DTEND']['params'] ?? [], $tz)
-            : clone $baseStart;
-    } catch (Throwable $e) {
-        return $results;
-    }
-
-    $duration = max(0, $baseEnd->getTimestamp() - $baseStart->getTimestamp());
-    $allDay = preg_match('/^\d{8}$/', (string)$event['DTSTART']['value']) === 1;
-
-    $rr = [];
-    foreach (explode(';', (string)$event['RRULE']['value']) as $chunk) {
-        if (strpos($chunk, '=') === false) {
-            continue;
-        }
-        [$k, $v] = explode('=', $chunk, 2);
-        $rr[strtoupper($k)] = strtoupper($v);
-    }
-
-    $freq = $rr['FREQ'] ?? 'WEEKLY';
-    $interval = isset($rr['INTERVAL']) ? max(1, (int)$rr['INTERVAL']) : 1;
-    $countLimit = isset($rr['COUNT']) ? max(1, (int)$rr['COUNT']) : null;
-    $until = clone $rangeEnd;
-
-    if (!empty($rr['UNTIL'])) {
-        try {
-            $until = ns_about_parse_ics_datetime($rr['UNTIL'], [], $tz);
-        } catch (Throwable $e) {
-            $until = clone $rangeEnd;
-        }
-    }
-
-    if ($until > $rangeEnd) {
-        $until = clone $rangeEnd;
-    }
-
-    $summary = ns_about_unescape_ics_text((string)($event['SUMMARY']['value'] ?? 'No Summary'));
-    $location = ns_about_unescape_ics_text((string)($event['LOCATION']['value'] ?? ''));
-    $description = ns_about_unescape_ics_text((string)($event['DESCRIPTION']['value'] ?? ''));
-    $exdates = ns_about_parse_exdates($event, $tz);
-    $generated = 0;
-
-    $pushOccurrence = function (DateTime $startOcc) use (&$results, &$generated, $countLimit, $duration, $allDay, $summary, $location, $description, $rangeStart, $rangeEnd, $exdates): bool {
-        if ($countLimit !== null && $generated >= $countLimit) {
-            return false;
-        }
-
-        $generated++;
-
-        if (isset($exdates[$startOcc->format('Y-m-d')])) {
-            return true;
-        }
-
-        $occStart = clone $startOcc;
-        $occEnd = clone $startOcc;
-
-        if ($allDay) {
-            $occStart->setTime(0, 0, 0);
-            $occEnd->setTime(23, 59, 59);
-        } else {
-            $occEnd->modify('+' . $duration . ' seconds');
-        }
-
-        if ($occEnd >= $rangeStart && $occStart <= $rangeEnd) {
-            $results[] = [
-                'start' => $occStart,
-                'end' => $occEnd,
-                'summary' => $summary,
-                'location' => $location,
-                'description' => $description,
-            ];
-        }
-
-        return true;
-    };
-
-    if ($freq === 'DAILY') {
-        for ($d = clone $baseStart; $d <= $until; $d->modify('+' . $interval . ' day')) {
-            if (!$pushOccurrence($d)) {
-                break;
-            }
-        }
-    } elseif ($freq === 'WEEKLY') {
-        $dowMap = ['SU' => 0, 'MO' => 1, 'TU' => 2, 'WE' => 3, 'TH' => 4, 'FR' => 5, 'SA' => 6];
-        $bydays = !empty($rr['BYDAY']) ? explode(',', $rr['BYDAY']) : [strtoupper(substr($baseStart->format('D'), 0, 2))];
-
-        for ($d = clone $baseStart; $d <= $until; $d->modify('+1 day')) {
-            $daysDiff = (int)floor(($d->getTimestamp() - $baseStart->getTimestamp()) / 86400);
-            if ($daysDiff < 0) {
-                continue;
-            }
-            $weekIndex = intdiv($daysDiff, 7);
-            $dow2 = array_search((int)$d->format('w'), $dowMap, true);
-
-            if ($weekIndex % $interval === 0 && in_array($dow2, $bydays, true)) {
-                $occ = clone $d;
-                $occ->setTime((int)$baseStart->format('H'), (int)$baseStart->format('i'), (int)$baseStart->format('s'));
-                if (!$pushOccurrence($occ)) {
-                    break;
-                }
-            }
-        }
-    } elseif ($freq === 'MONTHLY') {
-        $current = (clone $baseStart)->modify('first day of this month');
-        $baseMonth = ((int)$baseStart->format('Y') * 12) + (int)$baseStart->format('n');
-
-        while ($current <= $until) {
-            $thisMonth = ((int)$current->format('Y') * 12) + (int)$current->format('n');
-            $monthDiff = $thisMonth - $baseMonth;
-
-            if ($monthDiff >= 0 && $monthDiff % $interval === 0) {
-                $days = [];
-                if (!empty($rr['BYMONTHDAY'])) {
-                    foreach (explode(',', $rr['BYMONTHDAY']) as $md) {
-                        $days[] = max(1, min((int)$md, (int)$current->format('t')));
-                    }
-                } else {
-                    $days[] = min((int)$baseStart->format('j'), (int)$current->format('t'));
-                }
-
-                foreach ($days as $day) {
-                    $occ = clone $current;
-                    $occ->setDate((int)$current->format('Y'), (int)$current->format('n'), $day);
-                    $occ->setTime((int)$baseStart->format('H'), (int)$baseStart->format('i'), (int)$baseStart->format('s'));
-                    if ($occ >= $baseStart && !$pushOccurrence($occ)) {
-                        break 2;
-                    }
-                }
-            }
-
-            $current->modify('first day of next month');
-        }
-    }
-
-    return $results;
+	$results = [];
+	
+	if (empty($event['DTSTART']['value']) || empty($event['RRULE']['value'])) {
+		return $results;
+	}
+	
+	try {
+		$baseStart = ns_about_parse_ics_datetime($event['DTSTART']['value'], $event['DTSTART']['params'] ?? [], $tz);
+		$baseEnd = !empty($event['DTEND']['value'])
+		? ns_about_parse_ics_datetime($event['DTEND']['value'], $event['DTEND']['params'] ?? [], $tz)
+		: clone $baseStart;
+	} catch (Throwable $e) {
+		return $results;
+	}
+	
+	$duration = max(0, $baseEnd->getTimestamp() - $baseStart->getTimestamp());
+	$allDay = preg_match('/^\d{8}$/', (string)$event['DTSTART']['value']) === 1;
+	
+	$rr = [];
+	foreach (explode(';', (string)$event['RRULE']['value']) as $chunk) {
+		if (strpos($chunk, '=') === false) {
+			continue;
+		}
+		[$k, $v] = explode('=', $chunk, 2);
+		$rr[strtoupper($k)] = strtoupper($v);
+	}
+	
+	$freq = $rr['FREQ'] ?? 'WEEKLY';
+	$interval = isset($rr['INTERVAL']) ? max(1, (int)$rr['INTERVAL']) : 1;
+	$countLimit = isset($rr['COUNT']) ? max(1, (int)$rr['COUNT']) : null;
+	$until = clone $rangeEnd;
+	
+	if (!empty($rr['UNTIL'])) {
+		try {
+			$until = ns_about_parse_ics_datetime($rr['UNTIL'], [], $tz);
+		} catch (Throwable $e) {
+			$until = clone $rangeEnd;
+		}
+	}
+	
+	if ($until > $rangeEnd) {
+		$until = clone $rangeEnd;
+	}
+	
+	$summary = ns_about_unescape_ics_text((string)($event['SUMMARY']['value'] ?? 'No Summary'));
+	$location = ns_about_unescape_ics_text((string)($event['LOCATION']['value'] ?? ''));
+	$description = ns_about_unescape_ics_text((string)($event['DESCRIPTION']['value'] ?? ''));
+	$exdates = ns_about_parse_exdates($event, $tz);
+	$generated = 0;
+	
+	$pushOccurrence = function (DateTime $startOcc) use (&$results, &$generated, $countLimit, $duration, $allDay, $summary, $location, $description, $rangeStart, $rangeEnd, $exdates): bool {
+		if ($countLimit !== null && $generated >= $countLimit) {
+			return false;
+		}
+		
+		$generated++;
+		
+		if (isset($exdates[$startOcc->format('Y-m-d')])) {
+			return true;
+		}
+		
+		$occStart = clone $startOcc;
+		$occEnd = clone $startOcc;
+		
+		if ($allDay) {
+			$occStart->setTime(0, 0, 0);
+			$occEnd->setTime(23, 59, 59);
+		} else {
+			$occEnd->modify('+' . $duration . ' seconds');
+		}
+		
+		if ($occEnd >= $rangeStart && $occStart <= $rangeEnd) {
+			$results[] = [
+					'start' => $occStart,
+					'end' => $occEnd,
+					'summary' => $summary,
+					'location' => $location,
+					'description' => $description,
+			];
+		}
+		
+		return true;
+	};
+	
+	if ($freq === 'DAILY') {
+		for ($d = clone $baseStart; $d <= $until; $d->modify('+' . $interval . ' day')) {
+			if (!$pushOccurrence($d)) {
+				break;
+			}
+		}
+	} elseif ($freq === 'WEEKLY') {
+		$dowMap = ['SU' => 0, 'MO' => 1, 'TU' => 2, 'WE' => 3, 'TH' => 4, 'FR' => 5, 'SA' => 6];
+		$bydays = !empty($rr['BYDAY']) ? explode(',', $rr['BYDAY']) : [strtoupper(substr($baseStart->format('D'), 0, 2))];
+		
+		for ($d = clone $baseStart; $d <= $until; $d->modify('+1 day')) {
+			$daysDiff = (int)floor(($d->getTimestamp() - $baseStart->getTimestamp()) / 86400);
+			if ($daysDiff < 0) {
+				continue;
+			}
+			$weekIndex = intdiv($daysDiff, 7);
+			$dow2 = array_search((int)$d->format('w'), $dowMap, true);
+			
+			if ($weekIndex % $interval === 0 && in_array($dow2, $bydays, true)) {
+				$occ = clone $d;
+				$occ->setTime((int)$baseStart->format('H'), (int)$baseStart->format('i'), (int)$baseStart->format('s'));
+				if (!$pushOccurrence($occ)) {
+					break;
+				}
+			}
+		}
+	} elseif ($freq === 'MONTHLY') {
+		$current = (clone $baseStart)->modify('first day of this month');
+		$baseMonth = ((int)$baseStart->format('Y') * 12) + (int)$baseStart->format('n');
+		
+		while ($current <= $until) {
+			$thisMonth = ((int)$current->format('Y') * 12) + (int)$current->format('n');
+			$monthDiff = $thisMonth - $baseMonth;
+			
+			if ($monthDiff >= 0 && $monthDiff % $interval === 0) {
+				$days = [];
+				if (!empty($rr['BYMONTHDAY'])) {
+					foreach (explode(',', $rr['BYMONTHDAY']) as $md) {
+						$days[] = max(1, min((int)$md, (int)$current->format('t')));
+					}
+				} else {
+					$days[] = min((int)$baseStart->format('j'), (int)$current->format('t'));
+				}
+				
+				foreach ($days as $day) {
+					$occ = clone $current;
+					$occ->setDate((int)$current->format('Y'), (int)$current->format('n'), $day);
+					$occ->setTime((int)$baseStart->format('H'), (int)$baseStart->format('i'), (int)$baseStart->format('s'));
+					if ($occ >= $baseStart && !$pushOccurrence($occ)) {
+						break 2;
+					}
+				}
+			}
+			
+			$current->modify('first day of next month');
+		}
+	}
+	
+	return $results;
 }
 
 function ns_about_parse_ics_events(string $rawICS, DateTimeZone $tz): array
 {
-    $rangeStart = new DateTime('2000-01-01 00:00:00', $tz);
-    $rangeEnd = new DateTime('+18 months', $tz);
-    $lines = ns_about_unfold_ics($rawICS);
-    $events = [];
-    $event = null;
-
-    foreach ($lines as $line) {
-        $trim = trim($line);
-
-        if ($trim === 'BEGIN:VEVENT') {
-            $event = [];
-            continue;
-        }
-
-        if ($trim === 'END:VEVENT') {
-            if ($event && !empty($event['DTSTART']['value'])) {
-                if (!empty($event['RRULE']['value'])) {
-                    $events = array_merge($events, ns_about_expand_rrule_event($event, $rangeStart, $rangeEnd, $tz));
-                } else {
-                    try {
-                        $start = ns_about_parse_ics_datetime($event['DTSTART']['value'], $event['DTSTART']['params'] ?? [], $tz);
-                        $end = !empty($event['DTEND']['value'])
-                            ? ns_about_parse_ics_datetime($event['DTEND']['value'], $event['DTEND']['params'] ?? [], $tz)
-                            : clone $start;
-
-                        if (preg_match('/^\d{8}$/', (string)$event['DTSTART']['value'])) {
-                            $end->setTime(23, 59, 59);
-                        }
-
-                        if ($end >= $rangeStart && $start <= $rangeEnd) {
-                            $events[] = [
-                                'start' => $start,
-                                'end' => $end,
-                                'summary' => ns_about_unescape_ics_text((string)($event['SUMMARY']['value'] ?? 'No Summary')),
-                                'location' => ns_about_unescape_ics_text((string)($event['LOCATION']['value'] ?? '')),
-                                'description' => ns_about_unescape_ics_text((string)($event['DESCRIPTION']['value'] ?? '')),
-                            ];
-                        }
-                    } catch (Throwable $e) {
-                    }
-                }
-            }
-
-            $event = null;
-            continue;
-        }
-
-        if ($event !== null && strpos($trim, ':') !== false) {
-            [$key, $value, $params] = ns_about_ics_value($trim);
-            if ($key === 'EXDATE') {
-                $event['EXDATE'][] = ['value' => $value, 'params' => $params];
-            } else {
-                $event[$key] = ['value' => $value, 'params' => $params];
-            }
-        }
-    }
-
-    usort($events, static fn(array $a, array $b): int => $a['start'] <=> $b['start']);
-    return $events;
+	$rangeStart = new DateTime('2000-01-01 00:00:00', $tz);
+	$rangeEnd = new DateTime('+18 months', $tz);
+	$lines = ns_about_unfold_ics($rawICS);
+	$events = [];
+	$event = null;
+	
+	foreach ($lines as $line) {
+		$trim = trim($line);
+		
+		if ($trim === 'BEGIN:VEVENT') {
+			$event = [];
+			continue;
+		}
+		
+		if ($trim === 'END:VEVENT') {
+			if ($event && !empty($event['DTSTART']['value'])) {
+				if (!empty($event['RRULE']['value'])) {
+					$events = array_merge($events, ns_about_expand_rrule_event($event, $rangeStart, $rangeEnd, $tz));
+				} else {
+					try {
+						$start = ns_about_parse_ics_datetime($event['DTSTART']['value'], $event['DTSTART']['params'] ?? [], $tz);
+						$end = !empty($event['DTEND']['value'])
+						? ns_about_parse_ics_datetime($event['DTEND']['value'], $event['DTEND']['params'] ?? [], $tz)
+						: clone $start;
+						
+						if (preg_match('/^\d{8}$/', (string)$event['DTSTART']['value'])) {
+							$end->setTime(23, 59, 59);
+						}
+						
+						if ($end >= $rangeStart && $start <= $rangeEnd) {
+							$events[] = [
+									'start' => $start,
+									'end' => $end,
+									'summary' => ns_about_unescape_ics_text((string)($event['SUMMARY']['value'] ?? 'No Summary')),
+									'location' => ns_about_unescape_ics_text((string)($event['LOCATION']['value'] ?? '')),
+									'description' => ns_about_unescape_ics_text((string)($event['DESCRIPTION']['value'] ?? '')),
+							];
+						}
+					} catch (Throwable $e) {
+					}
+				}
+			}
+			
+			$event = null;
+			continue;
+		}
+		
+		if ($event !== null && strpos($trim, ':') !== false) {
+			[$key, $value, $params] = ns_about_ics_value($trim);
+			if ($key === 'EXDATE') {
+				$event['EXDATE'][] = ['value' => $value, 'params' => $params];
+			} else {
+				$event[$key] = ['value' => $value, 'params' => $params];
+			}
+		}
+	}
+	
+	usort($events, static fn(array $a, array $b): int => $a['start'] <=> $b['start']);
+	return $events;
 }
 
 function ns_about_fetch_url(string $url): ?string
 {
-    if (function_exists('curl_init')) {
-        $ch = curl_init($url);
-        curl_setopt_array($ch, [
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_FOLLOWLOCATION => true,
-            CURLOPT_TIMEOUT => 12,
-            CURLOPT_SSL_VERIFYPEER => true,
-            CURLOPT_SSL_VERIFYHOST => 2,
-            CURLOPT_USERAGENT => 'NickSanzeri.com About Page Calendar Stats',
-        ]);
-        $raw = curl_exec($ch);
-        $code = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
-
-        if (is_string($raw) && $raw !== '' && $code >= 200 && $code < 400) {
-            return $raw;
-        }
-    }
-
-    $context = stream_context_create([
-        'http' => ['timeout' => 12, 'user_agent' => 'NickSanzeri.com About Page Calendar Stats'],
-    ]);
-    $raw = @file_get_contents($url, false, $context);
-    return is_string($raw) && $raw !== '' ? $raw : null;
+	if (function_exists('curl_init')) {
+		$ch = curl_init($url);
+		curl_setopt_array($ch, [
+				CURLOPT_RETURNTRANSFER => true,
+				CURLOPT_FOLLOWLOCATION => true,
+				CURLOPT_TIMEOUT => 12,
+				CURLOPT_SSL_VERIFYPEER => true,
+				CURLOPT_SSL_VERIFYHOST => 2,
+				CURLOPT_USERAGENT => 'NickSanzeri.com About Page Calendar Stats',
+		]);
+		$raw = curl_exec($ch);
+		$code = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+		curl_close($ch);
+		
+		if (is_string($raw) && $raw !== '' && $code >= 200 && $code < 400) {
+			return $raw;
+		}
+	}
+	
+	$context = stream_context_create([
+			'http' => ['timeout' => 12, 'user_agent' => 'NickSanzeri.com About Page Calendar Stats'],
+	]);
+	$raw = @file_get_contents($url, false, $context);
+	return is_string($raw) && $raw !== '' ? $raw : null;
 }
 
 function ns_about_get_calendar_stats(string $icsUrl, string $timezone, string $cacheFile, int $cacheTtlSeconds): array
 {
-    $fallback = [
-        'total' => 1500,
-        'private' => 300,
-        'weddings' => 100,
-        'upcoming' => 0,
-        'fresh' => false,
-        'updated' => null,
-    ];
-
-    if (is_file($cacheFile) && (time() - (int)filemtime($cacheFile)) < $cacheTtlSeconds) {
-        $cached = json_decode((string)file_get_contents($cacheFile), true);
-        if (is_array($cached) && isset($cached['total'], $cached['private'], $cached['weddings'])) {
-            return $cached + ['fresh' => true, 'updated' => date(DATE_ATOM, (int)filemtime($cacheFile))];
-        }
-    }
-
-    try {
-        $tz = new DateTimeZone($timezone);
-    } catch (Throwable $e) {
-        $tz = new DateTimeZone('America/Chicago');
-    }
-
-    $raw = ns_about_fetch_url($icsUrl);
-    if (!$raw) {
-        return $fallback;
-    }
-
-    $events = ns_about_parse_ics_events($raw, $tz);
-    if (!$events) {
-        return $fallback;
-    }
-
-    $now = new DateTime('now', $tz);
-    $stats = [
-        'total' => count($events),
-        'private' => 0,
-        'weddings' => 0,
-        'upcoming' => 0,
-        'fresh' => true,
-        'updated' => date(DATE_ATOM),
-    ];
-
-    foreach ($events as $event) {
-        $title = mb_strtolower((string)($event['summary'] ?? ''), 'UTF-8');
-        if (str_contains($title, 'private')) {
-            $stats['private']++;
-        }
-        if (str_contains($title, 'wedding')) {
-            $stats['weddings']++;
-        }
-        if (($event['start'] ?? $now) >= $now) {
-            $stats['upcoming']++;
-        }
-    }
-
-    $dir = dirname($cacheFile);
-    if (!is_dir($dir)) {
-        @mkdir($dir, 0755, true);
-    }
-    @file_put_contents($cacheFile, json_encode($stats, JSON_PRETTY_PRINT));
-
-    return $stats;
+	$fallback = [
+			'total' => 1500,
+			'private' => 300,
+			'weddings' => 100,
+			'upcoming' => 0,
+			'first_event_date' => null,
+			'calendar_span_years' => 0,
+			'calendar_span_value' => 0,
+			'calendar_span_label' => 'Years performing',
+			'fresh' => false,
+			'updated' => null,
+	];
+	
+	if (is_file($cacheFile) && (time() - (int)filemtime($cacheFile)) < $cacheTtlSeconds) {
+		$cached = json_decode((string)file_get_contents($cacheFile), true);
+		if (is_array($cached) && isset($cached['total'], $cached['private'], $cached['weddings'])) {
+			return $cached + [
+					'first_event_date' => null,
+					'calendar_span_years' => 0,
+					'calendar_span_value' => 0,
+					'calendar_span_label' => 'Years performing',
+					'fresh' => true,
+					'updated' => date(DATE_ATOM, (int)filemtime($cacheFile)),
+			];
+		}
+	}
+	
+	try {
+		$tz = new DateTimeZone($timezone);
+	} catch (Throwable $e) {
+		$tz = new DateTimeZone('America/Chicago');
+	}
+	
+	$raw = ns_about_fetch_url($icsUrl);
+	if (!$raw) {
+		return $fallback;
+	}
+	
+	$events = ns_about_parse_ics_events($raw, $tz);
+	if (!$events) {
+		return $fallback;
+	}
+	
+	$now = new DateTime('now', $tz);
+	$stats = [
+			'total' => count($events),
+			'private' => 0,
+			'weddings' => 0,
+			'upcoming' => 0,
+			'first_event_date' => null,
+			'calendar_span_years' => 0,
+			'calendar_span_value' => 0,
+			'calendar_span_label' => 'Years performing',
+			'fresh' => true,
+			'updated' => date(DATE_ATOM),
+	];
+	
+	$firstEventStart = $events[0]['start'] ?? null;
+	if ($firstEventStart instanceof DateTime) {
+		$stats['first_event_date'] = $firstEventStart->format('Y-m-d');
+		$span = $firstEventStart->diff($now);
+		$stats['calendar_span_years'] = max(0, (int)$span->y);
+		$stats['calendar_span_value'] = $span->y >= 1 ? (int)$span->y : max(1, (int)$span->m);
+		$stats['calendar_span_label'] = $span->y >= 1 ? 'Years performing' : 'Months performing';
+	}
+	
+	foreach ($events as $event) {
+		$title = mb_strtolower((string)($event['summary'] ?? ''), 'UTF-8');
+		if (str_contains($title, 'private')) {
+			$stats['private']++;
+		}
+		if (str_contains($title, 'wedding')) {
+			$stats['weddings']++;
+		}
+		if (($event['start'] ?? $now) >= $now) {
+			$stats['upcoming']++;
+		}
+	}
+	
+	$dir = dirname($cacheFile);
+	if (!is_dir($dir)) {
+		@mkdir($dir, 0755, true);
+	}
+	@file_put_contents($cacheFile, json_encode($stats, JSON_PRETTY_PRINT));
+	
+	return $stats;
 }
 
 $stats = ns_about_get_calendar_stats($publicCalendarIcsUrl, $calendarTimezone, $cacheFile, $cacheTtlSeconds);
 $proofStats = [
-    ['label' => 'Total gigs tracked', 'value' => (int)$stats['total'], 'suffix' => '+'],
-    ['label' => 'Private events', 'value' => (int)$stats['private'], 'suffix' => '+'],
-    ['label' => 'Weddings', 'value' => (int)$stats['weddings'], 'suffix' => '+'],
-    ['label' => 'Upcoming dates on the calendar', 'value' => (int)$stats['upcoming'], 'suffix' => ''],
+		['label' => (string)$stats['calendar_span_label'], 'value' => (int)$stats['calendar_span_value'], 'suffix' => '+'],
+		['label' => 'Total gigs tracked', 'value' => (int)$stats['total'], 'suffix' => '+'],
+		['label' => 'Private events', 'value' => (int)$stats['private'], 'suffix' => '+'],
+		['label' => 'Weddings', 'value' => (int)$stats['weddings'], 'suffix' => '+'],
+		['label' => 'Upcoming dates on the calendar', 'value' => (int)$stats['upcoming'], 'suffix' => ''],
 ];
+
+$calendarProofDescription = 'Nick Sanzeri is a Chicagoland singer, bassist, and live entertainer providing full-band-sounding live music for weddings, private parties, corporate events, restaurants, casinos, clubs, and community events.';
+if (!empty($stats['fresh'])) {
+	$calendarProofDescription .= ' His public performance calendar currently shows ' . (int)$stats['total'] . ' tracked gigs';
+	if (!empty($stats['first_event_date'])) {
+		$calendarProofDescription .= ' since ' . date('F Y', strtotime((string)$stats['first_event_date']));
+	}
+	$calendarProofDescription .= ', including ' . (int)$stats['private'] . ' private events and ' . (int)$stats['weddings'] . ' weddings.';
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -445,7 +479,7 @@ $proofStats = [
         }
         .proof-grid {
             display: grid;
-            grid-template-columns: repeat(4, minmax(0, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(165px, 1fr));
             gap: 1rem;
             margin-top: 2rem;
         }
@@ -487,9 +521,10 @@ $proofStats = [
         .feature-proof-card {
             border-radius: 22px;
             padding: 1.35rem;
-            background: #fff;
-            box-shadow: 0 18px 45px rgba(0,0,0,.08);
-            border: 1px solid rgba(0,0,0,.06);
+            background: linear-gradient(135deg, rgba(34,34,44,0.98), rgba(19,19,29,0.98));
+            box-shadow: 0 18px 45px rgba(0,0,0,.24);
+            border: 1px solid rgba(255,255,255,.16);
+            color: #ffffff;
         }
         .trust-card i {
             font-size: 1.45rem;
@@ -512,13 +547,21 @@ $proofStats = [
             line-height: 1.35;
             font-family: 'Playfair Display', serif;
         }
-        .feature-proof-card cite,
+        .feature-proof-card {
+            background: linear-gradient(135deg, rgba(50,37,27,0.98), rgba(22,22,32,0.98));
+            color: #fff8ec;
+        }
+        .feature-proof-card cite {
+            color: #f5d08a;
+            opacity: 1;
+        }
         .mini-quote cite {
             display: block;
             margin-top: 1rem;
             font-style: normal;
             font-weight: 700;
-            opacity: .8;
+            color: #ffe8c2;
+            opacity: 1;
         }
         .mini-quote-stack {
             display: grid;
@@ -527,11 +570,21 @@ $proofStats = [
         .mini-quote {
             border-radius: 20px;
             padding: 1.15rem;
-            background: rgba(255,255,255,.1);
-            border: 1px solid rgba(255,255,255,.14);
+            background: rgba(255,255,255,.96);
+            border: 1px solid rgba(255,255,255,.55);
+            color: #161616;
+            box-shadow: 0 18px 42px rgba(0,0,0,.22);
         }
         .mini-quote p {
             margin: 0;
+            color: #161616;
+        }
+        .mini-quote cite {
+            color: #5b3c1e;
+        }
+        .section-dark .feature-proof-card,
+        .section-dark .mini-quote {
+            text-shadow: none;
         }
         .reputation-box {
             border-radius: 28px;
@@ -561,6 +614,46 @@ $proofStats = [
         .reputation-list i {
             margin-top: .2rem;
         }
+        .section-dark .feature-proof-card {
+            background: linear-gradient(135deg, rgba(55,42,31,0.98), rgba(20,20,31,0.98));
+            border: 1px solid rgba(255,255,255,0.16);
+            color: #fff8ec;
+        }
+        .section-dark .feature-proof-card blockquote {
+            color: #fff8ec;
+            opacity: 1;
+        }
+        .section-dark .feature-proof-card cite {
+            color: #f5d08a;
+            opacity: 1;
+        }
+        .section .trust-card {
+            background: linear-gradient(135deg, rgba(34,34,46,0.98), rgba(17,17,27,0.98));
+            border: 1px solid rgba(255,255,255,0.16);
+            color: #f8fafc;
+        }
+        .section .trust-card h3,
+        .section .trust-card i {
+            color: #ffffff;
+            opacity: 1;
+        }
+        .section .trust-card p {
+            color: rgba(248,250,252,0.86);
+            opacity: 1;
+        }
+        .section-dark .mini-quote {
+            background: linear-gradient(135deg, rgba(36,36,46,0.98), rgba(24,24,34,0.98));
+            border: 1px solid rgba(255,255,255,0.16);
+            color: #fff;
+        }
+        .section-dark .mini-quote p {
+            color: rgba(255,255,255,0.94);
+            opacity: 1;
+        }
+        .section-dark .mini-quote cite {
+            color: #ffe8c2;
+            opacity: 1;
+        }
         @media (max-width: 900px) {
             .proof-grid,
             .trust-strip,
@@ -573,32 +666,128 @@ $proofStats = [
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
-      "@type": "PerformingGroup",
-      "name": "Nick Sanzeri - Midwest and Chicago Area Private Event Performer",
-      "alternateName": "Live bassist and vocalist providing music for private parties, weddings, corporate events, casinos, restaurants, clubs and more.",
-      "url": "https://nicksanzeri.com",
-      "description": "Singer and bassist with a full-band sound specializing in private parties, corporate events, weddings, restaurants, clubs, casinos, and community events in the Chicago area and beyond.",
-      "sameAs": [
-        "https://www.facebook.com/nicksanzeri13",
-        "https://open.spotify.com/artist/6xRrH2IVMxSkMihQUXcYdJ?si=O4zvZ3xUQyWhO1Jhsq-dnQ",
-        "https://twitter.com/nick_sanzeri",
-        "https://www.tiktok.com/@nicksanzeri?lang=en",
-        "https://www.instagram.com/nick_sanzeri/",
-        "https://www.youtube.com/channel/UCnTEOsjjmdnM0jBZyJY6jfg"
-      ],
-      "areaServed": {
-        "@type": "Place",
-        "name": "Chicago, IL"
-      },
-      "location": {
-        "@type": "Place",
-        "address": {
-          "@type": "PostalAddress",
-          "addressLocality": "Carol Stream",
-          "addressRegion": "IL",
-          "addressCountry": "US"
+      "@graph": [
+        {
+          "@type": "WebPage",
+          "@id": "https://nicksanzeri.com/about.php#webpage",
+          "url": "https://nicksanzeri.com/about.php",
+          "name": "About Nick Sanzeri | Chicagoland Private Event Performer",
+          "description": "About Nick Sanzeri, a Chicagoland singer, bassist, and private event entertainer trusted for weddings, corporate events, restaurants, casinos, clubs, and community events.",
+          "isPartOf": {
+            "@id": "https://nicksanzeri.com/#website"
+          },
+          "about": {
+            "@id": "https://nicksanzeri.com/#nick-sanzeri"
+          },
+          "mainEntity": {
+            "@id": "https://nicksanzeri.com/#nick-sanzeri"
+          }
+        },
+        {
+          "@type": "WebSite",
+          "@id": "https://nicksanzeri.com/#website",
+          "url": "https://nicksanzeri.com/",
+          "name": "Nick Sanzeri Music",
+          "publisher": {
+            "@id": "https://nicksanzeri.com/#nick-sanzeri"
+          }
+        },
+        {
+          "@type": ["Person", "MusicGroup", "PerformingGroup", "LocalBusiness"],
+          "@id": "https://nicksanzeri.com/#nick-sanzeri",
+          "name": "Nick Sanzeri",
+          "alternateName": "Nick Sanzeri Music",
+          "url": "https://nicksanzeri.com/",
+          "image": "https://nicksanzeri.com/assets/img/paint.png",
+          "description": <?= json_encode($calendarProofDescription, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE); ?>,
+          "slogan": "One man. Full-band experience.",
+          <?php if (!empty($stats['first_event_date'])): ?>
+          "foundingDate": <?= json_encode((string)$stats['first_event_date']); ?>,
+          <?php endif; ?>
+          "address": {
+            "@type": "PostalAddress",
+            "addressLocality": "Carol Stream",
+            "addressRegion": "IL",
+            "addressCountry": "US"
+          },
+          "areaServed": [
+            { "@type": "Place", "name": "Chicago, IL" },
+            { "@type": "Place", "name": "Chicagoland" },
+            { "@type": "Place", "name": "Midwest" }
+          ],
+          "sameAs": [
+            "https://www.facebook.com/nicksanzeri13",
+            "https://open.spotify.com/artist/6xRrH2IVMxSkMihQUXcYdJ?si=O4zvZ3xUQyWhO1Jhsq-dnQ",
+            "https://twitter.com/nick_sanzeri",
+            "https://www.tiktok.com/@nicksanzeri?lang=en",
+            "https://www.instagram.com/nick_sanzeri/",
+            "https://www.youtube.com/channel/UCnTEOsjjmdnM0jBZyJY6jfg"
+          ],
+          "knowsAbout": [
+            "Wedding entertainment",
+            "Private event entertainment",
+            "Corporate event music",
+            "Live music for restaurants",
+            "Casino entertainment",
+            "Singing bassist",
+            "One-man band entertainment"
+          ],
+          "makesOffer": [
+            {
+              "@type": "Offer",
+              "itemOffered": {
+                "@type": "Service",
+                "name": "Wedding Entertainment and Live Music",
+                "description": "Live vocals, bass, full-band-style backing tracks, professional sound, and event music coverage for wedding ceremonies, cocktail hours, dinners, and receptions."
+              }
+            },
+            {
+              "@type": "Offer",
+              "itemOffered": {
+                "@type": "Service",
+                "name": "Private Party Entertainment",
+                "description": "Live music for birthdays, backyard parties, milestone events, reunions, home events, and private celebrations."
+              }
+            },
+            {
+              "@type": "Offer",
+              "itemOffered": {
+                "@type": "Service",
+                "name": "Corporate Event Music",
+                "description": "Professional live entertainment for company parties, grand openings, client events, staff celebrations, and business functions."
+              }
+            },
+            {
+              "@type": "Offer",
+              "itemOffered": {
+                "@type": "Service",
+                "name": "Restaurant, Club, Casino, and Community Event Entertainment",
+                "description": "Crowd-friendly live music designed to keep guests engaged, entertained, and staying longer."
+              }
+            }
+          ],
+          "review": [
+            {
+              "@type": "Review",
+              "reviewBody": "Nick sang at our wedding and was truly amazing. His voice was absolutely beautiful and added such a special, emotional, and elegant touch to our day.",
+              "author": { "@type": "Person", "name": "Nancy M." },
+              "itemReviewed": { "@id": "https://nicksanzeri.com/#nick-sanzeri" }
+            },
+            {
+              "@type": "Review",
+              "reviewBody": "We've booked Nick multiple times for our community events. Residents absolutely love him — every time the crowd gets bigger.",
+              "author": { "@type": "Person", "name": "Andy V." },
+              "itemReviewed": { "@id": "https://nicksanzeri.com/#nick-sanzeri" }
+            },
+            {
+              "@type": "Review",
+              "reviewBody": "Nick is the whole package — he's a super-talented musician, knows what people like, and knows how to work the crowd.",
+              "author": { "@type": "Person", "name": "Sandy White" },
+              "itemReviewed": { "@id": "https://nicksanzeri.com/#nick-sanzeri" }
+            }
+          ]
         }
-      }
+      ]
     }
     </script>
 </head>
@@ -625,7 +814,7 @@ $proofStats = [
 
             <p class="proof-note">
                 <?php if (!empty($stats['fresh'])): ?>
-                    Counters are pulled from Nick's public performance calendar and refreshed periodically.
+                    Counters are pulled from Nick's public performance calendar and refreshed periodically<?php if (!empty($stats['first_event_date'])): ?>, beginning with the first tracked calendar entry on <?= ns_about_h(date('F j, Y', strtotime((string)$stats['first_event_date']))); ?><?php endif; ?>.
                 <?php else: ?>
                     Counters are showing fallback career totals because the public calendar feed could not be reached during this page load.
                 <?php endif; ?>

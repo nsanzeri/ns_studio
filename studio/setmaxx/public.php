@@ -7,6 +7,7 @@ $messages = [];
 $session = null;
 $songs = [];
 $lockedSongIds = [];
+$availableLetters = [];
 
 function setmaxx_public_tables_ready(PDO $pdo): bool {
     foreach (['setmaxx_songs', 'setmaxx_gig_sessions', 'setmaxx_requests'] as $tableName) {
@@ -35,7 +36,7 @@ if ($tablesReady && $token !== '') {
 
 if ($session && $tablesReady) {
     $songsStmt = $pdo->prepare(
-        "SELECT id, title, artist, tip_amount_cents
+        "SELECT id, title, artist
          FROM setmaxx_songs
          WHERE user_id = (
             SELECT user_id FROM setmaxx_gig_sessions WHERE id = ?
@@ -45,6 +46,13 @@ if ($session && $tablesReady) {
     );
     $songsStmt->execute([(int)$session['id']]);
     $songs = $songsStmt->fetchAll(PDO::FETCH_ASSOC);
+
+    foreach ($songs as $song) {
+        $first = strtoupper(substr(trim((string)$song['title']), 0, 1));
+        $letter = preg_match('/[A-Z]/', $first) ? $first : '#';
+        $availableLetters[$letter] = true;
+    }
+    ksort($availableLetters);
 
     $lockStmt = $pdo->prepare("SELECT song_id FROM setmaxx_requests WHERE gig_session_id = ? AND active_lock = 1");
     $lockStmt->execute([(int)$session['id']]);
@@ -60,9 +68,10 @@ if ($session && $tablesReady && is_post()) {
         $songId = (int)($_POST['song_id'] ?? 0);
         $requesterName = trim((string)($_POST['requester_name'] ?? ''));
         $requestNote = trim((string)($_POST['request_note'] ?? ''));
+        $requestAmountDollars = (int)($_POST['request_amount_dollars'] ?? 0);
 
         $songStmt = $pdo->prepare(
-            "SELECT id, tip_amount_cents
+            "SELECT id
              FROM setmaxx_songs
              WHERE id = ?
                AND user_id = (
@@ -74,7 +83,9 @@ if ($session && $tablesReady && is_post()) {
         $songStmt->execute([$songId, (int)$session['id']]);
         $song = $songStmt->fetch(PDO::FETCH_ASSOC) ?: null;
 
-        if (!$song) {
+        if (!($requestAmountDollars === 0 || ($requestAmountDollars >= 10 && $requestAmountDollars <= 100))) {
+            $errors[] = 'Choose $0 for a free request, or a paid amount from $10 to $100.';
+        } elseif (!$song) {
             $errors[] = 'That song is not available for this request page.';
         } elseif (in_array($songId, $lockedSongIds, true)) {
             $errors[] = 'That song has already been requested for this gig.';
@@ -89,7 +100,7 @@ if ($session && $tablesReady && is_post()) {
                     $songId,
                     $requesterName !== '' ? $requesterName : null,
                     $requestNote !== '' ? $requestNote : null,
-                    (int)$song['tip_amount_cents'],
+                    $requestAmountDollars * 100,
                 ]);
                 $messages[] = 'Request sent to the performer.';
                 $lockedSongIds[] = $songId;
@@ -114,26 +125,32 @@ if ($session && $tablesReady && is_post()) {
     body { background: radial-gradient(circle at top, rgba(140,107,255,.22), transparent 35%), #090814; }
     .public-shell { padding: 2rem 0 4rem; }
     .public-card {
-      max-width: 980px; margin: 0 auto; background: rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.08);
+      max-width: 1120px; margin: 0 auto; background: rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.08);
       border-radius: 26px; padding: 1.4rem; box-shadow: 0 20px 50px rgba(0,0,0,.28);
     }
-    .public-grid { display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; margin-top:1rem; }
-    .song-card {
-      padding: 1rem; border-radius: 18px; background: rgba(255,255,255,.035); border:1px solid rgba(255,255,255,.07);
-      display:grid; gap:.75rem;
-    }
+    .alpha-menu { position:sticky; top:.5rem; z-index:3; display:flex; gap:.35rem; flex-wrap:wrap; align-items:center; margin-top:1rem; padding:.65rem; border-radius:16px; background:rgba(9,8,20,.92); border:1px solid rgba(255,255,255,.08); }
+    .alpha-button { min-width:34px; height:34px; border-radius:10px; border:1px solid rgba(255,255,255,.12); background:rgba(255,255,255,.05); color:#fff; font:inherit; font-size:.82rem; cursor:pointer; }
+    .alpha-button.active, .alpha-button:hover { background:rgba(140,107,255,.24); border-color:rgba(140,107,255,.45); }
+    .alpha-button:disabled { opacity:.35; cursor:not-allowed; }
+    .public-grid { display:grid; gap:.45rem; margin-top:.85rem; }
+    .song-card { padding:.6rem .7rem; border-radius:14px; background: rgba(255,255,255,.035); border:1px solid rgba(255,255,255,.07); }
     .song-card.locked { opacity:.6; }
     .song-meta { color: rgba(255,255,255,.72); font-size:.92rem; }
-    .song-top { display:flex; justify-content:space-between; gap:1rem; align-items:flex-start; }
-    .song-tip { font-weight:700; color:#efe7ff; }
-    .request-form { display:grid; gap:.7rem; }
-    .request-input, .request-textarea { width:100%; padding:.78rem .9rem; border-radius:14px; border:1px solid rgba(255,255,255,.1); background:rgba(255,255,255,.05); color:#fff; font:inherit; }
-    .request-textarea { min-height:88px; resize:vertical; }
+    .song-title { font-weight:600; line-height:1.2; }
+    .song-row { display:grid; grid-template-columns:minmax(220px, 1.1fr) minmax(430px, 1.7fr); gap:.75rem; align-items:center; }
+    .request-form { display:grid; grid-template-columns:105px minmax(120px, 1fr) minmax(150px, 1.2fr) auto; gap:.5rem; align-items:center; }
+    .request-input, .request-select { width:100%; padding:.52rem .62rem; border-radius:10px; border:1px solid rgba(255,255,255,.1); background:rgba(255,255,255,.05); color:#fff; font:inherit; font-size:.9rem; }
+    .request-select option { background:#151323; color:#fff; }
+    .request-input::placeholder { color:rgba(255,255,255,.52); }
+    .request-submit { padding:.54rem .85rem; white-space:nowrap; }
     .request-note { margin-top:1rem; padding:1rem; border-radius:16px; background:rgba(140,107,255,.1); border:1px solid rgba(140,107,255,.16); }
     .alert { border-radius:16px; padding:.95rem 1rem; margin-bottom:1rem; }
     .alert-success { background:rgba(51,176,102,.16); border:1px solid rgba(51,176,102,.28); }
     .alert-error { background:rgba(199,64,64,.16); border:1px solid rgba(199,64,64,.28); }
-    @media (max-width: 860px) { .public-grid { grid-template-columns: 1fr; } }
+    @media (max-width: 900px) {
+      .song-row, .request-form { grid-template-columns:1fr; }
+      .request-submit { width:100%; }
+    }
   </style>
 </head>
 <body>
@@ -155,43 +172,82 @@ if ($session && $tablesReady && is_post()) {
         <div>
           <div style="display:inline-flex; padding:.3rem .7rem; border-radius:999px; background:rgba(140,107,255,.16); color:#efe7ff; font-weight:600;">Live song requests</div>
           <h1 style="margin:.8rem 0 .35rem;"><?= e($session['title']) ?></h1>
-          <div class="song-meta"><?= e((string)($session['venue_name'] ?: 'Tonight\'s show')) ?> · hosted by <?= e((string)($session['display_name'] ?: 'the performer')) ?></div>
+          <div class="song-meta"><?= e((string)($session['venue_name'] ?: 'Tonight\'s show')) ?> &middot; hosted by <?= e((string)($session['display_name'] ?: 'the performer')) ?></div>
         </div>
-        <div class="song-meta" style="max-width:320px;">Choose from the approved list below. One active request per song is allowed tonight, so anything already requested is locked.</div>
+        <div class="song-meta" style="max-width:320px;">Choose from the active song list below. One active request per song is allowed tonight, so anything already requested is locked.</div>
       </div>
 
       <div class="request-note song-meta">
-        Tip amounts shown here are the suggested request amounts for this first pass. Payment and automatic payouts are the next phase. Requests are still subject to performer discretion.
+        Choose $0 for a free request, or choose a paid request from $10 to $100. Requests are still subject to performer discretion.
       </div>
 
+      <?php if ($songs): ?>
+        <div class="alpha-menu" aria-label="Song alphabet filter">
+          <button class="alpha-button active" type="button" data-letter="all">All</button>
+          <?php foreach (array_merge(['#'], range('A', 'Z')) as $letter): ?>
+            <button class="alpha-button" type="button" data-letter="<?= e($letter) ?>" <?= isset($availableLetters[$letter]) ? '' : 'disabled' ?>><?= e($letter) ?></button>
+          <?php endforeach; ?>
+        </div>
+      <?php endif; ?>
+
       <div class="public-grid">
-        <?php foreach ($songs as $song): ?>
-          <?php $locked = in_array((int)$song['id'], $lockedSongIds, true); ?>
-          <div class="song-card <?= $locked ? 'locked' : '' ?>">
-            <div class="song-top">
+        <?php if (!$songs): ?>
+          <div class="song-card"><div class="song-meta">No active songs are available for this request page right now.</div></div>
+        <?php else: foreach ($songs as $song): ?>
+          <?php
+            $locked = in_array((int)$song['id'], $lockedSongIds, true);
+            $first = strtoupper(substr(trim((string)$song['title']), 0, 1));
+            $letter = preg_match('/[A-Z]/', $first) ? $first : '#';
+          ?>
+          <div class="song-card <?= $locked ? 'locked' : '' ?>" data-letter="<?= e($letter) ?>">
+            <div class="song-row">
               <div>
-                <div style="font-weight:600;"><?= e($song['title']) ?></div>
+                <div class="song-title"><?= e($song['title']) ?></div>
                 <div class="song-meta"><?= e((string)($song['artist'] ?: 'Artist not listed')) ?></div>
               </div>
-              <div class="song-tip">$<?= number_format(((int)$song['tip_amount_cents']) / 100, 0) ?></div>
-            </div>
 
-            <?php if ($locked): ?>
-              <div class="song-meta"><strong>Already requested tonight.</strong></div>
-            <?php else: ?>
-              <form method="post" class="request-form" action="">
-                <input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>">
-                <input type="hidden" name="song_id" value="<?= (int)$song['id'] ?>">
-                <input class="request-input" name="requester_name" placeholder="Your name (optional)">
-                <textarea class="request-textarea" name="request_note" placeholder="Optional note for the performer"></textarea>
-                <button class="btn btn-primary" type="submit">Send request</button>
-              </form>
-            <?php endif; ?>
+              <?php if ($locked): ?>
+                <div class="song-meta"><strong>Already requested tonight.</strong></div>
+              <?php else: ?>
+                <form method="post" class="request-form" action="">
+                  <input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>">
+                  <input type="hidden" name="song_id" value="<?= (int)$song['id'] ?>">
+                  <select class="request-select" name="request_amount_dollars" aria-label="Request amount">
+                    <option value="0">$0</option>
+                    <?php for ($amount = 10; $amount <= 100; $amount++): ?>
+                      <option value="<?= $amount ?>">$<?= $amount ?></option>
+                    <?php endfor; ?>
+                  </select>
+                  <input class="request-input" name="requester_name" placeholder="Your name">
+                  <input class="request-input" name="request_note" placeholder="Optional note">
+                  <button class="btn btn-primary request-submit" type="submit">Request</button>
+                </form>
+              <?php endif; ?>
+            </div>
           </div>
-        <?php endforeach; ?>
+        <?php endforeach; endif; ?>
       </div>
     <?php endif; ?>
   </div>
 </main>
+<script>
+(function() {
+  const buttons = Array.from(document.querySelectorAll('.alpha-button'));
+  const cards = Array.from(document.querySelectorAll('.song-card[data-letter]'));
+  if (!buttons.length || !cards.length) return;
+
+  buttons.forEach(function(button) {
+    button.addEventListener('click', function() {
+      const letter = button.getAttribute('data-letter');
+      buttons.forEach(function(item) { item.classList.toggle('active', item === button); });
+      cards.forEach(function(card) {
+        card.hidden = letter !== 'all' && card.getAttribute('data-letter') !== letter;
+      });
+      const firstVisible = cards.find(function(card) { return !card.hidden; });
+      if (firstVisible) firstVisible.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    });
+  });
+})();
+</script>
 </body>
 </html>

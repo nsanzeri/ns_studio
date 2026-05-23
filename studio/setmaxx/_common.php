@@ -64,6 +64,7 @@ function setmaxx_page_head(string $title): void { ?>
     .setmaxx-form-grid { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:.9rem; }
     .setmaxx-field { display:grid; gap:.45rem; }
     .setmaxx-input, .setmaxx-select, .setmaxx-textarea { width:100%; padding:.85rem .95rem; border-radius:14px; border:1px solid rgba(255,255,255,.1); background:rgba(255,255,255,.05); color:#fff; font:inherit; }
+    .setmaxx-select option, .setmaxx-input option { background:#151323; color:#fff; }
     .setmaxx-textarea { min-height:100px; resize:vertical; }
     .setmaxx-actions { display:flex; gap:.75rem; flex-wrap:wrap; align-items:center; }
     .setmaxx-pill { display:inline-flex; align-items:center; gap:.4rem; padding:.28rem .75rem; border-radius:999px; font-size:.84rem; font-weight:600; background: rgba(140,107,255,.16); color:#efe7ff; }

@@ -516,25 +516,39 @@ setmaxx_page_head('Set Maxx | Song Catalog');
   }
 
   async function findTrack(title, artist) {
-    const url = 'enrich_song.php?_csrf=' + encodeURIComponent(csrfToken) + '&title=' + encodeURIComponent(title) + '&artist=' + encodeURIComponent(artist || '');
-    try {
-      const response = await fetch(url);
-      if (!response.ok) {
-        throw new Error('Server lookup failed');
-      }
-      const data = await response.json();
-      if (data && data.ok && data.result) return data.result;
-    } catch (error) {
-      return findTrackJsonp(title, artist);
-    }
-
-    return null;
+    return findTrackJsonp(title, artist);
   }
 
   function findTrackJsonp(title, artist) {
+    const query = 'track:"' + title.replace(/"/g, '') + '"' + (artist ? ' artist:"' + artist.replace(/"/g, '') + '"' : '');
+    return deezerJsonp('https://api.deezer.com/search?limit=1&output=jsonp&q=' + encodeURIComponent(query)).then(function(data) {
+      const track = data && data.data && data.data.length ? data.data[0] : null;
+      if (!track) return null;
+
+      const result = {
+        artistName: track.artist && track.artist.name ? track.artist.name : '',
+        releaseDate: '',
+        primaryGenreName: '',
+        trackTimeMillis: track.duration ? Number(track.duration) * 1000 : 0
+      };
+
+      if (!(track.album && track.album.id)) return result;
+
+      return deezerJsonp('https://api.deezer.com/album/' + encodeURIComponent(track.album.id) + '?output=jsonp').then(function(album) {
+        if (album && album.release_date) result.releaseDate = album.release_date;
+        if (album && album.genres && album.genres.data && album.genres.data.length && album.genres.data[0].name) {
+          result.primaryGenreName = album.genres.data[0].name;
+        }
+        return result;
+      }).catch(function() {
+        return result;
+      });
+    });
+  }
+
+  function deezerJsonp(url) {
     return new Promise(function(resolve, reject) {
-      const callbackName = 'setmaxxItunes' + Date.now() + Math.floor(Math.random() * 10000);
-      const term = [title, artist].filter(Boolean).join(' ');
+      const callbackName = 'setmaxxDeezer' + Date.now() + Math.floor(Math.random() * 10000);
       const script = document.createElement('script');
       const timer = window.setTimeout(function() {
         cleanup();
@@ -557,7 +571,7 @@ setmaxx_page_head('Set Maxx | Song Catalog');
         reject(new Error('Lookup failed'));
       };
 
-      script.src = 'https://itunes.apple.com/search?media=music&entity=song&country=US&limit=1&term=' + encodeURIComponent(term) + '&callback=' + encodeURIComponent(callbackName);
+      script.src = url + '&callback=' + encodeURIComponent(callbackName);
       document.head.appendChild(script);
     });
   }

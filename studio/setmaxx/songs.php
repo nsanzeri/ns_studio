@@ -124,6 +124,16 @@ function setmaxx_parse_song_import(string $text): array {
     return $rows;
 }
 
+if (!empty($_SESSION['setmaxx_songs_messages']) && is_array($_SESSION['setmaxx_songs_messages'])) {
+    $messages = array_merge($messages, $_SESSION['setmaxx_songs_messages']);
+    unset($_SESSION['setmaxx_songs_messages']);
+}
+
+if (!empty($_SESSION['setmaxx_songs_errors']) && is_array($_SESSION['setmaxx_songs_errors'])) {
+    $errors = array_merge($errors, $_SESSION['setmaxx_songs_errors']);
+    unset($_SESSION['setmaxx_songs_errors']);
+}
+
 if ($tablesReady) {
     try {
         setmaxx_ensure_song_metadata_schema($pdo);
@@ -248,8 +258,16 @@ if ($tablesReady && is_post()) {
     }
 }
 
+if (is_post()) {
+    $_SESSION['setmaxx_songs_messages'] = $messages;
+    $_SESSION['setmaxx_songs_errors'] = $errors;
+    header('Location: ' . base_url('/setmaxx/songs.php'));
+    exit;
+}
+
 $songs = [];
 $availableLetters = [];
+$songCount = 0;
 if ($tablesReady) {
     $songsStmt = $pdo->prepare(
         "SELECT id, title, artist, release_year, genre, is_prerecorded, track_length_seconds, is_medley,
@@ -261,6 +279,7 @@ if ($tablesReady) {
     );
     $songsStmt->execute([$userId]);
     $songs = $songsStmt->fetchAll(PDO::FETCH_ASSOC);
+    $songCount = count($songs);
     foreach ($songs as $song) {
         $first = strtoupper(substr(trim((string)$song['title']), 0, 1));
         $letter = preg_match('/[A-Z]/', $first) ? $first : '#';
@@ -320,7 +339,7 @@ setmaxx_page_head('Set Maxx | Song Catalog');
     <div class="setmaxx-catalog-toolbar">
       <div>
         <h2 style="margin:0;">Editable catalog</h2>
-        <div class="setmaxx-help">Only changed rows are saved, which keeps large catalogs fast.</div>
+        <div class="setmaxx-help"><?= (int)$songCount ?> total <?= $songCount === 1 ? 'entry' : 'entries' ?>. Only changed rows are saved, which keeps large catalogs fast.</div>
       </div>
       <div class="setmaxx-actions">
         <button class="btn btn-outline" type="button" id="setmaxxEnrichBtn" <?= $songs ? '' : 'disabled' ?>>Enrich visible</button>
@@ -456,9 +475,6 @@ setmaxx_page_head('Set Maxx | Song Catalog');
   }
 
   function setRowEditing(row, enabled) {
-    rowEditableFields(row).forEach(function(field) {
-      field.disabled = !enabled;
-    });
     const dirty = row.querySelector('.js-row-dirty');
     if (dirty) {
       dirty.disabled = !enabled;
@@ -475,6 +491,20 @@ setmaxx_page_head('Set Maxx | Song Catalog');
     setRowEditing(row, false);
   });
 
+  const catalogForm = table.closest('form');
+  if (catalogForm) {
+    catalogForm.addEventListener('submit', function(event) {
+      const submitter = event.submitter;
+      const action = submitter && submitter.name === 'action' ? submitter.value : 'save_catalog';
+      table.querySelectorAll('.setmaxx-song-row').forEach(function(row) {
+        const shouldSubmit = action === 'save_catalog' ? row.classList.contains('is-dirty') : false;
+        rowEditableFields(row).forEach(function(field) {
+          field.disabled = !shouldSubmit;
+        });
+      });
+    });
+  }
+
   function isBlank(input) {
     return input && input.value.trim() === '';
   }
@@ -487,10 +517,49 @@ setmaxx_page_head('Set Maxx | Song Catalog');
 
   async function findTrack(title, artist) {
     const url = 'enrich_song.php?_csrf=' + encodeURIComponent(csrfToken) + '&title=' + encodeURIComponent(title) + '&artist=' + encodeURIComponent(artist || '');
-    const response = await fetch(url);
-    if (!response.ok) return null;
-    const data = await response.json();
-    return data && data.ok ? data.result : null;
+    try {
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error('Server lookup failed');
+      }
+      const data = await response.json();
+      if (data && data.ok && data.result) return data.result;
+    } catch (error) {
+      return findTrackJsonp(title, artist);
+    }
+
+    return null;
+  }
+
+  function findTrackJsonp(title, artist) {
+    return new Promise(function(resolve, reject) {
+      const callbackName = 'setmaxxItunes' + Date.now() + Math.floor(Math.random() * 10000);
+      const term = [title, artist].filter(Boolean).join(' ');
+      const script = document.createElement('script');
+      const timer = window.setTimeout(function() {
+        cleanup();
+        reject(new Error('Lookup timed out'));
+      }, 9000);
+
+      function cleanup() {
+        window.clearTimeout(timer);
+        delete window[callbackName];
+        if (script.parentNode) script.parentNode.removeChild(script);
+      }
+
+      window[callbackName] = function(data) {
+        cleanup();
+        resolve(data && data.results && data.results.length ? data.results[0] : null);
+      };
+
+      script.onerror = function() {
+        cleanup();
+        reject(new Error('Lookup failed'));
+      };
+
+      script.src = 'https://itunes.apple.com/search?media=music&entity=song&country=US&limit=1&term=' + encodeURIComponent(term) + '&callback=' + encodeURIComponent(callbackName);
+      document.head.appendChild(script);
+    });
   }
 
   function selectedRows() {
@@ -629,6 +698,7 @@ setmaxx_page_head('Set Maxx | Song Catalog');
     const checkedRows = selectedRows();
     const rows = checkedRows.length ? checkedRows : visibleRows();
     let enriched = 0;
+    let lookupError = '';
     button.disabled = true;
     if (deleteButton) deleteButton.disabled = true;
     button.textContent = 'Enriching...';
@@ -657,11 +727,12 @@ setmaxx_page_head('Set Maxx | Song Catalog');
         markRowDirty(row);
         enriched++;
       } catch (error) {
+        lookupError = error && error.message ? error.message : 'Lookup failed';
         continue;
       }
     }
 
-    button.textContent = enriched ? 'Enriched ' + enriched + ' rows' : 'No matches found';
+    button.textContent = enriched ? 'Enriched ' + enriched + ' rows' : (lookupError || 'No matches found');
     window.setTimeout(function() {
       button.textContent = selectedRows().length ? 'Enrich selected' : 'Enrich visible';
       updateSelectionControls();

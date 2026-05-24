@@ -10,6 +10,7 @@ $stableLinkFound = false;
 $songs = [];
 $lockedSongIds = [];
 $availableLetters = [];
+$songCount = 0;
 
 function setmaxx_public_tables_ready(PDO $pdo): bool {
     foreach (['setmaxx_songs', 'setmaxx_gig_sessions', 'setmaxx_requests'] as $tableName) {
@@ -76,6 +77,7 @@ if ($session && $tablesReady) {
     );
     $songsStmt->execute([(int)$session['id']]);
     $songs = $songsStmt->fetchAll(PDO::FETCH_ASSOC);
+    $songCount = count($songs);
 
     foreach ($songs as $song) {
         $first = strtoupper(substr(trim((string)$song['title']), 0, 1));
@@ -210,7 +212,7 @@ if ($session && $tablesReady && is_post()) {
           <h1 style="margin:.8rem 0 .35rem;"><?= e($session['title']) ?></h1>
           <div class="song-meta"><?= e((string)($session['venue_name'] ?: 'Tonight\'s show')) ?> &middot; hosted by <?= e((string)($session['display_name'] ?: 'the performer')) ?></div>
         </div>
-        <div class="song-meta" style="max-width:320px;">Choose from the active song list below. One active request per song is allowed tonight, so anything already requested is locked.</div>
+        <div class="song-meta" style="max-width:320px;"><?= (int)$songCount ?> active <?= $songCount === 1 ? 'song' : 'songs' ?> available. One active request per song is allowed tonight, so anything already requested is locked.</div>
       </div>
 
       <div class="request-note song-meta">

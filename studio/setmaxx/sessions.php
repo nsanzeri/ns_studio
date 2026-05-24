@@ -1,6 +1,19 @@
 <?php
 require_once __DIR__ . '/_common.php';
 
+$stablePublicUrl = '';
+$stableQrUrl = '';
+if ($tablesReady) {
+	try {
+		setmaxx_enforce_single_live_session($pdo, $userId);
+		$stableToken = setmaxx_public_link_token($pdo, $userId);
+		$stablePublicUrl = setmaxx_absolute_url($stableSessionLinkBase . rawurlencode($stableToken));
+		$stableQrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=240x240&margin=10&data=' . rawurlencode($stablePublicUrl);
+	} catch (Throwable $e) {
+		$errors[] = 'Could not prepare your stable public request link.';
+	}
+}
+
 if ($tablesReady && is_post()) {
 	if (!csrf_verify($_POST['_csrf'] ?? null)) {
 		$errors[] = 'Your session expired. Refresh the page and try again.';
@@ -19,12 +32,15 @@ if ($tablesReady && is_post()) {
 				$publicToken = bin2hex(random_bytes(16));
 				$status = $goLive ? 'live' : 'draft';
 				$pdo->beginTransaction();
+				$lockStmt = $pdo->prepare("SELECT id FROM setmaxx_gig_sessions WHERE user_id = ? FOR UPDATE");
+				$lockStmt->execute([$userId]);
 				if ($goLive) {
 					$pdo->prepare("UPDATE setmaxx_gig_sessions SET status = 'closed', ends_at = NOW() WHERE user_id = ? AND status = 'live'")->execute([$userId]);
 				}
 				$stmt = $pdo->prepare("INSERT INTO setmaxx_gig_sessions (user_id, title, venue_name, session_slug, public_token, status, starts_at) VALUES (?, ?, ?, ?, ?, ?, ?)");
 				$stmt->execute([$userId, $title, $venue !== '' ? $venue : null, $sessionSlug, $publicToken, $status, $goLive ? date('Y-m-d H:i:s') : null]);
 				$pdo->commit();
+				setmaxx_enforce_single_live_session($pdo, $userId);
 				$messages[] = $goLive ? 'New live session created.' : 'Session created in draft mode.';
 			}
 			if ($action === 'session_status') {
@@ -32,6 +48,8 @@ if ($tablesReady && is_post()) {
 				$newStatus = (string)($_POST['new_status'] ?? '');
 				if ($sessionId <= 0 || !in_array($newStatus, ['live', 'closed'], true)) throw new RuntimeException('Invalid session update.');
 				$pdo->beginTransaction();
+				$lockStmt = $pdo->prepare("SELECT id FROM setmaxx_gig_sessions WHERE user_id = ? FOR UPDATE");
+				$lockStmt->execute([$userId]);
 				if ($newStatus === 'live') {
 					$pdo->prepare("UPDATE setmaxx_gig_sessions SET status = 'closed', ends_at = NOW() WHERE user_id = ? AND status = 'live' AND id <> ?")->execute([$userId, $sessionId]);
 					$pdo->prepare("UPDATE setmaxx_gig_sessions SET status = 'live', starts_at = COALESCE(starts_at, NOW()), ends_at = NULL WHERE id = ? AND user_id = ?")->execute([$sessionId, $userId]);
@@ -41,6 +59,7 @@ if ($tablesReady && is_post()) {
 					$messages[] = 'Session closed.';
 				}
 				$pdo->commit();
+				setmaxx_enforce_single_live_session($pdo, $userId);
 			}
 			if ($action === 'delete_session') {
 				$sessionId = (int)($_POST['session_id'] ?? 0);
@@ -71,6 +90,7 @@ if ($tablesReady && is_post()) {
 
 $sessions = [];
 if ($tablesReady) {
+	setmaxx_enforce_single_live_session($pdo, $userId);
 	$sessionsStmt = $pdo->prepare("SELECT id, title, venue_name, session_slug, public_token, status, starts_at, ends_at, created_at FROM setmaxx_gig_sessions WHERE user_id = ? ORDER BY FIELD(status, 'live', 'draft', 'closed'), created_at DESC LIMIT 20");
 	$sessionsStmt->execute([$userId]);
 	$sessions = $sessionsStmt->fetchAll(PDO::FETCH_ASSOC);
@@ -100,8 +120,14 @@ setmaxx_page_head('Set Maxx | Gig Sessions');
       </form>
     </div>
     <div class="setmaxx-card">
-      <h2 style="margin-top:0;">When live</h2>
-      <p class="setmaxx-help">Open the public page, copy the link, or turn it into a QR code for the room. Requests then appear on the dashboard.</p>
+      <h2 style="margin-top:0;">Permanent request QR</h2>
+      <p class="setmaxx-help">This QR code stays the same. It always opens whichever session is currently live.</p>
+      <?php if ($stablePublicUrl): ?>
+        <div class="setmaxx-qr-wrap">
+          <img class="setmaxx-qr-img" src="<?= e($stableQrUrl) ?>" alt="Set Maxx request QR code">
+          <div class="setmaxx-link-box"><strong>Public page</strong><code><?= e($stablePublicUrl) ?></code><a class="btn btn-outline" href="<?= e($stablePublicUrl) ?>" target="_blank" rel="noopener">Open</a></div>
+        </div>
+      <?php endif; ?>
       <a class="btn btn-outline" href="<?= e(base_url('/setmaxx/requests.php')) ?>">Open Request Dashboard</a>
     </div>
   </section>
@@ -111,12 +137,13 @@ setmaxx_page_head('Set Maxx | Gig Sessions');
       <?php if (!$sessions): ?>
         <div class="setmaxx-row"><div class="setmaxx-meta">No gig sessions yet.</div></div>
       <?php else: foreach ($sessions as $session): ?>
-        <?php $publicUrl = $sessionLinkBase . rawurlencode((string)$session['public_token']); ?>
         <div class="setmaxx-row">
           <div style="min-width:0; flex:1;">
             <div style="display:flex; gap:.6rem; align-items:center; flex-wrap:wrap;"><div style="font-weight:600;"><?= e($session['title']) ?></div><?= setmaxx_status_pill((string)$session['status']) ?></div>
             <div class="setmaxx-meta"><?= e((string)($session['venue_name'] ?: 'Venue not set')) ?></div>
-            <div class="setmaxx-link-box" style="margin-top:.7rem;"><strong>Public page</strong><code><?= e($publicUrl) ?></code><a class="btn btn-outline" href="<?= e($publicUrl) ?>" target="_blank" rel="noopener">Open</a></div>
+            <?php if (($session['status'] ?? '') === 'live' && $stablePublicUrl): ?>
+              <div class="setmaxx-link-box" style="margin-top:.7rem;"><strong>Live public page</strong><code><?= e($stablePublicUrl) ?></code><a class="btn btn-outline" href="<?= e($stablePublicUrl) ?>" target="_blank" rel="noopener">Open</a></div>
+            <?php endif; ?>
           </div>
           <div class="setmaxx-actions">
             <?php if (($session['status'] ?? '') !== 'live'): ?>
@@ -137,4 +164,8 @@ setmaxx_page_head('Set Maxx | Gig Sessions');
   </div>
   <?php endif; ?>
 </main>
+<style>
+  .setmaxx-qr-wrap { display:grid; gap:.9rem; margin:1rem 0; }
+  .setmaxx-qr-img { width:180px; max-width:100%; border-radius:14px; background:#fff; padding:.45rem; }
+</style>
 <?php setmaxx_page_foot(); ?>

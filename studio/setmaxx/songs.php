@@ -245,6 +245,7 @@ if ($tablesReady && is_post()) {
 }
 
 $songs = [];
+$availableLetters = [];
 if ($tablesReady) {
     $songsStmt = $pdo->prepare(
         "SELECT id, title, artist, release_year, genre, is_prerecorded, track_length_seconds, is_medley,
@@ -256,6 +257,12 @@ if ($tablesReady) {
     );
     $songsStmt->execute([$userId]);
     $songs = $songsStmt->fetchAll(PDO::FETCH_ASSOC);
+    foreach ($songs as $song) {
+        $first = strtoupper(substr(trim((string)$song['title']), 0, 1));
+        $letter = preg_match('/[A-Z]/', $first) ? $first : '#';
+        $availableLetters[$letter] = true;
+    }
+    ksort($availableLetters);
 }
 setmaxx_page_head('Set Maxx | Song Catalog');
 ?>
@@ -321,6 +328,12 @@ setmaxx_page_head('Set Maxx | Song Catalog');
     <?php if (!$songs): ?>
       <div class="setmaxx-row" style="margin-top:1rem;"><div class="setmaxx-meta">No songs yet. Import a list or add a few staples first.</div></div>
     <?php else: ?>
+      <div class="setmaxx-alpha-menu" aria-label="Song alphabet filter">
+        <button class="setmaxx-alpha-button active" type="button" data-letter="all">All</button>
+        <?php foreach (array_merge(['#'], range('A', 'Z')) as $letter): ?>
+          <button class="setmaxx-alpha-button" type="button" data-letter="<?= e($letter) ?>" <?= isset($availableLetters[$letter]) ? '' : 'disabled' ?>><?= e($letter) ?></button>
+        <?php endforeach; ?>
+      </div>
       <div class="setmaxx-table-wrap">
         <table class="setmaxx-song-table" id="setmaxxSongTable">
           <thead>
@@ -340,15 +353,21 @@ setmaxx_page_head('Set Maxx | Song Catalog');
               <th>Key</th>
               <th>Tempo</th>
               <th>Family</th>
-              <th>Tip</th>
               <th>Notes</th>
             </tr>
           </thead>
           <tbody>
             <?php foreach ($songs as $song): ?>
-              <?php $id = (int)$song['id']; ?>
-              <tr class="setmaxx-song-row">
-                <td><input class="js-row-select" type="checkbox" name="selected_song_ids[]" value="<?= $id ?>" aria-label="Select <?= e($song['title']) ?>"></td>
+              <?php
+                $id = (int)$song['id'];
+                $first = strtoupper(substr(trim((string)$song['title']), 0, 1));
+                $letter = preg_match('/[A-Z]/', $first) ? $first : '#';
+              ?>
+              <tr class="setmaxx-song-row" data-letter="<?= e($letter) ?>">
+                <td>
+                  <input class="js-row-select" type="checkbox" name="selected_song_ids[]" value="<?= $id ?>" aria-label="Select <?= e($song['title']) ?>">
+                  <input type="hidden" name="songs[<?= $id ?>][tip_dollars]" value="<?= e((string)(((int)$song['tip_amount_cents']) / 100)) ?>">
+                </td>
                 <td><input type="hidden" name="songs[<?= $id ?>][is_active]" value="0"><input type="checkbox" name="songs[<?= $id ?>][is_active]" value="1" <?= !empty($song['is_active']) ? 'checked' : '' ?>></td>
                 <td><input class="setmaxx-grid-input js-title" name="songs[<?= $id ?>][title]" value="<?= e($song['title']) ?>" required></td>
                 <td><input class="setmaxx-grid-input js-artist" name="songs[<?= $id ?>][artist]" value="<?= e((string)$song['artist']) ?>"></td>
@@ -370,7 +389,6 @@ setmaxx_page_head('Set Maxx | Song Catalog');
                 <td><input class="setmaxx-grid-input" name="songs[<?= $id ?>][song_key]" value="<?= e((string)$song['song_key']) ?>"></td>
                 <td><input class="setmaxx-grid-input" name="songs[<?= $id ?>][tempo_bpm]" type="number" min="1" max="400" value="<?= e((string)$song['tempo_bpm']) ?>"></td>
                 <td><input type="hidden" name="songs[<?= $id ?>][family_friendly]" value="0"><input type="checkbox" name="songs[<?= $id ?>][family_friendly]" value="1" <?= !empty($song['family_friendly']) ? 'checked' : '' ?>></td>
-                <td><input class="setmaxx-grid-input setmaxx-money-input" name="songs[<?= $id ?>][tip_dollars]" type="number" min="0" step="1" value="<?= e((string)(((int)$song['tip_amount_cents']) / 100)) ?>"></td>
                 <td><textarea class="setmaxx-grid-notes" name="songs[<?= $id ?>][performance_notes]"><?= e((string)$song['performance_notes']) ?></textarea></td>
               </tr>
             <?php endforeach; ?>
@@ -383,8 +401,13 @@ setmaxx_page_head('Set Maxx | Song Catalog');
 </main>
 <style>
   .setmaxx-catalog-toolbar { display:flex; justify-content:space-between; gap:1rem; align-items:flex-start; flex-wrap:wrap; margin-bottom:1rem; }
+  .setmaxx-alpha-menu { display:flex; gap:.35rem; flex-wrap:wrap; align-items:center; margin:.25rem 0 1rem; padding:.65rem; border-radius:16px; background:rgba(9,8,20,.7); border:1px solid rgba(255,255,255,.08); }
+  .setmaxx-alpha-button { min-width:34px; height:34px; border-radius:10px; border:1px solid rgba(255,255,255,.12); background:rgba(255,255,255,.05); color:#fff; font:inherit; font-size:.82rem; cursor:pointer; }
+  .setmaxx-alpha-button.active,
+  .setmaxx-alpha-button:hover { background:rgba(140,107,255,.24); border-color:rgba(140,107,255,.45); }
+  .setmaxx-alpha-button:disabled { opacity:.35; cursor:not-allowed; }
   .setmaxx-table-wrap { overflow:auto; border:1px solid rgba(255,255,255,.08); border-radius:16px; }
-  .setmaxx-song-table { width:100%; min-width:1700px; border-collapse:collapse; }
+  .setmaxx-song-table { width:100%; min-width:1600px; border-collapse:collapse; }
   .setmaxx-song-table th,
   .setmaxx-song-table td { padding:.55rem; border-bottom:1px solid rgba(255,255,255,.07); vertical-align:top; }
   .setmaxx-song-table th { position:sticky; top:0; z-index:1; background:#151323; color:rgba(255,255,255,.78); font-size:.78rem; text-align:left; font-weight:600; }
@@ -393,7 +416,6 @@ setmaxx_page_head('Set Maxx | Song Catalog');
   .setmaxx-grid-notes { width:100%; min-width:92px; padding:.55rem .6rem; border-radius:10px; border:1px solid rgba(255,255,255,.1); background:rgba(255,255,255,.05); color:#fff; font:inherit; font-size:.88rem; }
   .setmaxx-grid-input option { background:#151323; color:#fff; }
   .setmaxx-grid-notes { min-width:180px; height:42px; resize:vertical; }
-  .setmaxx-money-input { min-width:72px; }
   .setmaxx-song-table input[type="checkbox"] { width:18px; height:18px; accent-color:#8c6bff; }
 </style>
 <script>
@@ -402,6 +424,7 @@ setmaxx_page_head('Set Maxx | Song Catalog');
   const deleteButton = document.getElementById('setmaxxDeleteSelectedBtn');
   const selectAll = document.getElementById('setmaxxSelectAll');
   const table = document.getElementById('setmaxxSongTable');
+  const alphaButtons = Array.from(document.querySelectorAll('.setmaxx-alpha-button'));
   if (!button || !table) return;
 
   function isBlank(input) {
@@ -430,8 +453,16 @@ setmaxx_page_head('Set Maxx | Song Catalog');
     });
   }
 
+  function visibleRows() {
+    return Array.from(table.querySelectorAll('.setmaxx-song-row')).filter(function(row) {
+      return !row.hidden;
+    });
+  }
+
   function updateSelectionControls() {
-    const checkboxes = Array.from(table.querySelectorAll('.js-row-select'));
+    const checkboxes = visibleRows().map(function(row) {
+      return row.querySelector('.js-row-select');
+    }).filter(Boolean);
     const selectedCount = checkboxes.filter(function(checkbox) { return checkbox.checked; }).length;
     button.disabled = selectedCount === 0;
     if (deleteButton) deleteButton.disabled = selectedCount === 0;
@@ -449,12 +480,30 @@ setmaxx_page_head('Set Maxx | Song Catalog');
 
   if (selectAll) {
     selectAll.addEventListener('change', function() {
-      table.querySelectorAll('.js-row-select').forEach(function(checkbox) {
-        checkbox.checked = selectAll.checked;
+      visibleRows().forEach(function(row) {
+        const checkbox = row.querySelector('.js-row-select');
+        if (checkbox) checkbox.checked = selectAll.checked;
       });
       updateSelectionControls();
     });
   }
+
+  alphaButtons.forEach(function(alphaButton) {
+    alphaButton.addEventListener('click', function() {
+      const letter = alphaButton.getAttribute('data-letter');
+      alphaButtons.forEach(function(item) { item.classList.toggle('active', item === alphaButton); });
+      table.querySelectorAll('.setmaxx-song-row').forEach(function(row) {
+        const hidden = letter !== 'all' && row.getAttribute('data-letter') !== letter;
+        row.hidden = hidden;
+        if (hidden) {
+          const checkbox = row.querySelector('.js-row-select');
+          if (checkbox) checkbox.checked = false;
+        }
+      });
+      if (selectAll) selectAll.checked = false;
+      updateSelectionControls();
+    });
+  });
 
   if (deleteButton) {
     deleteButton.addEventListener('click', function(event) {

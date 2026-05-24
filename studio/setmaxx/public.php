@@ -2,9 +2,11 @@
 require_once __DIR__ . '/../_private/_core/bootstrap.php';
 
 $token = trim((string)($_GET['token'] ?? ''));
+$linkToken = trim((string)($_GET['link'] ?? ''));
 $errors = [];
 $messages = [];
 $session = null;
+$stableLinkFound = false;
 $songs = [];
 $lockedSongIds = [];
 $availableLetters = [];
@@ -20,6 +22,12 @@ function setmaxx_public_tables_ready(PDO $pdo): bool {
     return true;
 }
 
+function setmaxx_public_table_exists(PDO $pdo, string $tableName): bool {
+    $stmt = $pdo->prepare("SELECT 1 FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ? LIMIT 1");
+    $stmt->execute([$tableName]);
+    return (bool)$stmt->fetchColumn();
+}
+
 $tablesReady = setmaxx_public_tables_ready($pdo);
 
 if ($tablesReady && $token !== '') {
@@ -32,6 +40,28 @@ if ($tablesReady && $token !== '') {
     );
     $stmt->execute([$token]);
     $session = $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
+}
+
+if ($tablesReady && $linkToken !== '' && setmaxx_public_table_exists($pdo, 'setmaxx_public_links')) {
+    $linkStmt = $pdo->prepare(
+        "SELECT gs.id, gs.title, gs.venue_name, gs.status, gs.starts_at, u.display_name
+         FROM setmaxx_public_links spl
+         JOIN users u ON u.id = spl.user_id
+         LEFT JOIN setmaxx_gig_sessions gs
+           ON gs.user_id = spl.user_id
+          AND gs.status = 'live'
+         WHERE spl.public_token = ?
+         ORDER BY COALESCE(gs.starts_at, gs.created_at) DESC, gs.id DESC
+         LIMIT 1"
+    );
+    $linkStmt->execute([$linkToken]);
+    $linkRow = $linkStmt->fetch(PDO::FETCH_ASSOC) ?: null;
+    if ($linkRow) {
+        $stableLinkFound = true;
+        if (!empty($linkRow['id'])) {
+            $session = $linkRow;
+        }
+    }
 }
 
 if ($session && $tablesReady) {
@@ -167,6 +197,9 @@ if ($session && $tablesReady && is_post()) {
       <h1 style="margin-top:0;">Set Maxx is not installed yet.</h1>
     <?php elseif (!$session): ?>
       <h1 style="margin-top:0;">Request page not found.</h1>
+      <?php if ($stableLinkFound): ?>
+        <p class="song-meta">There is no live Set Maxx session right now. Check back when the performer opens requests.</p>
+      <?php endif; ?>
     <?php else: ?>
       <div style="display:flex; justify-content:space-between; gap:1rem; align-items:flex-start; flex-wrap:wrap;">
         <div>

@@ -13,6 +13,7 @@ $userId = (int)($user['id'] ?? 0);
 $isProUser = rss_current_user_is_pro($pdo);
 $upgradeUrl = rss_tool_upgrade_url();
 $sessionLinkBase = base_url('/setmaxx/public.php?token=');
+$stableSessionLinkBase = base_url('/setmaxx/public.php?link=');
 $messages = [];
 $errors = [];
 
@@ -31,6 +32,64 @@ function setmaxx_tables_ready(PDO $pdo): bool {
         if (!setmaxx_table_exists($pdo, $tableName)) return false;
     }
     return true;
+}
+
+function setmaxx_ensure_public_links_table(PDO $pdo): void {
+    if (setmaxx_table_exists($pdo, 'setmaxx_public_links')) return;
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS `setmaxx_public_links` (
+          `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+          `user_id` int(10) unsigned NOT NULL,
+          `public_token` char(32) NOT NULL,
+          `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+          `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+          PRIMARY KEY (`id`),
+          UNIQUE KEY `uq_setmaxx_public_links_user` (`user_id`),
+          UNIQUE KEY `uq_setmaxx_public_links_token` (`public_token`),
+          CONSTRAINT `fk_setmaxx_public_links_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
+    ");
+}
+
+function setmaxx_public_link_token(PDO $pdo, int $userId): string {
+    setmaxx_ensure_public_links_table($pdo);
+
+    $stmt = $pdo->prepare("SELECT public_token FROM setmaxx_public_links WHERE user_id = ? LIMIT 1");
+    $stmt->execute([$userId]);
+    $token = (string)($stmt->fetchColumn() ?: '');
+    if ($token !== '') return $token;
+
+    $insert = $pdo->prepare("INSERT INTO setmaxx_public_links (user_id, public_token) VALUES (?, ?)");
+    for ($attempt = 0; $attempt < 5; $attempt++) {
+        $token = bin2hex(random_bytes(16));
+        try {
+            $insert->execute([$userId, $token]);
+            return $token;
+        } catch (Throwable $e) {
+            if ($attempt === 4) throw $e;
+        }
+    }
+
+    throw new RuntimeException('Could not create a stable public link.');
+}
+
+function setmaxx_absolute_url(string $path): string {
+    if (preg_match('#^https?://#i', $path)) return $path;
+    $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+    $host = (string)($_SERVER['HTTP_HOST'] ?? 'localhost');
+    return $scheme . '://' . $host . '/' . ltrim($path, '/');
+}
+
+function setmaxx_enforce_single_live_session(PDO $pdo, int $userId): void {
+    $stmt = $pdo->prepare("SELECT id FROM setmaxx_gig_sessions WHERE user_id = ? AND status = 'live' ORDER BY COALESCE(starts_at, created_at) DESC, id DESC");
+    $stmt->execute([$userId]);
+    $liveIds = array_map('intval', array_column($stmt->fetchAll(PDO::FETCH_ASSOC), 'id'));
+    if (count($liveIds) <= 1) return;
+
+    $keepId = array_shift($liveIds);
+    $placeholders = implode(',', array_fill(0, count($liveIds), '?'));
+    $params = array_merge([$userId, $keepId], $liveIds);
+    $pdo->prepare("UPDATE setmaxx_gig_sessions SET status = 'closed', ends_at = NOW() WHERE user_id = ? AND status = 'live' AND id <> ? AND id IN ({$placeholders})")->execute($params);
 }
 
 function setmaxx_money(int $cents): string {

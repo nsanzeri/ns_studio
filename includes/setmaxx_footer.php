@@ -10,6 +10,7 @@ $studioBase = $siteBase . '/studio';
             <ul class="setmaxx-footer-links">
                 <li><a href="<?= htmlspecialchars($studioBase . '/setmaxx/index.php') ?>">Dashboard</a></li>
                 <li><a href="<?= htmlspecialchars($studioBase . '/setmaxx/songs.php') ?>">Songs</a></li>
+                <li><a href="<?= htmlspecialchars($studioBase . '/setmaxx/setlists.php') ?>">Setlists</a></li>
                 <li><a href="<?= htmlspecialchars($studioBase . '/setmaxx/sessions.php') ?>">Sessions</a></li>
                 <li><a href="<?= htmlspecialchars($studioBase . '/setmaxx/requests.php') ?>">Requests</a></li>
                 <li><a href="<?= htmlspecialchars($studioBase . '/member/library.php') ?>">My Products</a></li>

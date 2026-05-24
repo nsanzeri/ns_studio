@@ -38,6 +38,7 @@ if (!function_exists('nav_active')) {
             <ul>
                 <li><a href="<?= htmlspecialchars($studioBase . '/setmaxx/index.php') ?>" class="<?= nav_active($currentPage === 'index.php' && str_contains($currentPath, '/setmaxx/')) ?>">Dashboard</a></li>
                 <li><a href="<?= htmlspecialchars($studioBase . '/setmaxx/songs.php') ?>" class="<?= nav_active($currentPage === 'songs.php') ?>">Songs</a></li>
+                <li><a href="<?= htmlspecialchars($studioBase . '/setmaxx/setlists.php') ?>" class="<?= nav_active($currentPage === 'setlists.php') ?>">Setlists</a></li>
                 <li><a href="<?= htmlspecialchars($studioBase . '/setmaxx/sessions.php') ?>" class="<?= nav_active($currentPage === 'sessions.php') ?>">Sessions</a></li>
                 <li><a href="<?= htmlspecialchars($studioBase . '/setmaxx/requests.php') ?>" class="<?= nav_active($currentPage === 'requests.php') ?>">Requests</a></li>
                 <li><a href="<?= htmlspecialchars($studioBase . '/member/library.php') ?>" class="<?= nav_active($currentPage === 'library.php') ?>">My Products</a></li>
@@ -49,6 +50,7 @@ if (!function_exists('nav_active')) {
         <div class="setmaxx-mobile-nav-inner">
             <a href="<?= htmlspecialchars($studioBase . '/setmaxx/index.php') ?>" class="<?= nav_active($currentPage === 'index.php' && str_contains($currentPath, '/setmaxx/')) ?>">Dashboard</a>
             <a href="<?= htmlspecialchars($studioBase . '/setmaxx/songs.php') ?>" class="<?= nav_active($currentPage === 'songs.php') ?>">Songs</a>
+            <a href="<?= htmlspecialchars($studioBase . '/setmaxx/setlists.php') ?>" class="<?= nav_active($currentPage === 'setlists.php') ?>">Setlists</a>
             <a href="<?= htmlspecialchars($studioBase . '/setmaxx/sessions.php') ?>" class="<?= nav_active($currentPage === 'sessions.php') ?>">Sessions</a>
             <a href="<?= htmlspecialchars($studioBase . '/setmaxx/requests.php') ?>" class="<?= nav_active($currentPage === 'requests.php') ?>">Requests</a>
             <a href="<?= htmlspecialchars($studioBase . '/member/library.php') ?>" class="<?= nav_active($currentPage === 'library.php') ?>">My Products</a>

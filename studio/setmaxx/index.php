@@ -79,6 +79,11 @@ setmaxx_page_head('Set Maxx | Dashboard');
         <h2>Song Catalog</h2>
         <p class="setmaxx-help">Add and manage the songs fans can request.</p>
       </a>
+      <a class="setmaxx-card setmaxx-module-card" href="<?= e(base_url('/setmaxx/setlists.php')) ?>">
+        <div class="setmaxx-pill">Plan</div>
+        <h2>Setlist Generator</h2>
+        <p class="setmaxx-help">Build timed sets from your filtered catalog.</p>
+      </a>
       <a class="setmaxx-card setmaxx-module-card" href="<?= e(base_url('/setmaxx/sessions.php')) ?>">
         <div class="setmaxx-pill">Step 2</div>
         <h2>Gig Sessions</h2>

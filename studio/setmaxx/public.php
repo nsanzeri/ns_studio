@@ -159,8 +159,11 @@ if ($session && $tablesReady && is_post()) {
       border-radius: 26px; padding: 1.4rem; box-shadow: 0 20px 50px rgba(0,0,0,.28);
     }
     .alpha-menu { position:sticky; top:.5rem; z-index:3; display:flex; gap:.35rem; flex-wrap:wrap; align-items:center; margin-top:1rem; padding:.65rem; border-radius:16px; background:rgba(9,8,20,.92); border:1px solid rgba(255,255,255,.08); }
-    .alpha-button { min-width:34px; height:34px; border-radius:10px; border:1px solid rgba(255,255,255,.12); background:rgba(255,255,255,.05); color:#fff; font:inherit; font-size:.82rem; cursor:pointer; }
-    .alpha-button.active, .alpha-button:hover { background:rgba(140,107,255,.24); border-color:rgba(140,107,255,.45); }
+    .alpha-label { color:rgba(255,255,255,.68); font-size:.82rem; font-weight:600; padding:0 .25rem; }
+    .alpha-spacer { flex:1 1 1rem; }
+    .alpha-button, .sort-button { min-width:34px; height:34px; border-radius:10px; border:1px solid rgba(255,255,255,.12); background:rgba(255,255,255,.05); color:#fff; font:inherit; font-size:.82rem; cursor:pointer; }
+    .sort-button { padding:0 .75rem; }
+    .alpha-button.active, .sort-button.active, .alpha-button:hover, .sort-button:hover { background:rgba(140,107,255,.24); border-color:rgba(140,107,255,.45); }
     .alpha-button:disabled { opacity:.35; cursor:not-allowed; }
     .public-grid { display:grid; gap:.45rem; margin-top:.85rem; }
     .song-card { padding:.6rem .7rem; border-radius:14px; background: rgba(255,255,255,.035); border:1px solid rgba(255,255,255,.07); }
@@ -216,10 +219,15 @@ if ($session && $tablesReady && is_post()) {
 
       <?php if ($songs): ?>
         <div class="alpha-menu" aria-label="Song alphabet filter">
+          <span class="alpha-label">Filter</span>
           <button class="alpha-button active" type="button" data-letter="all">All</button>
           <?php foreach (array_merge(['#'], range('A', 'Z')) as $letter): ?>
             <button class="alpha-button" type="button" data-letter="<?= e($letter) ?>" <?= isset($availableLetters[$letter]) ? '' : 'disabled' ?>><?= e($letter) ?></button>
           <?php endforeach; ?>
+          <span class="alpha-spacer"></span>
+          <span class="alpha-label">Sort</span>
+          <button class="sort-button active" type="button" data-sort="title">Title</button>
+          <button class="sort-button" type="button" data-sort="artist">Artist</button>
         </div>
       <?php endif; ?>
 
@@ -231,8 +239,11 @@ if ($session && $tablesReady && is_post()) {
             $locked = in_array((int)$song['id'], $lockedSongIds, true);
             $first = strtoupper(substr(trim((string)$song['title']), 0, 1));
             $letter = preg_match('/[A-Z]/', $first) ? $first : '#';
+            $artistSort = (string)($song['artist'] ?: $song['title']);
+            $artistFirst = strtoupper(substr(trim($artistSort), 0, 1));
+            $artistLetter = preg_match('/[A-Z]/', $artistFirst) ? $artistFirst : '#';
           ?>
-          <div class="song-card <?= $locked ? 'locked' : '' ?>" data-letter="<?= e($letter) ?>">
+          <div class="song-card <?= $locked ? 'locked' : '' ?>" data-letter="<?= e($letter) ?>" data-title-letter="<?= e($letter) ?>" data-artist-letter="<?= e($artistLetter) ?>" data-title="<?= e(strtolower((string)$song['title'])) ?>" data-artist="<?= e(strtolower($artistSort)) ?>">
             <div class="song-row">
               <div>
                 <div class="song-title"><?= e($song['title']) ?></div>
@@ -266,20 +277,74 @@ if ($session && $tablesReady && is_post()) {
 <script>
 (function() {
   const buttons = Array.from(document.querySelectorAll('.alpha-button'));
+  const sortButtons = Array.from(document.querySelectorAll('.sort-button'));
   const cards = Array.from(document.querySelectorAll('.song-card[data-letter]'));
+  const grid = document.querySelector('.public-grid');
+  let currentLetter = 'all';
+  let currentSort = 'title';
   if (!buttons.length || !cards.length) return;
+
+  function cardLetter(card) {
+    return card.getAttribute('data-' + currentSort + '-letter') || '#';
+  }
+
+  function updateAlphabetAvailability() {
+    const letters = new Set(cards.map(cardLetter));
+    buttons.forEach(function(button) {
+      const letter = button.getAttribute('data-letter');
+      if (letter === 'all') {
+        button.disabled = false;
+      } else {
+        button.disabled = !letters.has(letter);
+      }
+      if (button.disabled && button.classList.contains('active')) {
+        currentLetter = 'all';
+      }
+    });
+  }
+
+  function sortCards() {
+    cards.sort(function(a, b) {
+      const aValue = a.getAttribute('data-' + currentSort) || '';
+      const bValue = b.getAttribute('data-' + currentSort) || '';
+      return aValue.localeCompare(bValue);
+    });
+    cards.forEach(function(card) { grid.appendChild(card); });
+  }
+
+  function applyCatalogView(shouldScroll) {
+    updateAlphabetAvailability();
+    sortCards();
+    buttons.forEach(function(item) {
+      item.classList.toggle('active', item.getAttribute('data-letter') === currentLetter);
+    });
+    cards.forEach(function(card) {
+      card.hidden = currentLetter !== 'all' && cardLetter(card) !== currentLetter;
+    });
+    if (shouldScroll) {
+      const firstVisible = cards.find(function(card) { return !card.hidden; });
+      if (firstVisible) firstVisible.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    }
+  }
 
   buttons.forEach(function(button) {
     button.addEventListener('click', function() {
-      const letter = button.getAttribute('data-letter');
-      buttons.forEach(function(item) { item.classList.toggle('active', item === button); });
-      cards.forEach(function(card) {
-        card.hidden = letter !== 'all' && card.getAttribute('data-letter') !== letter;
-      });
-      const firstVisible = cards.find(function(card) { return !card.hidden; });
-      if (firstVisible) firstVisible.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      if (button.disabled) return;
+      currentLetter = button.getAttribute('data-letter') || 'all';
+      applyCatalogView(true);
     });
   });
+
+  sortButtons.forEach(function(button) {
+    button.addEventListener('click', function() {
+      currentSort = button.getAttribute('data-sort') || 'title';
+      sortButtons.forEach(function(item) { item.classList.toggle('active', item === button); });
+      currentLetter = 'all';
+      applyCatalogView(false);
+    });
+  });
+
+  applyCatalogView(false);
 })();
 </script>
 </body>

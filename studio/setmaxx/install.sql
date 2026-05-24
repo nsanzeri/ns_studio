@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS `setmaxx_songs` (
   `song_key` varchar(24) DEFAULT NULL,
   `tempo_bpm` smallint(5) unsigned DEFAULT NULL,
   `family_friendly` tinyint(1) NOT NULL DEFAULT 1,
+  `instrumental` tinyint(1) NOT NULL DEFAULT 0,
   `performance_notes` text DEFAULT NULL,
   `tip_amount_cents` int(10) unsigned NOT NULL DEFAULT 1000,
   `is_active` tinyint(1) NOT NULL DEFAULT 1,

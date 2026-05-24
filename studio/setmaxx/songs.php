@@ -22,7 +22,8 @@ function setmaxx_ensure_song_metadata_schema(PDO $pdo): void {
         'song_key' => "ADD COLUMN `song_key` varchar(24) DEFAULT NULL AFTER `vocal_difficulty`",
         'tempo_bpm' => "ADD COLUMN `tempo_bpm` smallint(5) unsigned DEFAULT NULL AFTER `song_key`",
         'family_friendly' => "ADD COLUMN `family_friendly` tinyint(1) NOT NULL DEFAULT 1 AFTER `tempo_bpm`",
-        'performance_notes' => "ADD COLUMN `performance_notes` text DEFAULT NULL AFTER `family_friendly`",
+        'instrumental' => "ADD COLUMN `instrumental` tinyint(1) NOT NULL DEFAULT 0 AFTER `family_friendly`",
+        'performance_notes' => "ADD COLUMN `performance_notes` text DEFAULT NULL AFTER `instrumental`",
     ];
 
     foreach ($columns as $column => $sql) {
@@ -182,7 +183,7 @@ if ($tablesReady && is_post()) {
                     "UPDATE setmaxx_songs
                      SET title = ?, artist = ?, release_year = ?, genre = ?, is_prerecorded = ?, track_length_seconds = ?,
                          is_medley = ?, medley_name = ?, opening_song = ?, vocal_difficulty = ?, song_key = ?,
-                         tempo_bpm = ?, family_friendly = ?, performance_notes = ?, tip_amount_cents = ?, is_active = ?
+                         tempo_bpm = ?, family_friendly = ?, instrumental = ?, performance_notes = ?, tip_amount_cents = ?, is_active = ?
                      WHERE id = ? AND user_id = ?"
                 );
                 $saved = 0;
@@ -210,6 +211,7 @@ if ($tablesReady && is_post()) {
                         setmaxx_clean_text($row['song_key'] ?? '', 24),
                         setmaxx_clean_int($row['tempo_bpm'] ?? '', 1, 400),
                         !empty($row['family_friendly']) ? 1 : 0,
+                        !empty($row['instrumental']) ? 1 : 0,
                         setmaxx_clean_text($row['performance_notes'] ?? '', 2000),
                         max(0, (int)round($tipDollars * 100)),
                         !empty($row['is_active']) ? 1 : 0,
@@ -218,7 +220,9 @@ if ($tablesReady && is_post()) {
                     ]);
                     $saved++;
                 }
-                $messages[] = $saved . ' catalog ' . ($saved === 1 ? 'row' : 'rows') . ' saved.';
+                $messages[] = $saved > 0
+                    ? $saved . ' catalog ' . ($saved === 1 ? 'row' : 'rows') . ' saved.'
+                    : 'No catalog changes to save.';
             } elseif ($action === 'delete_selected') {
                 $selectedIds = $_POST['selected_song_ids'] ?? [];
                 if (!is_array($selectedIds)) throw new RuntimeException('No songs were selected.');
@@ -250,7 +254,7 @@ if ($tablesReady) {
     $songsStmt = $pdo->prepare(
         "SELECT id, title, artist, release_year, genre, is_prerecorded, track_length_seconds, is_medley,
                 medley_name, opening_song, vocal_difficulty, song_key, tempo_bpm, family_friendly,
-                performance_notes, tip_amount_cents, is_active, created_at
+                instrumental, performance_notes, tip_amount_cents, is_active, created_at
          FROM setmaxx_songs
          WHERE user_id = ?
          ORDER BY is_active DESC, title ASC, artist ASC"
@@ -316,10 +320,10 @@ setmaxx_page_head('Set Maxx | Song Catalog');
     <div class="setmaxx-catalog-toolbar">
       <div>
         <h2 style="margin:0;">Editable catalog</h2>
-        <div class="setmaxx-help">Fill the request-facing basics and the private performance notes in one pass.</div>
+        <div class="setmaxx-help">Only changed rows are saved, which keeps large catalogs fast.</div>
       </div>
       <div class="setmaxx-actions">
-        <button class="btn btn-outline" type="button" id="setmaxxEnrichBtn" <?= $songs ? '' : 'disabled' ?>>Enrich selected</button>
+        <button class="btn btn-outline" type="button" id="setmaxxEnrichBtn" <?= $songs ? '' : 'disabled' ?>>Enrich visible</button>
         <button class="btn btn-outline" type="submit" name="action" value="delete_selected" id="setmaxxDeleteSelectedBtn" <?= $isProUser && $songs ? '' : 'disabled' ?>>Delete selected</button>
         <button class="btn btn-primary" type="submit" <?= $isProUser && $songs ? '' : 'disabled' ?>>Save catalog</button>
       </div>
@@ -329,10 +333,15 @@ setmaxx_page_head('Set Maxx | Song Catalog');
       <div class="setmaxx-row" style="margin-top:1rem;"><div class="setmaxx-meta">No songs yet. Import a list or add a few staples first.</div></div>
     <?php else: ?>
       <div class="setmaxx-alpha-menu" aria-label="Song alphabet filter">
+        <span class="setmaxx-alpha-label">Filter</span>
         <button class="setmaxx-alpha-button active" type="button" data-letter="all">All</button>
         <?php foreach (array_merge(['#'], range('A', 'Z')) as $letter): ?>
           <button class="setmaxx-alpha-button" type="button" data-letter="<?= e($letter) ?>" <?= isset($availableLetters[$letter]) ? '' : 'disabled' ?>><?= e($letter) ?></button>
         <?php endforeach; ?>
+        <span class="setmaxx-alpha-spacer"></span>
+        <span class="setmaxx-alpha-label">Sort</span>
+        <button class="setmaxx-sort-button active" type="button" data-sort="title">Title</button>
+        <button class="setmaxx-sort-button" type="button" data-sort="artist">Artist</button>
       </div>
       <div class="setmaxx-table-wrap">
         <table class="setmaxx-song-table" id="setmaxxSongTable">
@@ -353,6 +362,7 @@ setmaxx_page_head('Set Maxx | Song Catalog');
               <th>Key</th>
               <th>Tempo</th>
               <th>Family</th>
+              <th>Instr.</th>
               <th>Notes</th>
             </tr>
           </thead>
@@ -363,9 +373,10 @@ setmaxx_page_head('Set Maxx | Song Catalog');
                 $first = strtoupper(substr(trim((string)$song['title']), 0, 1));
                 $letter = preg_match('/[A-Z]/', $first) ? $first : '#';
               ?>
-              <tr class="setmaxx-song-row" data-letter="<?= e($letter) ?>">
+              <tr class="setmaxx-song-row" data-song-id="<?= $id ?>" data-letter="<?= e($letter) ?>" data-title="<?= e(strtolower((string)$song['title'])) ?>" data-artist="<?= e(strtolower((string)($song['artist'] ?: $song['title']))) ?>" data-title-letter="<?= e($letter) ?>" data-artist-letter="<?= e(preg_match('/[A-Z]/', strtoupper(substr(trim((string)($song['artist'] ?: $song['title'])), 0, 1))) ? strtoupper(substr(trim((string)($song['artist'] ?: $song['title'])), 0, 1)) : '#') ?>">
                 <td>
                   <input class="js-row-select" type="checkbox" name="selected_song_ids[]" value="<?= $id ?>" aria-label="Select <?= e($song['title']) ?>">
+                  <input class="js-row-dirty" type="hidden" name="dirty_song_ids[]" value="" disabled>
                   <input type="hidden" name="songs[<?= $id ?>][tip_dollars]" value="<?= e((string)(((int)$song['tip_amount_cents']) / 100)) ?>">
                 </td>
                 <td><input type="hidden" name="songs[<?= $id ?>][is_active]" value="0"><input type="checkbox" name="songs[<?= $id ?>][is_active]" value="1" <?= !empty($song['is_active']) ? 'checked' : '' ?>></td>
@@ -389,6 +400,7 @@ setmaxx_page_head('Set Maxx | Song Catalog');
                 <td><input class="setmaxx-grid-input" name="songs[<?= $id ?>][song_key]" value="<?= e((string)$song['song_key']) ?>"></td>
                 <td><input class="setmaxx-grid-input" name="songs[<?= $id ?>][tempo_bpm]" type="number" min="1" max="400" value="<?= e((string)$song['tempo_bpm']) ?>"></td>
                 <td><input type="hidden" name="songs[<?= $id ?>][family_friendly]" value="0"><input type="checkbox" name="songs[<?= $id ?>][family_friendly]" value="1" <?= !empty($song['family_friendly']) ? 'checked' : '' ?>></td>
+                <td><input type="hidden" name="songs[<?= $id ?>][instrumental]" value="0"><input type="checkbox" name="songs[<?= $id ?>][instrumental]" value="1" <?= !empty($song['instrumental']) ? 'checked' : '' ?>></td>
                 <td><textarea class="setmaxx-grid-notes" name="songs[<?= $id ?>][performance_notes]"><?= e((string)$song['performance_notes']) ?></textarea></td>
               </tr>
             <?php endforeach; ?>
@@ -402,9 +414,15 @@ setmaxx_page_head('Set Maxx | Song Catalog');
 <style>
   .setmaxx-catalog-toolbar { display:flex; justify-content:space-between; gap:1rem; align-items:flex-start; flex-wrap:wrap; margin-bottom:1rem; }
   .setmaxx-alpha-menu { display:flex; gap:.35rem; flex-wrap:wrap; align-items:center; margin:.25rem 0 1rem; padding:.65rem; border-radius:16px; background:rgba(9,8,20,.7); border:1px solid rgba(255,255,255,.08); }
-  .setmaxx-alpha-button { min-width:34px; height:34px; border-radius:10px; border:1px solid rgba(255,255,255,.12); background:rgba(255,255,255,.05); color:#fff; font:inherit; font-size:.82rem; cursor:pointer; }
+  .setmaxx-alpha-label { color:rgba(255,255,255,.68); font-size:.82rem; font-weight:600; padding:0 .25rem; }
+  .setmaxx-alpha-spacer { flex:1 1 1rem; }
+  .setmaxx-alpha-button,
+  .setmaxx-sort-button { min-width:34px; height:34px; border-radius:10px; border:1px solid rgba(255,255,255,.12); background:rgba(255,255,255,.05); color:#fff; font:inherit; font-size:.82rem; cursor:pointer; }
+  .setmaxx-sort-button { padding:0 .75rem; }
   .setmaxx-alpha-button.active,
-  .setmaxx-alpha-button:hover { background:rgba(140,107,255,.24); border-color:rgba(140,107,255,.45); }
+  .setmaxx-sort-button.active,
+  .setmaxx-alpha-button:hover,
+  .setmaxx-sort-button:hover { background:rgba(140,107,255,.24); border-color:rgba(140,107,255,.45); }
   .setmaxx-alpha-button:disabled { opacity:.35; cursor:not-allowed; }
   .setmaxx-table-wrap { overflow:auto; border:1px solid rgba(255,255,255,.08); border-radius:16px; }
   .setmaxx-song-table { width:100%; min-width:1600px; border-collapse:collapse; }
@@ -425,7 +443,37 @@ setmaxx_page_head('Set Maxx | Song Catalog');
   const selectAll = document.getElementById('setmaxxSelectAll');
   const table = document.getElementById('setmaxxSongTable');
   const alphaButtons = Array.from(document.querySelectorAll('.setmaxx-alpha-button'));
+  const sortButtons = Array.from(document.querySelectorAll('.setmaxx-sort-button'));
+  const csrfToken = <?= json_encode(csrf_token()) ?>;
+  let currentLetter = 'all';
+  let currentSort = 'title';
   if (!button || !table) return;
+
+  const editableSelector = 'input[name^="songs["], select[name^="songs["], textarea[name^="songs["]';
+
+  function rowEditableFields(row) {
+    return Array.from(row.querySelectorAll(editableSelector));
+  }
+
+  function setRowEditing(row, enabled) {
+    rowEditableFields(row).forEach(function(field) {
+      field.disabled = !enabled;
+    });
+    const dirty = row.querySelector('.js-row-dirty');
+    if (dirty) {
+      dirty.disabled = !enabled;
+      dirty.value = enabled ? (row.getAttribute('data-song-id') || '') : '';
+    }
+    row.classList.toggle('is-dirty', enabled);
+  }
+
+  function markRowDirty(row) {
+    setRowEditing(row, true);
+  }
+
+  table.querySelectorAll('.setmaxx-song-row').forEach(function(row) {
+    setRowEditing(row, false);
+  });
 
   function isBlank(input) {
     return input && input.value.trim() === '';
@@ -438,12 +486,11 @@ setmaxx_page_head('Set Maxx | Song Catalog');
   }
 
   async function findTrack(title, artist) {
-    const term = [title, artist].filter(Boolean).join(' ');
-    const url = 'https://itunes.apple.com/search?entity=song&limit=1&term=' + encodeURIComponent(term);
+    const url = 'enrich_song.php?_csrf=' + encodeURIComponent(csrfToken) + '&title=' + encodeURIComponent(title) + '&artist=' + encodeURIComponent(artist || '');
     const response = await fetch(url);
     if (!response.ok) return null;
     const data = await response.json();
-    return data && data.results && data.results.length ? data.results[0] : null;
+    return data && data.ok ? data.result : null;
   }
 
   function selectedRows() {
@@ -464,7 +511,10 @@ setmaxx_page_head('Set Maxx | Song Catalog');
       return row.querySelector('.js-row-select');
     }).filter(Boolean);
     const selectedCount = checkboxes.filter(function(checkbox) { return checkbox.checked; }).length;
-    button.disabled = selectedCount === 0;
+    button.disabled = visibleRows().length === 0;
+    if (!button.disabled) {
+      button.textContent = selectedCount > 0 ? 'Enrich selected' : 'Enrich visible';
+    }
     if (deleteButton) deleteButton.disabled = selectedCount === 0;
     if (selectAll) {
       selectAll.checked = checkboxes.length > 0 && selectedCount === checkboxes.length;
@@ -472,9 +522,66 @@ setmaxx_page_head('Set Maxx | Song Catalog');
     }
   }
 
+  function rowLetter(row) {
+    return row.getAttribute('data-' + currentSort + '-letter') || '#';
+  }
+
+  function updateAlphabetAvailability() {
+    const rows = Array.from(table.querySelectorAll('.setmaxx-song-row'));
+    const letters = new Set(rows.map(rowLetter));
+    alphaButtons.forEach(function(alphaButton) {
+      const letter = alphaButton.getAttribute('data-letter');
+      if (letter === 'all') {
+        alphaButton.disabled = false;
+      } else {
+        alphaButton.disabled = !letters.has(letter);
+      }
+      if (alphaButton.disabled && alphaButton.classList.contains('active')) {
+        currentLetter = 'all';
+      }
+    });
+  }
+
+  function sortRows() {
+    const tbody = table.querySelector('tbody');
+    const rows = Array.from(table.querySelectorAll('.setmaxx-song-row'));
+    rows.sort(function(a, b) {
+      const aValue = a.getAttribute('data-' + currentSort) || '';
+      const bValue = b.getAttribute('data-' + currentSort) || '';
+      return aValue.localeCompare(bValue);
+    });
+    rows.forEach(function(row) { tbody.appendChild(row); });
+  }
+
+  function applyCatalogView() {
+    updateAlphabetAvailability();
+    sortRows();
+    alphaButtons.forEach(function(item) {
+      item.classList.toggle('active', item.getAttribute('data-letter') === currentLetter);
+    });
+    table.querySelectorAll('.setmaxx-song-row').forEach(function(row) {
+      const hidden = currentLetter !== 'all' && rowLetter(row) !== currentLetter;
+      row.hidden = hidden;
+      if (hidden) {
+        const checkbox = row.querySelector('.js-row-select');
+        if (checkbox) checkbox.checked = false;
+      }
+    });
+    if (selectAll) selectAll.checked = false;
+    updateSelectionControls();
+  }
+
   table.addEventListener('change', function(event) {
     if (event.target && event.target.classList.contains('js-row-select')) {
       updateSelectionControls();
+    } else if (event.target && event.target.matches(editableSelector)) {
+      markRowDirty(event.target.closest('.setmaxx-song-row'));
+    }
+  });
+
+  table.addEventListener('input', function(event) {
+    if (event.target && event.target.matches(editableSelector)) {
+      markRowDirty(event.target.closest('.setmaxx-song-row'));
     }
   });
 
@@ -490,18 +597,18 @@ setmaxx_page_head('Set Maxx | Song Catalog');
 
   alphaButtons.forEach(function(alphaButton) {
     alphaButton.addEventListener('click', function() {
-      const letter = alphaButton.getAttribute('data-letter');
-      alphaButtons.forEach(function(item) { item.classList.toggle('active', item === alphaButton); });
-      table.querySelectorAll('.setmaxx-song-row').forEach(function(row) {
-        const hidden = letter !== 'all' && row.getAttribute('data-letter') !== letter;
-        row.hidden = hidden;
-        if (hidden) {
-          const checkbox = row.querySelector('.js-row-select');
-          if (checkbox) checkbox.checked = false;
-        }
-      });
-      if (selectAll) selectAll.checked = false;
-      updateSelectionControls();
+      if (alphaButton.disabled) return;
+      currentLetter = alphaButton.getAttribute('data-letter') || 'all';
+      applyCatalogView();
+    });
+  });
+
+  sortButtons.forEach(function(sortButton) {
+    sortButton.addEventListener('click', function() {
+      currentSort = sortButton.getAttribute('data-sort') || 'title';
+      sortButtons.forEach(function(item) { item.classList.toggle('active', item === sortButton); });
+      currentLetter = 'all';
+      applyCatalogView();
     });
   });
 
@@ -519,14 +626,8 @@ setmaxx_page_head('Set Maxx | Song Catalog');
   }
 
   button.addEventListener('click', async function() {
-    const rows = selectedRows();
-    if (rows.length === 0) {
-      button.textContent = 'Select rows first';
-      window.setTimeout(function() {
-        button.textContent = 'Enrich selected';
-      }, 1600);
-      return;
-    }
+    const checkedRows = selectedRows();
+    const rows = checkedRows.length ? checkedRows : visibleRows();
     let enriched = 0;
     button.disabled = true;
     if (deleteButton) deleteButton.disabled = true;
@@ -553,20 +654,21 @@ setmaxx_page_head('Set Maxx | Song Catalog');
           length.value = msToLength(result.trackTimeMillis);
           if (prerecorded) prerecorded.checked = true;
         }
+        markRowDirty(row);
         enriched++;
       } catch (error) {
         continue;
       }
     }
 
-    button.textContent = enriched ? 'Enriched ' + enriched + ' selected' : 'No matches found';
+    button.textContent = enriched ? 'Enriched ' + enriched + ' rows' : 'No matches found';
     window.setTimeout(function() {
-      button.textContent = 'Enrich selected';
+      button.textContent = selectedRows().length ? 'Enrich selected' : 'Enrich visible';
       updateSelectionControls();
     }, 1800);
   });
 
-  updateSelectionControls();
+  applyCatalogView();
 })();
 </script>
 <?php setmaxx_page_foot(); ?>

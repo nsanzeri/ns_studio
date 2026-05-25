@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../_private/_core/bootstrap.php';
 require_once __DIR__ . '/../_private/_core/email.php';
+require_once __DIR__ . '/../_private/_core/brevo.php';
 
 header('Content-Type: application/json; charset=utf-8');
 
@@ -53,6 +54,18 @@ if ($lead) {
 	$leadId = (int)$pdo->lastInsertId();
 }
 
+$brevoListId = (int)env('BREVO_BLUEPRINT_SAMPLE_LIST_ID', 0);
+$brevoResult = brevo_sync_contact_to_list($email, $firstName !== '' ? $firstName : null, $brevoListId);
+if (!$brevoResult['ok']) {
+	error_log(sprintf(
+		'Brevo blueprint sample sync failed: email=%s status=%d error=%s body=%s',
+		$email,
+		(int)($brevoResult['status'] ?? 0),
+		substr((string)($brevoResult['error'] ?? ''), 0, 500),
+		substr((string)($brevoResult['body'] ?? ''), 0, 500)
+	));
+}
+
 $downloadUrl = rtrim((string)env('APP_URL'), '/') . '/shop/blueprint-sample-download.php';
 $buyUrl = rtrim((string)env('APP_URL'), '/') . '/shop/blueprint.php';
 $nameLine = $firstName !== '' ? "Hey {$firstName},\n\n" : "Hey,\n\n";
@@ -85,7 +98,6 @@ $sent = send_and_log_email($pdo, [
 	'html_body' => $htmlBody,
 	'related_table' => 'leads',
 	'related_id' => $leadId,
-	'idempotency_key' => 'blueprint_sample_' . sha1($email . date('Y-m-d')),
 ]);
 
 if (!$sent) {

@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS `setmaxx_songs` (
   `artist` varchar(190) DEFAULT NULL,
   `release_year` smallint(5) unsigned DEFAULT NULL,
   `genre` varchar(120) DEFAULT NULL,
+  `broad_genre` varchar(80) DEFAULT NULL,
   `is_prerecorded` tinyint(1) NOT NULL DEFAULT 0,
   `track_length_seconds` smallint(5) unsigned DEFAULT NULL,
   `is_medley` tinyint(1) NOT NULL DEFAULT 0,

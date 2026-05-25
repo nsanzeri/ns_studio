@@ -17,6 +17,18 @@ function setmaxx_setlist_bool_filter(string $value): ?int {
     return null;
 }
 
+function setmaxx_setlist_column_exists(PDO $pdo, string $columnName): bool {
+    $stmt = $pdo->prepare("SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'setmaxx_songs' AND column_name = ? LIMIT 1");
+    $stmt->execute([$columnName]);
+    return (bool)$stmt->fetchColumn();
+}
+
+function setmaxx_setlist_ensure_broad_genre(PDO $pdo): void {
+    if (!setmaxx_setlist_column_exists($pdo, 'broad_genre')) {
+        $pdo->exec("ALTER TABLE `setmaxx_songs` ADD COLUMN `broad_genre` varchar(80) DEFAULT NULL AFTER `genre`");
+    }
+}
+
 function setmaxx_setlist_tempo_value(array $song): int {
     return (int)($song['tempo_bpm'] ?? 0);
 }
@@ -83,7 +95,7 @@ $filters = [
     'family_friendly' => (string)($_POST['family_friendly'] ?? 'any'),
     'prerecorded' => (string)($_POST['prerecorded'] ?? 'any'),
     'vocal_difficulty' => (string)($_POST['vocal_difficulty'] ?? 'any'),
-    'genre' => trim((string)($_POST['genre'] ?? '')),
+    'broad_genres' => array_values(array_filter(array_map('trim', (array)($_POST['broad_genres'] ?? [])))),
     'set_count' => max(1, min(6, (int)($_POST['set_count'] ?? 3))),
     'set_minutes' => max(10, min(180, (int)($_POST['set_minutes'] ?? 45))),
     'tempo_order' => (string)($_POST['tempo_order'] ?? 'none'),
@@ -98,12 +110,13 @@ $generatedSets = [];
 $unusedSongs = [];
 $unknownLengthSongs = [];
 $matchingCount = 0;
-$genreOptions = [];
+$broadGenreOptions = [];
 
 if ($tablesReady) {
-    $genreStmt = $pdo->prepare("SELECT DISTINCT genre FROM setmaxx_songs WHERE user_id = ? AND genre IS NOT NULL AND genre <> '' ORDER BY genre ASC");
+    setmaxx_setlist_ensure_broad_genre($pdo);
+    $genreStmt = $pdo->prepare("SELECT DISTINCT broad_genre FROM setmaxx_songs WHERE user_id = ? AND broad_genre IS NOT NULL AND broad_genre <> '' ORDER BY broad_genre ASC");
     $genreStmt->execute([$userId]);
-    $genreOptions = array_map('strval', array_column($genreStmt->fetchAll(PDO::FETCH_ASSOC), 'genre'));
+    $broadGenreOptions = array_map('strval', array_column($genreStmt->fetchAll(PDO::FETCH_ASSOC), 'broad_genre'));
 }
 
 if ($tablesReady && is_post()) {
@@ -138,9 +151,12 @@ if ($tablesReady && is_post()) {
             $params[] = $filters['vocal_difficulty'];
         }
 
-        if ($filters['genre'] !== '') {
-            $where[] = 'genre = ?';
-            $params[] = $filters['genre'];
+        if ($filters['broad_genres']) {
+            $selectedBroadGenres = array_values(array_intersect($filters['broad_genres'], $broadGenreOptions));
+            if ($selectedBroadGenres) {
+                $where[] = 'broad_genre IN (' . implode(',', array_fill(0, count($selectedBroadGenres), '?')) . ')';
+                $params = array_merge($params, $selectedBroadGenres);
+            }
         }
 
         if ($filters['year_from'] !== '') {
@@ -154,7 +170,7 @@ if ($tablesReady && is_post()) {
         }
 
         $songStmt = $pdo->prepare(
-            "SELECT id, title, artist, release_year, genre, track_length_seconds, opening_song,
+            "SELECT id, title, artist, release_year, genre, broad_genre, track_length_seconds, opening_song,
                     vocal_difficulty, song_key, tempo_bpm, family_friendly, is_active
              FROM setmaxx_songs
              WHERE " . implode(' AND ', $where) . "
@@ -289,13 +305,13 @@ setmaxx_page_head('Set Maxx | Setlist Generator');
               <input class="setmaxx-input" id="set_minutes" name="set_minutes" type="number" min="10" max="180" value="<?= (int)$filters['set_minutes'] ?>">
             </div>
             <div class="setmaxx-field">
-              <label for="genre">Genre</label>
-              <select class="setmaxx-select" id="genre" name="genre">
-                <option value="">Any genre</option>
-                <?php foreach ($genreOptions as $genre): ?>
-                  <option value="<?= e($genre) ?>" <?= $filters['genre'] === $genre ? 'selected' : '' ?>><?= e($genre) ?></option>
+              <label for="broad_genres">Broad genres</label>
+              <select class="setmaxx-select setmaxx-multi-select" id="broad_genres" name="broad_genres[]" multiple size="6">
+                <?php foreach ($broadGenreOptions as $genre): ?>
+                  <option value="<?= e($genre) ?>" <?= in_array($genre, $filters['broad_genres'], true) ? 'selected' : '' ?>><?= e($genre) ?></option>
                 <?php endforeach; ?>
               </select>
+              <div class="setmaxx-help">Hold Ctrl or Cmd to choose more than one.</div>
             </div>
             <div class="setmaxx-field">
               <label for="vocal_difficulty">Vocal difficulty</label>
@@ -423,6 +439,7 @@ setmaxx_page_head('Set Maxx | Setlist Generator');
   .setmaxx-set-songs li { padding-bottom:.65rem; border-bottom:1px solid rgba(255,255,255,.07); }
   .setmaxx-set-songs li:last-child { border-bottom:0; padding-bottom:0; }
   .setmaxx-set-songs span { display:block; color:rgba(255,255,255,.72); font-size:.9rem; }
+  .setmaxx-multi-select { min-height:132px; }
   .setmaxx-song-badges { display:flex; gap:.35rem; flex-wrap:wrap; margin-top:.3rem; }
   .setmaxx-song-badges span { display:inline-flex; padding:.16rem .48rem; border-radius:999px; background:rgba(255,255,255,.07); color:rgba(255,255,255,.82); font-size:.78rem; }
   @media print {

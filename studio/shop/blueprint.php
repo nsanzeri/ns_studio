@@ -15,6 +15,11 @@ $galleryImages = [
 $coverImage = base_url('../assets/img/backing-track-blueprint-cover.jpg');
 
 $canceled = isset($_GET['canceled']) && $_GET['canceled'] == '1';
+
+if (empty($_SESSION['blueprint_lead_token'])) {
+	$_SESSION['blueprint_lead_token'] = bin2hex(random_bytes(24));
+}
+$leadToken = (string)$_SESSION['blueprint_lead_token'];
 ?>
 <!doctype html>
 <html lang="en">
@@ -165,6 +170,68 @@ img{max-width:100%;display:block;}
   padding:12px 14px;
   border-radius:14px;
   margin:6px 0 22px;
+}
+.lead-magnet{
+  display:grid;
+  grid-template-columns:1.05fr .95fr;
+  gap:24px;
+  align-items:center;
+  margin:18px 0 8px;
+  padding:28px;
+  border-radius:28px;
+  background:linear-gradient(135deg, rgba(243,211,138,.13), rgba(255,255,255,.035));
+  border:1px solid rgba(243,211,138,.24);
+  box-shadow:var(--shadow);
+}
+.lead-magnet h2{
+  font-size:clamp(30px,4vw,46px);
+  line-height:1.03;
+  letter-spacing:-.03em;
+  margin:0 0 12px;
+}
+.lead-form{
+  display:grid;
+  gap:12px;
+}
+.lead-form label{
+  display:block;
+  color:#f8e6b7;
+  font-size:14px;
+  font-weight:800;
+  margin-bottom:5px;
+}
+.lead-form input{
+  width:100%;
+  min-height:52px;
+  border-radius:14px;
+  border:1px solid rgba(255,255,255,.13);
+  background:rgba(0,0,0,.24);
+  color:var(--text);
+  font:inherit;
+  padding:0 14px;
+}
+.lead-form input:focus{
+  outline:2px solid rgba(243,211,138,.55);
+  outline-offset:2px;
+}
+.lead-form .hp{display:none;}
+.lead-message{
+  display:none;
+  padding:12px 14px;
+  border-radius:14px;
+  font-size:14px;
+}
+.lead-message.is-success{
+  display:block;
+  color:#eaffd9;
+  background:rgba(83,174,74,.16);
+  border:1px solid rgba(139,222,112,.28);
+}
+.lead-message.is-error{
+  display:block;
+  color:#ffd5d5;
+  background:rgba(255,91,91,.13);
+  border:1px solid rgba(255,179,179,.24);
 }
 .section{
   padding:38px 0;
@@ -399,7 +466,8 @@ img{max-width:100%;display:block;}
   .fit-grid,
   .trust-strip,
   .not-for-grid,
-  .faq-grid{
+  .faq-grid,
+  .lead-magnet{
     grid-template-columns:1fr;
   }
   .hero-card{min-height:420px; order:-1;}
@@ -412,6 +480,7 @@ img{max-width:100%;display:block;}
   .fit-card,
   .testimonial,
   .mini-proof,
+  .lead-magnet,
   .offer-box,
   .buy-card{padding:20px;}
   .btn-row{flex-direction:column; align-items:stretch;}
@@ -473,7 +542,7 @@ This 66-page PDF shows you exactly how I build and run my backing tracks, the ge
 
     <div class="btn-row">
       <button class="btn-gold" id="buyBtnTop">Get Instant Access – $27</button>
-      <a class="btn-secondary" href="#inside">See What’s Inside</a>
+      <a class="btn-secondary" href="#free-sample">Get Free Sample Chapters</a>
     </div>
 
     <div class="note">
@@ -489,6 +558,40 @@ This 66-page PDF shows you exactly how I build and run my backing tracks, the ge
     </div>
   </div>
 </section>
+
+  <section class="section" id="free-sample" style="padding-top:8px;">
+    <div class="lead-magnet">
+      <div>
+        <div class="eyebrow">Free Preview</div>
+        <h2>Read the intro and first two chapters free</h2>
+        <p class="sub" style="font-size:19px;margin-bottom:0;">Get the 16-page sample PDF and see whether the system clicks before you buy the full guide.</p>
+        <ul class="quick-list">
+          <li>Instant email delivery</li>
+          <li>No login needed</li>
+          <li>Includes the foundation behind the full 66-page blueprint</li>
+        </ul>
+      </div>
+
+      <form class="lead-form" id="sampleForm" method="post" action="<?= htmlspecialchars(base_url('shop/blueprint-sample.php')) ?>">
+        <input type="hidden" name="token" value="<?= htmlspecialchars($leadToken) ?>">
+        <div class="hp" aria-hidden="true">
+          <label for="sampleWebsite">Website</label>
+          <input id="sampleWebsite" name="website" type="text" tabindex="-1" autocomplete="off">
+        </div>
+        <div>
+          <label for="sampleName">First name</label>
+          <input id="sampleName" name="first_name" type="text" autocomplete="given-name" maxlength="120">
+        </div>
+        <div>
+          <label for="sampleEmail">Email address</label>
+          <input id="sampleEmail" name="email" type="email" autocomplete="email" required maxlength="190">
+        </div>
+        <button class="btn-gold" type="submit" id="sampleSubmit">Send Me the Free Sample</button>
+        <div class="lead-message" id="sampleMessage" role="status" aria-live="polite"></div>
+        <p class="note" style="margin:0;">I’ll send the sample and occasional practical music-business/show-building notes. Unsubscribe anytime.</p>
+      </form>
+    </div>
+  </section>
 
   <section class="section" style="padding-top:8px;">
     <div class="trust-strip">
@@ -781,6 +884,9 @@ const buyButtons = [
 ].filter(Boolean);
 const errEl = document.getElementById('buyErr');
 const checkoutUrl = "<?= base_url('api/create_checkout_session.php') ?>";
+const sampleForm = document.getElementById('sampleForm');
+const sampleSubmit = document.getElementById('sampleSubmit');
+const sampleMessage = document.getElementById('sampleMessage');
 
 async function go(){
   if (errEl) {
@@ -835,6 +941,44 @@ async function go(){
 }
 
 buyButtons.forEach(btn => btn.addEventListener('click', go));
+
+if (sampleForm && sampleSubmit && sampleMessage) {
+  sampleForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+
+    sampleMessage.className = 'lead-message';
+    sampleMessage.textContent = '';
+    sampleSubmit.disabled = true;
+    sampleSubmit.textContent = 'Sending...';
+
+    try {
+      const response = await fetch(sampleForm.action, {
+        method: 'POST',
+        headers: { 'Accept': 'application/json' },
+        body: new FormData(sampleForm)
+      });
+      const data = await response.json();
+
+      if (!response.ok || !data.ok) {
+        throw new Error(data.error || 'Something went wrong. Please try again.');
+      }
+
+      sampleMessage.className = 'lead-message is-success';
+      sampleMessage.textContent = data.message || 'Check your inbox. The sample is on its way.';
+      sampleForm.reset();
+
+      if (window.fbq) {
+        fbq('track', 'Lead', { content_name: 'Backing Track Blueprint sample' });
+      }
+    } catch (error) {
+      sampleMessage.className = 'lead-message is-error';
+      sampleMessage.textContent = error.message || 'Something went wrong. Please try again.';
+    } finally {
+      sampleSubmit.disabled = false;
+      sampleSubmit.textContent = 'Send Me the Free Sample';
+    }
+  });
+}
 </script>
 </body>
 </html>

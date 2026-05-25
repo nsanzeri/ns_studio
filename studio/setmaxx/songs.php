@@ -13,7 +13,8 @@ function setmaxx_ensure_song_metadata_schema(PDO $pdo): void {
     $columns = [
         'release_year' => "ADD COLUMN `release_year` smallint(5) unsigned DEFAULT NULL AFTER `artist`",
         'genre' => "ADD COLUMN `genre` varchar(120) DEFAULT NULL AFTER `release_year`",
-        'is_prerecorded' => "ADD COLUMN `is_prerecorded` tinyint(1) NOT NULL DEFAULT 0 AFTER `genre`",
+        'broad_genre' => "ADD COLUMN `broad_genre` varchar(80) DEFAULT NULL AFTER `genre`",
+        'is_prerecorded' => "ADD COLUMN `is_prerecorded` tinyint(1) NOT NULL DEFAULT 0 AFTER `broad_genre`",
         'track_length_seconds' => "ADD COLUMN `track_length_seconds` smallint(5) unsigned DEFAULT NULL AFTER `is_prerecorded`",
         'is_medley' => "ADD COLUMN `is_medley` tinyint(1) NOT NULL DEFAULT 0 AFTER `track_length_seconds`",
         'medley_name' => "ADD COLUMN `medley_name` varchar(190) DEFAULT NULL AFTER `is_medley`",
@@ -74,6 +75,7 @@ function setmaxx_parse_song_import(string $text): array {
         $title = $line;
         $artist = null;
         $genre = null;
+        $broadGenre = null;
         $year = null;
 
         if (str_contains($line, "\t")) {
@@ -95,6 +97,7 @@ function setmaxx_parse_song_import(string $text): array {
                 if (in_array($heading, ['artist', 'artist name', 'performer'], true)) $headerMap['artist'] = $index;
                 if (in_array($heading, ['year', 'release year'], true)) $headerMap['release_year'] = $index;
                 if ($heading === 'genre') $headerMap['genre'] = $index;
+                if (in_array($heading, ['broad genre', 'category'], true)) $headerMap['broad_genre'] = $index;
             }
             continue;
         }
@@ -104,11 +107,13 @@ function setmaxx_parse_song_import(string $text): array {
             $artist = isset($headerMap['artist']) ? ($parts[$headerMap['artist']] ?? null) : null;
             $year = isset($headerMap['release_year']) ? setmaxx_clean_int($parts[$headerMap['release_year']] ?? '', 1800, (int)date('Y') + 1) : null;
             $genre = isset($headerMap['genre']) ? setmaxx_clean_text($parts[$headerMap['genre']] ?? '', 120) : null;
+            $broadGenre = isset($headerMap['broad_genre']) ? setmaxx_clean_text($parts[$headerMap['broad_genre']] ?? '', 80) : null;
         } elseif (count($parts) >= 2) {
             $title = $parts[0];
             $artist = $parts[1] !== '' ? $parts[1] : null;
             if (count($parts) >= 3) $year = setmaxx_clean_int($parts[2], 1800, (int)date('Y') + 1);
             if (count($parts) >= 4) $genre = setmaxx_clean_text($parts[3], 120);
+            if (count($parts) >= 5) $broadGenre = setmaxx_clean_text($parts[4], 80);
         }
 
         $title = setmaxx_clean_text($title);
@@ -118,6 +123,7 @@ function setmaxx_parse_song_import(string $text): array {
                 'artist' => setmaxx_clean_text($artist),
                 'release_year' => $year,
                 'genre' => $genre,
+                'broad_genre' => $broadGenre ?? null,
             ];
         }
     }
@@ -167,8 +173,8 @@ if ($tablesReady && is_post()) {
                 }
 
                 $insert = $pdo->prepare(
-                    "INSERT INTO setmaxx_songs (user_id, title, artist, release_year, genre, tip_amount_cents)
-                     VALUES (?, ?, ?, ?, ?, ?)"
+                    "INSERT INTO setmaxx_songs (user_id, title, artist, release_year, genre, broad_genre, tip_amount_cents)
+                     VALUES (?, ?, ?, ?, ?, ?, ?)"
                 );
                 $added = 0;
                 $skipped = 0;
@@ -178,7 +184,7 @@ if ($tablesReady && is_post()) {
                         $skipped++;
                         continue;
                     }
-                    $insert->execute([$userId, $row['title'], $row['artist'], $row['release_year'], $row['genre'], 1000]);
+                    $insert->execute([$userId, $row['title'], $row['artist'], $row['release_year'], $row['genre'], $row['broad_genre'], 1000]);
                     $existing[$key] = true;
                     $added++;
                 }
@@ -191,7 +197,7 @@ if ($tablesReady && is_post()) {
 
                 $update = $pdo->prepare(
                     "UPDATE setmaxx_songs
-                     SET title = ?, artist = ?, release_year = ?, genre = ?, is_prerecorded = ?, track_length_seconds = ?,
+                     SET title = ?, artist = ?, release_year = ?, genre = ?, broad_genre = ?, is_prerecorded = ?, track_length_seconds = ?,
                          is_medley = ?, medley_name = ?, opening_song = ?, vocal_difficulty = ?, song_key = ?,
                          tempo_bpm = ?, family_friendly = ?, instrumental = ?, performance_notes = ?, tip_amount_cents = ?, is_active = ?
                      WHERE id = ? AND user_id = ?"
@@ -212,6 +218,7 @@ if ($tablesReady && is_post()) {
                         setmaxx_clean_text($row['artist'] ?? ''),
                         setmaxx_clean_int($row['release_year'] ?? '', 1800, (int)date('Y') + 1),
                         setmaxx_clean_text($row['genre'] ?? '', 120),
+                        setmaxx_clean_text($row['broad_genre'] ?? '', 80),
                         !empty($row['is_prerecorded']) ? 1 : 0,
                         setmaxx_parse_length_seconds($row['track_length'] ?? ''),
                         !empty($row['is_medley']) ? 1 : 0,
@@ -248,10 +255,9 @@ if ($tablesReady && is_post()) {
             } else {
                 $title = setmaxx_clean_text($_POST['title'] ?? '');
                 $artist = setmaxx_clean_text($_POST['artist'] ?? '');
-                $tipDollars = (float)($_POST['tip_dollars'] ?? 10);
                 if ($title === null) throw new RuntimeException('Song title is required.');
-                $stmt = $pdo->prepare("INSERT INTO setmaxx_songs (user_id, title, artist, tip_amount_cents) VALUES (?, ?, ?, ?)");
-                $stmt->execute([$userId, $title, $artist, max(0, (int)round($tipDollars * 100))]);
+                $stmt = $pdo->prepare("INSERT INTO setmaxx_songs (user_id, title, artist, tip_amount_cents) VALUES (?, ?, ?, 1000)");
+                $stmt->execute([$userId, $title, $artist]);
                 $messages[] = 'Song added to your Set Maxx catalog.';
             }
         } catch (Throwable $e) { $errors[] = $e->getMessage(); }
@@ -270,7 +276,7 @@ $availableLetters = [];
 $songCount = 0;
 if ($tablesReady) {
     $songsStmt = $pdo->prepare(
-        "SELECT id, title, artist, release_year, genre, is_prerecorded, track_length_seconds, is_medley,
+        "SELECT id, title, artist, release_year, genre, broad_genre, is_prerecorded, track_length_seconds, is_medley,
                 medley_name, opening_song, vocal_difficulty, song_key, tempo_bpm, family_friendly,
                 instrumental, performance_notes, tip_amount_cents, is_active, created_at
          FROM setmaxx_songs
@@ -306,7 +312,7 @@ setmaxx_page_head('Set Maxx | Song Catalog');
         <div class="setmaxx-field">
           <label for="import_text">Paste titles or title/artist rows</label>
           <textarea class="setmaxx-textarea" id="import_text" name="import_text" placeholder="Sweet Caroline - Neil Diamond&#10;September, Earth Wind &amp; Fire&#10;Mr. Brightside"></textarea>
-          <div class="setmaxx-help">CSV, tab-separated, and "Title - Artist" rows are supported. Optional columns: year, genre.</div>
+          <div class="setmaxx-help">CSV, tab-separated, and "Title - Artist" rows are supported. Optional columns: year, source genre, broad genre.</div>
         </div>
         <div class="setmaxx-field">
           <label for="song_file">Upload text or CSV</label>
@@ -323,7 +329,6 @@ setmaxx_page_head('Set Maxx | Song Catalog');
         <div class="setmaxx-form-grid">
           <div class="setmaxx-field"><label for="title">Song title</label><input class="setmaxx-input" id="title" name="title" required></div>
           <div class="setmaxx-field"><label for="artist">Artist</label><input class="setmaxx-input" id="artist" name="artist"></div>
-          <div class="setmaxx-field"><label for="tip_dollars">Suggested tip</label><input class="setmaxx-input" id="tip_dollars" name="tip_dollars" type="number" min="0" step="1" value="10"></div>
         </div>
         <div class="setmaxx-actions">
           <button class="btn btn-primary" type="submit" <?= $isProUser ? '' : 'disabled' ?>>Add song</button>
@@ -371,7 +376,8 @@ setmaxx_page_head('Set Maxx | Song Catalog');
               <th>Title</th>
               <th>Artist</th>
               <th>Year</th>
-              <th>Genre</th>
+              <th>Source genre</th>
+              <th>Broad genre</th>
               <th>Track</th>
               <th>Length</th>
               <th>Medley</th>
@@ -403,6 +409,7 @@ setmaxx_page_head('Set Maxx | Song Catalog');
                 <td><input class="setmaxx-grid-input js-artist" name="songs[<?= $id ?>][artist]" value="<?= e((string)$song['artist']) ?>"></td>
                 <td><input class="setmaxx-grid-input js-year" name="songs[<?= $id ?>][release_year]" type="number" min="1800" max="<?= (int)date('Y') + 1 ?>" value="<?= e((string)$song['release_year']) ?>"></td>
                 <td><input class="setmaxx-grid-input js-genre" name="songs[<?= $id ?>][genre]" value="<?= e((string)$song['genre']) ?>"></td>
+                <td><input class="setmaxx-grid-input" name="songs[<?= $id ?>][broad_genre]" placeholder="Pop, Rock, Rap" value="<?= e((string)$song['broad_genre']) ?>"></td>
                 <td><input type="hidden" name="songs[<?= $id ?>][is_prerecorded]" value="0"><input class="js-prerecorded" type="checkbox" name="songs[<?= $id ?>][is_prerecorded]" value="1" <?= !empty($song['is_prerecorded']) ? 'checked' : '' ?>></td>
                 <td><input class="setmaxx-grid-input js-length" name="songs[<?= $id ?>][track_length]" placeholder="3:45" value="<?= e(setmaxx_seconds_to_length((int)($song['track_length_seconds'] ?? 0))) ?>"></td>
                 <td><input type="hidden" name="songs[<?= $id ?>][is_medley]" value="0"><input type="checkbox" name="songs[<?= $id ?>][is_medley]" value="1" <?= !empty($song['is_medley']) ? 'checked' : '' ?>></td>

@@ -6,6 +6,16 @@ function setmaxx_setlist_seconds(?int $seconds): string {
     return floor($seconds / 60) . ':' . str_pad((string)($seconds % 60), 2, '0', STR_PAD_LEFT);
 }
 
+function setmaxx_setlist_planning_seconds(array $song): int {
+    $seconds = (int)($song['track_length_seconds'] ?? 0);
+    return $seconds > 0 ? $seconds : 240;
+}
+
+function setmaxx_setlist_display_length(array $song): string {
+    $seconds = (int)($song['track_length_seconds'] ?? 0);
+    return $seconds > 0 ? setmaxx_setlist_seconds($seconds) : '4:00 assumed';
+}
+
 function setmaxx_setlist_total_time(int $seconds): string {
     $minutes = (int)floor($seconds / 60);
     return $minutes . ' min';
@@ -100,7 +110,6 @@ $filters = [
     'set_count' => max(1, min(6, (int)($_POST['set_count'] ?? 3))),
     'set_minutes' => max(10, min(180, (int)($_POST['set_minutes'] ?? 45))),
     'tempo_order' => (string)($_POST['tempo_order'] ?? 'none'),
-    'include_unknown_lengths' => !empty($_POST['include_unknown_lengths']),
 ];
 
 if (!in_array($filters['tempo_order'], ['none', 'tempo_asc', 'tempo_desc', 'alternate_fast_slow', 'two_fast_one_slow', 'two_slow_one_fast'], true)) {
@@ -194,20 +203,19 @@ if ($tablesReady && is_post()) {
         $songs = $songStmt->fetchAll(PDO::FETCH_ASSOC);
         $matchingCount = count($songs);
 
-        $knownLengthSongs = [];
+        $planningSongs = [];
         foreach ($songs as $song) {
-            if ((int)($song['track_length_seconds'] ?? 0) > 0) {
-                $knownLengthSongs[] = $song;
-            } else {
+            if ((int)($song['track_length_seconds'] ?? 0) <= 0) {
                 $unknownLengthSongs[] = $song;
             }
+            $planningSongs[] = $song;
         }
 
-        if (!$knownLengthSongs && !$filters['include_unknown_lengths']) {
-            $errors[] = 'No matching songs have track lengths yet. Add lengths in Songs, or allow songs without lengths.';
+        if (!$planningSongs) {
+            $errors[] = 'No matching songs found for those criteria.';
         } else {
-            $openers = array_values(array_filter($knownLengthSongs, fn($song) => !empty($song['opening_song'])));
-            $pool = array_values(array_filter($knownLengthSongs, fn($song) => empty($song['opening_song'])));
+            $openers = array_values(array_filter($planningSongs, fn($song) => !empty($song['opening_song'])));
+            $pool = array_values(array_filter($planningSongs, fn($song) => empty($song['opening_song'])));
             shuffle($openers);
             shuffle($pool);
             $targetSeconds = $filters['set_minutes'] * 60;
@@ -221,13 +229,13 @@ if ($tablesReady && is_post()) {
                 if ($openers) {
                     $song = array_shift($openers);
                     $generatedSets[$setNumber]['songs'][] = $song;
-                    $generatedSets[$setNumber]['seconds'] += (int)$song['track_length_seconds'];
+                    $generatedSets[$setNumber]['seconds'] += setmaxx_setlist_planning_seconds($song);
                 }
             }
 
             $pool = array_merge($pool, $openers);
             foreach ($pool as $song) {
-                $seconds = (int)$song['track_length_seconds'];
+                $seconds = setmaxx_setlist_planning_seconds($song);
                 $bestSet = null;
                 $bestGap = PHP_INT_MAX;
 
@@ -247,19 +255,6 @@ if ($tablesReady && is_post()) {
 
                 $generatedSets[$bestSet]['songs'][] = $song;
                 $generatedSets[$bestSet]['seconds'] += $seconds;
-            }
-
-            if ($filters['include_unknown_lengths']) {
-                foreach ($unknownLengthSongs as $song) {
-                    $lightestSet = 1;
-                    foreach ($generatedSets as $setNumber => $set) {
-                        if ($set['seconds'] < $generatedSets[$lightestSet]['seconds']) {
-                            $lightestSet = $setNumber;
-                        }
-                    }
-                    $generatedSets[$lightestSet]['songs'][] = $song;
-                }
-                $unknownLengthSongs = [];
             }
 
             foreach ($generatedSets as $setNumber => $set) {
@@ -365,10 +360,7 @@ setmaxx_page_head('Set Maxx | Setlist Generator');
               </select>
             </div>
           </div>
-          <label style="display:flex; gap:.6rem; align-items:center;">
-            <input type="checkbox" name="include_unknown_lengths" value="1" <?= $filters['include_unknown_lengths'] ? 'checked' : '' ?>>
-            <span class="setmaxx-help">Allow songs without lengths as extras</span>
-          </label>
+          <div class="setmaxx-note setmaxx-help">Songs without saved lengths are planned as 4 minutes and labeled as assumed in the generated setlist.</div>
           <div class="setmaxx-actions">
             <button class="btn btn-primary" type="submit" <?= $isProUser ? '' : 'disabled' ?>>Generate setlist</button>
             <a class="btn btn-outline" href="<?= e(base_url('/setmaxx/songs.php')) ?>">Edit Songs</a>
@@ -377,11 +369,11 @@ setmaxx_page_head('Set Maxx | Setlist Generator');
       </div>
       <div class="setmaxx-card">
         <h2 style="margin-top:0;">How it chooses songs</h2>
-        <p class="setmaxx-help">Songs with lengths are placed until each set is near the target time, then ordered by your tempo pacing choice. Songs without BPM stay after the tempo-shaped portion.</p>
+        <p class="setmaxx-help">Songs are placed until each set is near the target time, then ordered by your tempo pacing choice. Missing song lengths count as 4 minutes. Songs without BPM stay after the tempo-shaped portion.</p>
         <?php if (is_post()): ?>
           <div class="setmaxx-list">
             <div class="setmaxx-row"><strong><?= (int)$matchingCount ?></strong><span class="setmaxx-meta">matching songs</span></div>
-            <div class="setmaxx-row"><strong><?= count($unknownLengthSongs) ?></strong><span class="setmaxx-meta">matching songs without lengths</span></div>
+            <div class="setmaxx-row"><strong><?= count($unknownLengthSongs) ?></strong><span class="setmaxx-meta">songs using assumed 4 min length</span></div>
             <div class="setmaxx-row"><strong><?= count($unusedSongs) ?></strong><span class="setmaxx-meta">unused timed songs</span></div>
           </div>
         <?php endif; ?>
@@ -415,7 +407,8 @@ setmaxx_page_head('Set Maxx | Setlist Generator');
                       <?php if (!empty($song['opening_song'])): ?><span>Opener</span><?php endif; ?>
                       <?php if (!empty($song['song_key'])): ?><span><?= e((string)$song['song_key']) ?></span><?php endif; ?>
                       <?php if (!empty($song['tempo_bpm'])): ?><span><?= (int)$song['tempo_bpm'] ?> bpm</span><?php endif; ?>
-                      <span><?= e(setmaxx_setlist_seconds((int)($song['track_length_seconds'] ?? 0))) ?></span>
+                      <span><?= e(setmaxx_setlist_display_length($song)) ?></span>
+                      <a href="<?= e(setmaxx_lyrics_url((string)$song['title'], (string)$song['artist'])) ?>" target="_blank" rel="noopener">Lyrics</a>
                     </div>
                   </li>
                 <?php endforeach; ?>
@@ -440,10 +433,10 @@ setmaxx_page_head('Set Maxx | Setlist Generator');
         <?php endif; ?>
         <?php if ($unknownLengthSongs): ?>
           <div class="setmaxx-card">
-            <h2 style="margin-top:0;">Needs lengths</h2>
+            <h2 style="margin-top:0;">Assumed 4 min lengths</h2>
             <div class="setmaxx-list">
               <?php foreach ($unknownLengthSongs as $song): ?>
-                <div class="setmaxx-row"><div><strong><?= e($song['title']) ?></strong><div class="setmaxx-meta"><?= e((string)($song['artist'] ?: 'Artist not set')) ?></div></div></div>
+                <div class="setmaxx-row"><div><strong><?= e($song['title']) ?></strong><div class="setmaxx-meta"><?= e((string)($song['artist'] ?: 'Artist not set')) ?></div></div><span class="setmaxx-meta">4:00 assumed</span></div>
               <?php endforeach; ?>
             </div>
           </div>
@@ -465,6 +458,8 @@ setmaxx_page_head('Set Maxx | Setlist Generator');
   .setmaxx-multi-select { min-height:132px; }
   .setmaxx-song-badges { display:flex; gap:.35rem; flex-wrap:wrap; margin-top:.3rem; }
   .setmaxx-song-badges span { display:inline-flex; padding:.16rem .48rem; border-radius:999px; background:rgba(255,255,255,.07); color:rgba(255,255,255,.82); font-size:.78rem; }
+  .setmaxx-song-badges a { display:inline-flex; padding:.16rem .48rem; border-radius:999px; background:rgba(140,107,255,.16); color:#efe7ff; font-size:.78rem; text-decoration:none; }
+  .setmaxx-song-badges a:hover { text-decoration:underline; }
   @media print {
     .setmaxx-site-header, .setmaxx-site-footer, .setmaxx-grid, .setmaxx-actions, .btn { display:none !important; }
     body { background:#fff !important; color:#111 !important; }

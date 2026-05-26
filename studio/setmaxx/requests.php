@@ -63,8 +63,8 @@ setmaxx_page_head('Set Maxx | Request Dashboard');
             <div class="setmaxx-row">
               <div style="min-width:0; flex:1;">
                 <div style="display:flex; gap:.55rem; align-items:center; flex-wrap:wrap;"><div style="font-weight:600;"><?= e($request['title']) ?></div><span class="setmaxx-status <?= e((string)$request['status']) ?>"><?= e((string)$request['status']) ?></span></div>
-                <div class="setmaxx-meta"><?= e((string)($request['artist'] ?: 'Artist not set')) ?> · from <?= e((string)($request['requester_name'] ?: 'Anonymous')) ?></div>
-                <?php if (!empty($request['request_note'])): ?><div class="setmaxx-help" style="margin-top:.35rem;">“<?= e((string)$request['request_note']) ?>”</div><?php endif; ?>
+                <div class="setmaxx-meta"><?= e((string)($request['artist'] ?: 'Artist not set')) ?> &middot; from <?= e((string)($request['requester_name'] ?: 'Anonymous')) ?></div>
+                <?php if (!empty($request['request_note'])): ?><div class="setmaxx-help" style="margin-top:.35rem;">"<?= e((string)$request['request_note']) ?>"</div><?php endif; ?>
               </div>
               <div>
                 <div class="setmaxx-request-amount"><?= e(setmaxx_money((int)$request['amount_cents'])) ?></div>
@@ -87,11 +87,24 @@ setmaxx_page_head('Set Maxx | Request Dashboard');
         <?php if (!$recentRequests): ?>
           <div class="setmaxx-row"><div class="setmaxx-meta">No requests yet.</div></div>
         <?php else: foreach ($recentRequests as $request): ?>
-          <div class="setmaxx-row"><div><div style="font-weight:600;"><?= e($request['title']) ?></div><div class="setmaxx-meta"><?= e($request['session_title']) ?> · <?= e((string)($request['requester_name'] ?: 'Anonymous')) ?></div></div><div><div class="setmaxx-request-amount"><?= e(setmaxx_money((int)$request['amount_cents'])) ?></div><div class="setmaxx-status <?= e((string)$request['status']) ?>"><?= e((string)$request['status']) ?></div></div></div>
+          <div class="setmaxx-row">
+            <div>
+              <div style="display:flex; gap:.5rem; align-items:center; flex-wrap:wrap;">
+                <div style="font-weight:600;"><?= e($request['title']) ?></div>
+                <a class="setmaxx-mini-link" href="<?= e(setmaxx_lyrics_url((string)$request['title'], (string)$request['artist'])) ?>" target="_blank" rel="noopener">Lyrics</a>
+              </div>
+              <div class="setmaxx-meta"><?= e($request['session_title']) ?> &middot; <?= e((string)($request['requester_name'] ?: 'Anonymous')) ?></div>
+            </div>
+            <div><div class="setmaxx-request-amount"><?= e(setmaxx_money((int)$request['amount_cents'])) ?></div><div class="setmaxx-status <?= e((string)$request['status']) ?>"><?= e((string)$request['status']) ?></div></div>
+          </div>
         <?php endforeach; endif; ?>
       </div>
     </div>
   </section>
   <?php endif; ?>
 </main>
+<style>
+  .setmaxx-mini-link { color:#efe7ff; font-size:.84rem; text-decoration:none; }
+  .setmaxx-mini-link:hover { text-decoration:underline; }
+</style>
 <?php setmaxx_page_foot(); ?>

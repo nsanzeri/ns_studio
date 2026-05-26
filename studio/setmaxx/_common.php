@@ -100,6 +100,11 @@ function setmaxx_status_pill(string $status): string {
     return '<span class="setmaxx-pill">' . e(ucfirst($status)) . '</span>';
 }
 
+function setmaxx_lyrics_url(string $title, ?string $artist = null): string {
+    $query = trim($title . ' ' . (string)$artist . ' lyrics');
+    return 'https://www.google.com/search?q=' . rawurlencode($query);
+}
+
 $tablesReady = setmaxx_tables_ready($pdo);
 
 function setmaxx_page_head(string $title): void { ?>

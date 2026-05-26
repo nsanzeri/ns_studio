@@ -375,6 +375,7 @@ setmaxx_page_head('Set Maxx | Song Catalog');
               <th>Active</th>
               <th>Title</th>
               <th>Artist</th>
+              <th>Lyrics</th>
               <th>Year</th>
               <th>Source genre</th>
               <th>Broad genre</th>
@@ -407,6 +408,7 @@ setmaxx_page_head('Set Maxx | Song Catalog');
                 <td><input type="hidden" name="songs[<?= $id ?>][is_active]" value="0"><input type="checkbox" name="songs[<?= $id ?>][is_active]" value="1" <?= !empty($song['is_active']) ? 'checked' : '' ?>></td>
                 <td><input class="setmaxx-grid-input js-title" name="songs[<?= $id ?>][title]" value="<?= e($song['title']) ?>" required></td>
                 <td><input class="setmaxx-grid-input js-artist" name="songs[<?= $id ?>][artist]" value="<?= e((string)$song['artist']) ?>"></td>
+                <td><a class="setmaxx-mini-link" href="<?= e(setmaxx_lyrics_url((string)$song['title'], (string)$song['artist'])) ?>" target="_blank" rel="noopener">Lyrics</a></td>
                 <td><input class="setmaxx-grid-input js-year" name="songs[<?= $id ?>][release_year]" type="number" min="1800" max="<?= (int)date('Y') + 1 ?>" value="<?= e((string)$song['release_year']) ?>"></td>
                 <td><input class="setmaxx-grid-input js-genre" name="songs[<?= $id ?>][genre]" value="<?= e((string)$song['genre']) ?>"></td>
                 <td><input class="setmaxx-grid-input" name="songs[<?= $id ?>][broad_genre]" placeholder="Pop, Rock, Rap" value="<?= e((string)$song['broad_genre']) ?>"></td>
@@ -461,6 +463,8 @@ setmaxx_page_head('Set Maxx | Song Catalog');
   .setmaxx-grid-input option { background:#151323; color:#fff; }
   .setmaxx-grid-notes { min-width:180px; height:42px; resize:vertical; }
   .setmaxx-song-table input[type="checkbox"] { width:18px; height:18px; accent-color:#8c6bff; }
+  .setmaxx-mini-link { display:inline-flex; align-items:center; min-height:34px; color:#efe7ff; font-size:.86rem; text-decoration:none; }
+  .setmaxx-mini-link:hover { text-decoration:underline; }
 </style>
 <script>
 (function() {

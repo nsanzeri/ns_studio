@@ -461,10 +461,22 @@ setmaxx_page_head('Set Maxx | Setlist Generator');
   .setmaxx-song-badges a { display:inline-flex; padding:.16rem .48rem; border-radius:999px; background:rgba(140,107,255,.16); color:#efe7ff; font-size:.78rem; text-decoration:none; }
   .setmaxx-song-badges a:hover { text-decoration:underline; }
   @media print {
-    .setmaxx-site-header, .setmaxx-site-footer, .setmaxx-grid, .setmaxx-actions, .btn { display:none !important; }
+    @page { margin:.45in; }
+    .setmaxx-site-header, .setmaxx-site-footer, .setmaxx-grid, .setmaxx-actions, .btn, .setmaxx-song-badges, .setmaxx-printable-setlist .setmaxx-help, .setmaxx-printable-setlist .setmaxx-pill, .setmaxx-card:not(.setmaxx-printable-setlist) { display:none !important; }
     body { background:#fff !important; color:#111 !important; }
-    .setmaxx-card, .setmaxx-set-card { box-shadow:none !important; border-color:#ddd !important; background:#fff !important; color:#111 !important; }
-    .setmaxx-help, .setmaxx-meta, .setmaxx-set-songs span { color:#444 !important; }
+    .setmaxx-shell { padding:0 !important; }
+    .setmaxx-card, .setmaxx-set-card { box-shadow:none !important; border-color:#ddd !important; background:#fff !important; color:#111 !important; padding:0 !important; }
+    .setmaxx-printable-setlist { display:block !important; border:0 !important; }
+    .setmaxx-catalog-toolbar { margin:0 0 .18in !important; display:block !important; }
+    .setmaxx-catalog-toolbar h2 { font-size:16pt !important; margin:0 !important; }
+    .setmaxx-generated-grid { grid-template-columns:repeat(3, 1fr) !important; gap:.18in !important; align-items:start !important; }
+    .setmaxx-set-card { border:1px solid #ddd !important; border-radius:0 !important; padding:.12in !important; break-inside:avoid !important; }
+    .setmaxx-set-head { display:block !important; margin:0 0 .08in !important; }
+    .setmaxx-set-head h3 { font-size:12pt !important; margin:0 !important; }
+    .setmaxx-set-songs { gap:0 !important; padding-left:.18in !important; font-size:9pt !important; line-height:1.18 !important; }
+    .setmaxx-set-songs li { border:0 !important; padding:0 0 .035in !important; }
+    .setmaxx-set-songs strong { font-weight:500 !important; }
+    .setmaxx-set-songs span { display:none !important; }
   }
 </style>
 <?php setmaxx_page_foot(); ?>

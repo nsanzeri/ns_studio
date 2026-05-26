@@ -105,6 +105,27 @@ function setmaxx_lyrics_url(string $title, ?string $artist = null): string {
     return 'https://www.google.com/search?q=' . rawurlencode($query);
 }
 
+function setmaxx_tip_platform_fee_percent(): int {
+    return max(0, min(100, (int)env('SETMAXX_TIP_PLATFORM_FEE_PERCENT', 10)));
+}
+
+function setmaxx_direct_platform_tip_user_ids(): array {
+    $raw = (string)env('SETMAXX_DIRECT_PLATFORM_TIP_USER_IDS', '');
+    if (trim($raw) === '') return [];
+    return array_values(array_unique(array_filter(array_map('intval', preg_split('/[,\s]+/', $raw) ?: []), fn($id) => $id > 0)));
+}
+
+function setmaxx_user_uses_direct_platform_tips(int $userId): bool {
+    return in_array($userId, setmaxx_direct_platform_tip_user_ids(), true);
+}
+
+function setmaxx_tip_application_fee_cents(int $amountCents, int $performerUserId): int {
+    if ($amountCents <= 0 || setmaxx_user_uses_direct_platform_tips($performerUserId)) {
+        return 0;
+    }
+    return (int)floor($amountCents * (setmaxx_tip_platform_fee_percent() / 100));
+}
+
 $tablesReady = setmaxx_tables_ready($pdo);
 
 function setmaxx_page_head(string $title): void { ?>

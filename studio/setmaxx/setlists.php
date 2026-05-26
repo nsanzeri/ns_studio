@@ -95,6 +95,7 @@ $filters = [
     'family_friendly' => (string)($_POST['family_friendly'] ?? 'any'),
     'prerecorded' => (string)($_POST['prerecorded'] ?? 'any'),
     'vocal_difficulty' => (string)($_POST['vocal_difficulty'] ?? 'any'),
+    'source_genres' => array_values(array_filter(array_map('trim', (array)($_POST['source_genres'] ?? [])))),
     'broad_genres' => array_values(array_filter(array_map('trim', (array)($_POST['broad_genres'] ?? [])))),
     'set_count' => max(1, min(6, (int)($_POST['set_count'] ?? 3))),
     'set_minutes' => max(10, min(180, (int)($_POST['set_minutes'] ?? 45))),
@@ -110,13 +111,18 @@ $generatedSets = [];
 $unusedSongs = [];
 $unknownLengthSongs = [];
 $matchingCount = 0;
+$sourceGenreOptions = [];
 $broadGenreOptions = [];
 
 if ($tablesReady) {
     setmaxx_setlist_ensure_broad_genre($pdo);
-    $genreStmt = $pdo->prepare("SELECT DISTINCT broad_genre FROM setmaxx_songs WHERE user_id = ? AND broad_genre IS NOT NULL AND broad_genre <> '' ORDER BY broad_genre ASC");
-    $genreStmt->execute([$userId]);
-    $broadGenreOptions = array_map('strval', array_column($genreStmt->fetchAll(PDO::FETCH_ASSOC), 'broad_genre'));
+    $sourceGenreStmt = $pdo->prepare("SELECT DISTINCT genre FROM setmaxx_songs WHERE user_id = ? AND genre IS NOT NULL AND genre <> '' ORDER BY genre ASC");
+    $sourceGenreStmt->execute([$userId]);
+    $sourceGenreOptions = array_map('strval', array_column($sourceGenreStmt->fetchAll(PDO::FETCH_ASSOC), 'genre'));
+
+    $broadGenreStmt = $pdo->prepare("SELECT DISTINCT broad_genre FROM setmaxx_songs WHERE user_id = ? AND broad_genre IS NOT NULL AND broad_genre <> '' ORDER BY broad_genre ASC");
+    $broadGenreStmt->execute([$userId]);
+    $broadGenreOptions = array_map('strval', array_column($broadGenreStmt->fetchAll(PDO::FETCH_ASSOC), 'broad_genre'));
 }
 
 if ($tablesReady && is_post()) {
@@ -156,6 +162,14 @@ if ($tablesReady && is_post()) {
             if ($selectedBroadGenres) {
                 $where[] = 'broad_genre IN (' . implode(',', array_fill(0, count($selectedBroadGenres), '?')) . ')';
                 $params = array_merge($params, $selectedBroadGenres);
+            }
+        }
+
+        if ($filters['source_genres']) {
+            $selectedSourceGenres = array_values(array_intersect($filters['source_genres'], $sourceGenreOptions));
+            if ($selectedSourceGenres) {
+                $where[] = 'genre IN (' . implode(',', array_fill(0, count($selectedSourceGenres), '?')) . ')';
+                $params = array_merge($params, $selectedSourceGenres);
             }
         }
 
@@ -312,6 +326,15 @@ setmaxx_page_head('Set Maxx | Setlist Generator');
                 <?php endforeach; ?>
               </select>
               <div class="setmaxx-help">Hold Ctrl or Cmd to choose more than one.</div>
+            </div>
+            <div class="setmaxx-field">
+              <label for="source_genres">Source genres</label>
+              <select class="setmaxx-select setmaxx-multi-select" id="source_genres" name="source_genres[]" multiple size="6">
+                <?php foreach ($sourceGenreOptions as $genre): ?>
+                  <option value="<?= e($genre) ?>" <?= in_array($genre, $filters['source_genres'], true) ? 'selected' : '' ?>><?= e($genre) ?></option>
+                <?php endforeach; ?>
+              </select>
+              <div class="setmaxx-help">Use this when the imported genre is helpful.</div>
             </div>
             <div class="setmaxx-field">
               <label for="vocal_difficulty">Vocal difficulty</label>

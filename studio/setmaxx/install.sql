@@ -91,7 +91,7 @@ CREATE TABLE IF NOT EXISTS `setmaxx_connect_accounts` (
 
 CREATE TABLE IF NOT EXISTS `setmaxx_requests` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-  `gig_session_id` bigint(20) unsigned NOT NULL,
+  `gig_session_id` bigint(20) unsigned DEFAULT NULL,
   `song_id` bigint(20) unsigned NOT NULL,
   `requester_name` varchar(190) DEFAULT NULL,
   `request_note` varchar(255) DEFAULT NULL,
@@ -111,7 +111,7 @@ CREATE TABLE IF NOT EXISTS `setmaxx_requests` (
 
 CREATE TABLE IF NOT EXISTS `setmaxx_song_suggestions` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-  `gig_session_id` bigint(20) unsigned NOT NULL,
+  `gig_session_id` bigint(20) unsigned DEFAULT NULL,
   `user_id` int(10) unsigned NOT NULL,
   `suggested_title` varchar(190) NOT NULL,
   `suggested_artist` varchar(190) DEFAULT NULL,

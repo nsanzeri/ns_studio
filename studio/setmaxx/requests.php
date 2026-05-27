@@ -6,7 +6,7 @@ function setmaxx_requests_ensure_suggestions_table(PDO $pdo): void {
     $pdo->exec("
         CREATE TABLE IF NOT EXISTS `setmaxx_song_suggestions` (
           `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-          `gig_session_id` bigint(20) unsigned NOT NULL,
+          `gig_session_id` bigint(20) unsigned DEFAULT NULL,
           `user_id` int(10) unsigned NOT NULL,
           `suggested_title` varchar(190) NOT NULL,
           `suggested_artist` varchar(190) DEFAULT NULL,
@@ -62,7 +62,7 @@ if ($tablesReady) {
             $pdo->exec("
                 CREATE TABLE IF NOT EXISTS `setmaxx_general_tips` (
                   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-                  `gig_session_id` bigint(20) unsigned NOT NULL,
+                  `gig_session_id` bigint(20) unsigned DEFAULT NULL,
                   `user_id` int(10) unsigned NOT NULL,
                   `tipper_name` varchar(190) DEFAULT NULL,
                   `tip_note` varchar(255) DEFAULT NULL,
@@ -99,6 +99,10 @@ if ($tablesReady) {
             $tipsStmt->execute([(int)$liveSession['id']]);
             $generalTips = $tipsStmt->fetchAll(PDO::FETCH_ASSOC);
         }
+    } elseif ($generalTipsReady) {
+        $tipsStmt = $pdo->prepare("SELECT tipper_name, tip_note, amount_cents, created_at FROM setmaxx_general_tips WHERE user_id = ? AND status = 'paid' ORDER BY created_at DESC LIMIT 10");
+        $tipsStmt->execute([$userId]);
+        $generalTips = $tipsStmt->fetchAll(PDO::FETCH_ASSOC);
     }
     $recentStmt = $pdo->prepare("SELECT r.id, r.requester_name, r.amount_cents, r.status, r.created_at, s.title, s.artist, gs.title AS session_title FROM setmaxx_requests r JOIN setmaxx_gig_sessions gs ON gs.id = r.gig_session_id JOIN setmaxx_songs s ON s.id = r.song_id WHERE gs.user_id = ? ORDER BY r.created_at DESC LIMIT 12");
     $recentStmt->execute([$userId]);
@@ -108,7 +112,7 @@ if ($tablesReady) {
         $suggestStmt = $pdo->prepare(
             "SELECT ss.suggested_title, ss.suggested_artist, ss.requester_name, ss.suggestion_note, ss.created_at, gs.title AS session_title
              FROM setmaxx_song_suggestions ss
-             JOIN setmaxx_gig_sessions gs ON gs.id = ss.gig_session_id
+             LEFT JOIN setmaxx_gig_sessions gs ON gs.id = ss.gig_session_id
              WHERE ss.user_id = ?
              ORDER BY ss.created_at DESC
              LIMIT 8"
@@ -209,7 +213,7 @@ setmaxx_page_head('Set Maxx | Request Dashboard');
               <div class="setmaxx-meta">
                 <?= e((string)($suggestion['suggested_artist'] ?: 'Artist not listed')) ?>
                 &middot; <?= e((string)($suggestion['requester_name'] ?: 'Anonymous')) ?>
-                &middot; <?= e($suggestion['session_title']) ?>
+                &middot; <?= e((string)($suggestion['session_title'] ?: 'Off-session link')) ?>
               </div>
               <?php if (!empty($suggestion['suggestion_note'])): ?>
                 <div class="setmaxx-help" style="margin-top:.35rem;">"<?= e((string)$suggestion['suggestion_note']) ?>"</div>

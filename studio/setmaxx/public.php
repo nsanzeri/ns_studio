@@ -7,11 +7,15 @@ $errors = [];
 $messages = [];
 $session = null;
 $stableLinkFound = false;
+$publicUserId = 0;
+$publicDisplayName = '';
 $songs = [];
 $lockedSongIds = [];
 $availableLetters = [];
 $songCount = 0;
 $publicProfile = ['website_url' => '', 'review_url' => '', 'logo_path' => '', 'minimum_tip_dollars' => 10, 'price_step_dollars' => 1];
+$sessionMinimumDollars = 10;
+$priceStepDollars = 1;
 
 function setmaxx_public_absolute_url(string $path): string {
     if (preg_match('#^https?://#i', $path)) return $path;
@@ -42,7 +46,7 @@ function setmaxx_public_ensure_suggestions_table(PDO $pdo): void {
     $pdo->exec("
         CREATE TABLE IF NOT EXISTS `setmaxx_song_suggestions` (
           `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-          `gig_session_id` bigint(20) unsigned NOT NULL,
+          `gig_session_id` bigint(20) unsigned DEFAULT NULL,
           `user_id` int(10) unsigned NOT NULL,
           `suggested_title` varchar(190) NOT NULL,
           `suggested_artist` varchar(190) DEFAULT NULL,
@@ -100,7 +104,7 @@ function setmaxx_public_ensure_general_tips_table(PDO $pdo): void {
     $pdo->exec("
         CREATE TABLE IF NOT EXISTS `setmaxx_general_tips` (
           `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-          `gig_session_id` bigint(20) unsigned NOT NULL,
+          `gig_session_id` bigint(20) unsigned DEFAULT NULL,
           `user_id` int(10) unsigned NOT NULL,
           `tipper_name` varchar(190) DEFAULT NULL,
           `tip_note` varchar(255) DEFAULT NULL,
@@ -168,11 +172,16 @@ if ($tablesReady && $token !== '') {
     );
     $stmt->execute([$token]);
     $session = $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
+    if ($session) {
+        $publicUserId = (int)($session['user_id'] ?? 0);
+        $publicDisplayName = (string)($session['display_name'] ?? '');
+    }
 }
 
 if ($tablesReady && $linkToken !== '' && setmaxx_public_table_exists($pdo, 'setmaxx_public_links')) {
     $linkStmt = $pdo->prepare(
-        "SELECT gs.id, gs.user_id, gs.title, gs.venue_name, gs.status, gs.starts_at, u.display_name
+        "SELECT gs.id, gs.user_id, gs.title, gs.venue_name, gs.status, gs.starts_at, u.display_name,
+                spl.user_id AS public_user_id, u.display_name AS public_display_name
          FROM setmaxx_public_links spl
          JOIN users u ON u.id = spl.user_id
          LEFT JOIN setmaxx_gig_sessions gs
@@ -186,30 +195,36 @@ if ($tablesReady && $linkToken !== '' && setmaxx_public_table_exists($pdo, 'setm
     $linkRow = $linkStmt->fetch(PDO::FETCH_ASSOC) ?: null;
     if ($linkRow) {
         $stableLinkFound = true;
+        $publicUserId = (int)($linkRow['public_user_id'] ?? 0);
+        $publicDisplayName = (string)($linkRow['public_display_name'] ?? '');
         if (!empty($linkRow['id'])) {
             $session = $linkRow;
+            $publicUserId = (int)($session['user_id'] ?? $publicUserId);
+            $publicDisplayName = (string)($session['display_name'] ?? $publicDisplayName);
         }
     }
 }
 
-if ($session && $tablesReady) {
-    if (isset($_GET['paid'])) {
-        $messages[] = 'Payment received. Your request is being sent to the performer.';
-    } elseif (isset($_GET['tip'])) {
+if ($tablesReady && $publicUserId > 0) {
+    if (isset($_GET['tip'])) {
         $messages[] = 'Thank you. Your tip was sent to the performer.';
     } elseif (isset($_GET['canceled'])) {
         $errors[] = 'Payment was canceled.';
+    } elseif (isset($_GET['paid'])) {
+        $messages[] = 'Payment received. Your request is being sent to the performer.';
     }
 
     try {
-        $publicProfile = setmaxx_public_profile($pdo, (int)$session['user_id']);
+        $publicProfile = setmaxx_public_profile($pdo, $publicUserId);
     } catch (Throwable $e) {
         $publicProfile = ['website_url' => '', 'review_url' => '', 'logo_path' => '', 'minimum_tip_dollars' => 10, 'price_step_dollars' => 1];
     }
     $sessionMinimumDollars = max(0, min(100, (int)($publicProfile['minimum_tip_dollars'] ?? 10)));
     $priceStepDollars = (int)($publicProfile['price_step_dollars'] ?? 1);
     if (!in_array($priceStepDollars, [1, 5, 10], true)) $priceStepDollars = 1;
+}
 
+if ($session && $tablesReady) {
     $songsStmt = $pdo->prepare(
         "SELECT id, title, artist, tip_amount_cents
          FROM setmaxx_songs
@@ -235,11 +250,9 @@ if ($session && $tablesReady) {
     $lockedSongIds = array_map('intval', array_column($lockStmt->fetchAll(PDO::FETCH_ASSOC), 'song_id'));
 }
 
-if ($session && $tablesReady && is_post()) {
+if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_post()) {
     if (!csrf_verify($_POST['_csrf'] ?? null)) {
         $errors[] = 'Please refresh the page and try again.';
-    } elseif (($session['status'] ?? '') !== 'live') {
-        $errors[] = 'This request page is not accepting live requests right now.';
     } else {
         $action = (string)($_POST['action'] ?? 'request_song');
         if ($action === 'suggest_song') {
@@ -260,8 +273,8 @@ if ($session && $tablesReady && is_post()) {
                             (?, ?, ?, ?, ?, ?)"
                     );
                     $suggestStmt->execute([
-                        (int)$session['id'],
-                        (int)$session['user_id'],
+                        $session ? (int)$session['id'] : null,
+                        $publicUserId,
                         mb_substr($suggestedTitle, 0, 190),
                         $suggestedArtist !== '' ? mb_substr($suggestedArtist, 0, 190) : null,
                         $suggestionName !== '' ? mb_substr($suggestionName, 0, 190) : null,
@@ -284,7 +297,7 @@ if ($session && $tablesReady && is_post()) {
                     setmaxx_public_ensure_general_tips_table($pdo);
                     require_once __DIR__ . '/../_private/config/stripe.php';
 
-                    $performerUserId = (int)($session['user_id'] ?? 0);
+                    $performerUserId = $publicUserId;
                     $amountCents = $tipDollars * 100;
                     $checkoutPayload = [
                         'mode' => 'payment',
@@ -292,7 +305,7 @@ if ($session && $tablesReady && is_post()) {
                             'price_data' => [
                                 'currency' => 'usd',
                                 'product_data' => [
-                                    'name' => 'Tip for ' . (string)($session['display_name'] ?: 'the performer'),
+                                    'name' => 'Tip for ' . (string)($publicDisplayName ?: 'the performer'),
                                     'description' => 'Set Maxx performer tip',
                                 ],
                                 'unit_amount' => $amountCents,
@@ -303,7 +316,7 @@ if ($session && $tablesReady && is_post()) {
                         'cancel_url' => setmaxx_public_absolute_url(base_url('/setmaxx/public.php?' . ($linkToken !== '' ? 'link=' . rawurlencode($linkToken) : 'token=' . rawurlencode($token)) . '&canceled=1')),
                         'metadata' => [
                             'kind' => 'setmaxx_general_tip',
-                            'gig_session_id' => (string)(int)$session['id'],
+                            'gig_session_id' => $session ? (string)(int)$session['id'] : '',
                             'performer_user_id' => (string)$performerUserId,
                             'tipper_name' => mb_substr($tipperName, 0, 190),
                             'tip_note' => mb_substr($tipNote, 0, 255),
@@ -338,6 +351,9 @@ if ($session && $tablesReady && is_post()) {
                     $errors[] = 'Tips are not available right now.';
                 }
             }
+        } else {
+        if (!$session || (($session['status'] ?? '') !== 'live')) {
+            $errors[] = 'Song requests are closed right now.';
         } else {
         $songId = (int)($_POST['song_id'] ?? 0);
         $requesterName = trim((string)($_POST['requester_name'] ?? ''));
@@ -447,6 +463,7 @@ if ($session && $tablesReady && is_post()) {
             }
         }
         }
+        }
     }
 }
 ?>
@@ -514,9 +531,55 @@ if ($session && $tablesReady && is_post()) {
     <?php if (!$tablesReady): ?>
       <h1 style="margin-top:0;">Set Maxx is not installed yet.</h1>
     <?php elseif (!$session): ?>
-      <h1 style="margin-top:0;">Request page not found.</h1>
-      <?php if ($stableLinkFound): ?>
-        <p class="song-meta">There is no live Set Maxx session right now. Check back when the performer opens requests.</p>
+      <?php if ($stableLinkFound && $publicUserId > 0): ?>
+        <div style="display:flex; gap:1rem; align-items:flex-start; flex-wrap:wrap;">
+          <?php if (!empty($publicProfile['logo_path'])): ?>
+            <img class="public-logo" src="<?= e(base_url((string)$publicProfile['logo_path'])) ?>" alt="">
+          <?php endif; ?>
+          <div>
+            <div style="display:inline-flex; padding:.3rem .7rem; border-radius:999px; background:rgba(140,107,255,.16); color:#efe7ff; font-weight:600;">Requests are taking five</div>
+            <h1 style="margin:.8rem 0 .35rem;"><?= e($publicDisplayName !== '' ? $publicDisplayName : 'The performer') ?></h1>
+            <p class="song-meta" style="max-width:620px;">The request list is closed right now, but the show energy is still welcome. Drop a tip, leave a song idea for a future set, or keep in touch below.</p>
+            <?php if (!empty($publicProfile['website_url']) || !empty($publicProfile['review_url'])): ?>
+              <div class="public-quick-links">
+                <?php if (!empty($publicProfile['website_url'])): ?><a class="public-mini-button" href="<?= e((string)$publicProfile['website_url']) ?>" target="_blank" rel="noopener">Website</a><?php endif; ?>
+                <?php if (!empty($publicProfile['review_url'])): ?><a class="public-mini-button" href="<?= e((string)$publicProfile['review_url']) ?>" target="_blank" rel="noopener">Leave a review</a><?php endif; ?>
+              </div>
+            <?php endif; ?>
+          </div>
+        </div>
+
+        <div class="suggestion-card">
+          <div style="font-weight:600; margin-bottom:.55rem;">Tip the performer</div>
+          <form method="post" class="tip-form" action="">
+            <input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>">
+            <input type="hidden" name="action" value="general_tip">
+            <select class="request-select" name="tip_amount_dollars" aria-label="Tip amount">
+              <?php foreach (setmaxx_public_price_options(max(5, $sessionMinimumDollars), $priceStepDollars) as $tipAmount): ?>
+                <option value="<?= $tipAmount ?>">$<?= $tipAmount ?></option>
+              <?php endforeach; ?>
+            </select>
+            <input class="request-input" name="tipper_name" placeholder="Your name">
+            <input class="request-input" name="tip_note" placeholder="Optional note">
+            <button class="btn btn-primary request-submit" type="submit">Tip</button>
+          </form>
+        </div>
+
+        <div class="suggestion-card">
+          <div style="font-weight:600; margin-bottom:.55rem;">Don't see your song? Let me know here for future shows.</div>
+          <form method="post" class="suggestion-form" action="">
+            <input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>">
+            <input type="hidden" name="action" value="suggest_song">
+            <input class="request-input" name="suggested_title" placeholder="Song title" required>
+            <input class="request-input" name="suggested_artist" placeholder="Artist">
+            <input class="request-input" name="suggestion_name" placeholder="Your name">
+            <input class="request-input" name="suggestion_note" placeholder="Optional note">
+            <button class="btn btn-outline request-submit" type="submit">Suggest</button>
+          </form>
+        </div>
+      <?php else: ?>
+        <h1 style="margin-top:0;">Request page not found.</h1>
+        <p class="song-meta">This Set Maxx link is not active right now.</p>
       <?php endif; ?>
     <?php else: ?>
       <div style="display:flex; justify-content:space-between; gap:1rem; align-items:flex-start; flex-wrap:wrap;">

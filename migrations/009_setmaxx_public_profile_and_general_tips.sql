@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS `setmaxx_public_profiles` (
 
 CREATE TABLE IF NOT EXISTS `setmaxx_general_tips` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-  `gig_session_id` bigint(20) unsigned NOT NULL,
+  `gig_session_id` bigint(20) unsigned DEFAULT NULL,
   `user_id` int(10) unsigned NOT NULL,
   `tipper_name` varchar(190) DEFAULT NULL,
   `tip_note` varchar(255) DEFAULT NULL,

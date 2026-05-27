@@ -570,7 +570,7 @@ if (!function_exists('ensure_setmaxx_general_tips_table')) {
         $pdo->exec("
             CREATE TABLE IF NOT EXISTS `setmaxx_general_tips` (
               `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-              `gig_session_id` bigint(20) unsigned NOT NULL,
+              `gig_session_id` bigint(20) unsigned DEFAULT NULL,
               `user_id` int(10) unsigned NOT NULL,
               `tipper_name` varchar(190) DEFAULT NULL,
               `tip_note` varchar(255) DEFAULT NULL,
@@ -600,14 +600,22 @@ if (!function_exists('handle_setmaxx_general_tip_checkout')) {
         $tipNote = trim((string)($session->metadata->tip_note ?? ''));
         $amountCents = (int)($session->amount_total ?? 0);
 
-        if ($paymentIntentId === '' || $gigSessionId <= 0 || $performerUserId <= 0 || $amountCents <= 0) {
+        if ($paymentIntentId === '' || $performerUserId <= 0 || $amountCents <= 0) {
             throw new RuntimeException('Missing Set Maxx general tip metadata.');
         }
 
-        $stmt = $pdo->prepare("SELECT id FROM setmaxx_gig_sessions WHERE id = ? AND user_id = ? LIMIT 1");
-        $stmt->execute([$gigSessionId, $performerUserId]);
-        if (!$stmt->fetchColumn()) {
-            throw new RuntimeException('Set Maxx general tip session mismatch.');
+        if ($gigSessionId > 0) {
+            $stmt = $pdo->prepare("SELECT id FROM setmaxx_gig_sessions WHERE id = ? AND user_id = ? LIMIT 1");
+            $stmt->execute([$gigSessionId, $performerUserId]);
+            if (!$stmt->fetchColumn()) {
+                throw new RuntimeException('Set Maxx general tip session mismatch.');
+            }
+        } else {
+            $stmt = $pdo->prepare("SELECT id FROM users WHERE id = ? LIMIT 1");
+            $stmt->execute([$performerUserId]);
+            if (!$stmt->fetchColumn()) {
+                throw new RuntimeException('Set Maxx general tip user mismatch.');
+            }
         }
 
         $pdo->prepare(
@@ -621,7 +629,7 @@ if (!function_exists('handle_setmaxx_general_tip_checkout')) {
                 amount_cents = VALUES(amount_cents),
                 status = 'paid'"
         )->execute([
-            $gigSessionId,
+            $gigSessionId > 0 ? $gigSessionId : null,
             $performerUserId,
             $tipperName !== '' ? $tipperName : null,
             $tipNote !== '' ? $tipNote : null,

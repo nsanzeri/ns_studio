@@ -82,6 +82,23 @@ if ($tablesReady) {
         $paymentTotals['tonight']['gross_cents'] = (int)($totalsRow['tonight_cents'] ?? 0);
         $paymentTotals['last_30']['gross_cents'] = (int)($totalsRow['last_30_cents'] ?? 0);
         $paymentTotals['all_time']['gross_cents'] = (int)($totalsRow['all_time_cents'] ?? 0);
+
+        if (setmaxx_table_exists($pdo, 'setmaxx_general_tips')) {
+            $tipsTotalsStmt = $pdo->prepare(
+                "SELECT
+                    COALESCE(SUM(CASE WHEN DATE(created_at) = CURDATE() THEN amount_cents ELSE 0 END), 0) AS tonight_cents,
+                    COALESCE(SUM(CASE WHEN created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY) THEN amount_cents ELSE 0 END), 0) AS last_30_cents,
+                    COALESCE(SUM(amount_cents), 0) AS all_time_cents
+                 FROM setmaxx_general_tips
+                 WHERE user_id = ?
+                   AND status = 'paid'"
+            );
+            $tipsTotalsStmt->execute([$userId]);
+            $tipsTotalsRow = $tipsTotalsStmt->fetch(PDO::FETCH_ASSOC) ?: [];
+            $paymentTotals['tonight']['gross_cents'] += (int)($tipsTotalsRow['tonight_cents'] ?? 0);
+            $paymentTotals['last_30']['gross_cents'] += (int)($tipsTotalsRow['last_30_cents'] ?? 0);
+            $paymentTotals['all_time']['gross_cents'] += (int)($tipsTotalsRow['all_time_cents'] ?? 0);
+        }
     } catch (Throwable $e) {
         $errors[] = 'Payment totals could not be loaded right now.';
     }

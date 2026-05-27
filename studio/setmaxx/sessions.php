@@ -1,14 +1,68 @@
 <?php
 require_once __DIR__ . '/_common.php';
 
+function setmaxx_ensure_public_profile_table(PDO $pdo): void {
+	if (setmaxx_table_exists($pdo, 'setmaxx_public_profiles')) return;
+	$pdo->exec("
+		CREATE TABLE IF NOT EXISTS `setmaxx_public_profiles` (
+		  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+		  `user_id` int(10) unsigned NOT NULL,
+		  `website_url` varchar(255) DEFAULT NULL,
+		  `review_url` varchar(255) DEFAULT NULL,
+		  `logo_path` varchar(255) DEFAULT NULL,
+		  `minimum_tip_dollars` tinyint(3) unsigned NOT NULL DEFAULT 10,
+		  `price_step_dollars` tinyint(3) unsigned NOT NULL DEFAULT 1,
+		  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+		  `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+		  PRIMARY KEY (`id`),
+		  UNIQUE KEY `uq_setmaxx_public_profiles_user` (`user_id`),
+		  CONSTRAINT `fk_setmaxx_public_profiles_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
+	");
+}
+
+function setmaxx_profile_column_exists(PDO $pdo, string $columnName): bool {
+	$stmt = $pdo->prepare("SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'setmaxx_public_profiles' AND column_name = ? LIMIT 1");
+	$stmt->execute([$columnName]);
+	return (bool)$stmt->fetchColumn();
+}
+
+function setmaxx_ensure_public_profile_pricing_columns(PDO $pdo): void {
+	setmaxx_ensure_public_profile_table($pdo);
+	if (!setmaxx_profile_column_exists($pdo, 'minimum_tip_dollars')) {
+		$pdo->exec("ALTER TABLE setmaxx_public_profiles ADD COLUMN minimum_tip_dollars tinyint(3) unsigned NOT NULL DEFAULT 10 AFTER logo_path");
+	}
+	if (!setmaxx_profile_column_exists($pdo, 'price_step_dollars')) {
+		$pdo->exec("ALTER TABLE setmaxx_public_profiles ADD COLUMN price_step_dollars tinyint(3) unsigned NOT NULL DEFAULT 1 AFTER minimum_tip_dollars");
+	}
+}
+
+function setmaxx_clean_public_url($value): ?string {
+	$url = trim((string)$value);
+	if ($url === '') return null;
+	if (!preg_match('#^https?://#i', $url)) {
+		$url = 'https://' . $url;
+	}
+	return filter_var($url, FILTER_VALIDATE_URL) ? mb_substr($url, 0, 255) : null;
+}
+
+function setmaxx_public_profile(PDO $pdo, int $userId): array {
+	setmaxx_ensure_public_profile_pricing_columns($pdo);
+	$stmt = $pdo->prepare("SELECT website_url, review_url, logo_path, minimum_tip_dollars, price_step_dollars FROM setmaxx_public_profiles WHERE user_id = ? LIMIT 1");
+	$stmt->execute([$userId]);
+	return $stmt->fetch(PDO::FETCH_ASSOC) ?: ['website_url' => '', 'review_url' => '', 'logo_path' => '', 'minimum_tip_dollars' => 10, 'price_step_dollars' => 1];
+}
+
 $stablePublicUrl = '';
 $stableQrUrl = '';
+$publicProfile = ['website_url' => '', 'review_url' => '', 'logo_path' => ''];
 if ($tablesReady) {
 	try {
 		setmaxx_enforce_single_live_session($pdo, $userId);
 		$stableToken = setmaxx_public_link_token($pdo, $userId);
 		$stablePublicUrl = setmaxx_absolute_url($stableSessionLinkBase . rawurlencode($stableToken));
 		$stableQrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=240x240&margin=10&data=' . rawurlencode($stablePublicUrl);
+		$publicProfile = setmaxx_public_profile($pdo, $userId);
 	} catch (Throwable $e) {
 		$errors[] = 'Could not prepare your stable public request link.';
 	}
@@ -42,6 +96,46 @@ if ($tablesReady && is_post()) {
 				$pdo->commit();
 				setmaxx_enforce_single_live_session($pdo, $userId);
 				$messages[] = $goLive ? 'New live session created.' : 'Session created in draft mode.';
+			}
+			if ($action === 'save_public_profile') {
+				setmaxx_ensure_public_profile_pricing_columns($pdo);
+				$websiteUrl = setmaxx_clean_public_url($_POST['website_url'] ?? '');
+				$reviewUrl = setmaxx_clean_public_url($_POST['review_url'] ?? '');
+				$minimumTipDollars = max(0, min(100, (int)($_POST['minimum_tip_dollars'] ?? 10)));
+				$priceStepDollars = (int)($_POST['price_step_dollars'] ?? 1);
+				if (!in_array($priceStepDollars, [1, 5, 10], true)) $priceStepDollars = 1;
+				$logoPath = trim((string)($publicProfile['logo_path'] ?? ''));
+				
+				if (trim((string)($_POST['website_url'] ?? '')) !== '' && $websiteUrl === null) throw new RuntimeException('Website link is not valid.');
+				if (trim((string)($_POST['review_url'] ?? '')) !== '' && $reviewUrl === null) throw new RuntimeException('Review link is not valid.');
+				
+				if (!empty($_FILES['logo_file']['tmp_name']) && is_uploaded_file($_FILES['logo_file']['tmp_name'])) {
+					$tmpPath = (string)$_FILES['logo_file']['tmp_name'];
+					$size = (int)($_FILES['logo_file']['size'] ?? 0);
+					if ($size <= 0 || $size > 2 * 1024 * 1024) throw new RuntimeException('Logo must be under 2 MB.');
+					$info = @getimagesize($tmpPath);
+					$mime = $info['mime'] ?? '';
+					$extensions = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp', 'image/gif' => 'gif'];
+					if (!isset($extensions[$mime])) throw new RuntimeException('Logo must be a JPG, PNG, WEBP, or GIF.');
+					$uploadDir = dirname(__DIR__, 2) . '/assets/uploads/setmaxx';
+					if (!is_dir($uploadDir) && !mkdir($uploadDir, 0775, true) && !is_dir($uploadDir)) throw new RuntimeException('Logo upload folder could not be created.');
+					$fileName = 'setmaxx-logo-' . $userId . '-' . bin2hex(random_bytes(5)) . '.' . $extensions[$mime];
+					$targetPath = $uploadDir . '/' . $fileName;
+					if (!move_uploaded_file($tmpPath, $targetPath)) throw new RuntimeException('Logo could not be saved.');
+					$logoPath = '../assets/uploads/setmaxx/' . $fileName;
+				}
+				
+				if (!empty($_POST['remove_logo'])) {
+					$logoPath = '';
+				}
+				
+				$pdo->prepare(
+					"INSERT INTO setmaxx_public_profiles (user_id, website_url, review_url, logo_path, minimum_tip_dollars, price_step_dollars)
+					 VALUES (?, ?, ?, ?, ?, ?)
+					 ON DUPLICATE KEY UPDATE website_url = VALUES(website_url), review_url = VALUES(review_url), logo_path = VALUES(logo_path), minimum_tip_dollars = VALUES(minimum_tip_dollars), price_step_dollars = VALUES(price_step_dollars)"
+				)->execute([$userId, $websiteUrl, $reviewUrl, $logoPath !== '' ? $logoPath : null, $minimumTipDollars, $priceStepDollars]);
+				$publicProfile = setmaxx_public_profile($pdo, $userId);
+				$messages[] = 'Public page settings saved.';
 			}
 			if ($action === 'session_status') {
 				$sessionId = (int)($_POST['session_id'] ?? 0);
@@ -132,6 +226,43 @@ setmaxx_page_head('Set Maxx | Gig Sessions');
     </div>
   </section>
   <div class="setmaxx-card" style="margin-top:1rem;">
+    <h2 style="margin-top:0;">Public page settings</h2>
+    <form method="post" enctype="multipart/form-data" class="setmaxx-stack" action="">
+      <input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>">
+      <input type="hidden" name="action" value="save_public_profile">
+      <div class="setmaxx-form-grid">
+        <div class="setmaxx-field"><label for="website_url">Performer website</label><input class="setmaxx-input" id="website_url" name="website_url" placeholder="https://your-site.com" value="<?= e((string)($publicProfile['website_url'] ?? '')) ?>"></div>
+        <div class="setmaxx-field"><label for="review_url">Review link</label><input class="setmaxx-input" id="review_url" name="review_url" placeholder="Google review page" value="<?= e((string)($publicProfile['review_url'] ?? '')) ?>"></div>
+      </div>
+      <div class="setmaxx-form-grid">
+        <div class="setmaxx-field">
+          <label for="minimum_tip_dollars">Lowest paid amount</label>
+          <input class="setmaxx-input" id="minimum_tip_dollars" name="minimum_tip_dollars" type="number" min="0" max="100" step="1" value="<?= e((string)((int)($publicProfile['minimum_tip_dollars'] ?? 10))) ?>">
+        </div>
+        <div class="setmaxx-field">
+          <label for="price_step_dollars">Price increments</label>
+          <select class="setmaxx-select" id="price_step_dollars" name="price_step_dollars">
+            <?php foreach ([1, 5, 10] as $step): ?>
+              <option value="<?= $step ?>" <?= (int)($publicProfile['price_step_dollars'] ?? 1) === $step ? 'selected' : '' ?>>$<?= $step ?></option>
+            <?php endforeach; ?>
+          </select>
+        </div>
+      </div>
+      <div class="setmaxx-form-grid">
+        <div class="setmaxx-field"><label for="logo_file">Public page logo</label><input class="setmaxx-input" id="logo_file" name="logo_file" type="file" accept="image/png,image/jpeg,image/webp,image/gif"></div>
+        <div class="setmaxx-field">
+          <label>Current logo</label>
+          <?php if (!empty($publicProfile['logo_path'])): ?>
+            <div class="setmaxx-actions"><img class="setmaxx-profile-logo-preview" src="<?= e(base_url((string)$publicProfile['logo_path'])) ?>" alt="Current public logo"><label class="setmaxx-help"><input type="checkbox" name="remove_logo" value="1"> Remove logo</label></div>
+          <?php else: ?>
+            <div class="setmaxx-help">No logo uploaded yet.</div>
+          <?php endif; ?>
+        </div>
+      </div>
+      <div class="setmaxx-actions"><button class="btn btn-primary" type="submit" <?= $isProUser ? '' : 'disabled' ?>>Save public settings</button></div>
+    </form>
+  </div>
+  <div class="setmaxx-card" style="margin-top:1rem;">
     <h2 style="margin-top:0;">Sessions</h2>
     <div class="setmaxx-list">
       <?php if (!$sessions): ?>
@@ -167,5 +298,6 @@ setmaxx_page_head('Set Maxx | Gig Sessions');
 <style>
   .setmaxx-qr-wrap { display:grid; gap:.9rem; margin:1rem 0; }
   .setmaxx-qr-img { width:180px; max-width:100%; border-radius:14px; background:#fff; padding:.45rem; }
+  .setmaxx-profile-logo-preview { width:58px; height:58px; object-fit:contain; border-radius:12px; background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.1); padding:.35rem; }
 </style>
 <?php setmaxx_page_foot(); ?>

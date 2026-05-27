@@ -564,6 +564,73 @@ if (!function_exists('handle_setmaxx_tip_checkout')) {
     }
 }
 
+if (!function_exists('ensure_setmaxx_general_tips_table')) {
+    function ensure_setmaxx_general_tips_table(PDO $pdo): void
+    {
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS `setmaxx_general_tips` (
+              `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+              `gig_session_id` bigint(20) unsigned NOT NULL,
+              `user_id` int(10) unsigned NOT NULL,
+              `tipper_name` varchar(190) DEFAULT NULL,
+              `tip_note` varchar(255) DEFAULT NULL,
+              `amount_cents` int(10) unsigned NOT NULL DEFAULT 0,
+              `status` enum('paid','refunded') NOT NULL DEFAULT 'paid',
+              `stripe_payment_intent_id` varchar(255) DEFAULT NULL,
+              `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+              PRIMARY KEY (`id`),
+              UNIQUE KEY `uq_setmaxx_general_tips_pi` (`stripe_payment_intent_id`),
+              KEY `idx_setmaxx_general_tips_user` (`user_id`,`created_at`),
+              KEY `idx_setmaxx_general_tips_session` (`gig_session_id`,`created_at`),
+              CONSTRAINT `fk_setmaxx_general_tips_session` FOREIGN KEY (`gig_session_id`) REFERENCES `setmaxx_gig_sessions` (`id`) ON DELETE CASCADE,
+              CONSTRAINT `fk_setmaxx_general_tips_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
+        ");
+    }
+}
+
+if (!function_exists('handle_setmaxx_general_tip_checkout')) {
+    function handle_setmaxx_general_tip_checkout(PDO $pdo, \Stripe\Checkout\Session $session): void
+    {
+        ensure_setmaxx_general_tips_table($pdo);
+        $paymentIntentId = (string)($session->payment_intent ?? '');
+        $gigSessionId = (int)($session->metadata->gig_session_id ?? 0);
+        $performerUserId = (int)($session->metadata->performer_user_id ?? 0);
+        $tipperName = trim((string)($session->metadata->tipper_name ?? ''));
+        $tipNote = trim((string)($session->metadata->tip_note ?? ''));
+        $amountCents = (int)($session->amount_total ?? 0);
+
+        if ($paymentIntentId === '' || $gigSessionId <= 0 || $performerUserId <= 0 || $amountCents <= 0) {
+            throw new RuntimeException('Missing Set Maxx general tip metadata.');
+        }
+
+        $stmt = $pdo->prepare("SELECT id FROM setmaxx_gig_sessions WHERE id = ? AND user_id = ? LIMIT 1");
+        $stmt->execute([$gigSessionId, $performerUserId]);
+        if (!$stmt->fetchColumn()) {
+            throw new RuntimeException('Set Maxx general tip session mismatch.');
+        }
+
+        $pdo->prepare(
+            "INSERT INTO setmaxx_general_tips
+                (gig_session_id, user_id, tipper_name, tip_note, amount_cents, status, stripe_payment_intent_id)
+             VALUES
+                (?, ?, ?, ?, ?, 'paid', ?)
+             ON DUPLICATE KEY UPDATE
+                tipper_name = COALESCE(tipper_name, VALUES(tipper_name)),
+                tip_note = COALESCE(tip_note, VALUES(tip_note)),
+                amount_cents = VALUES(amount_cents),
+                status = 'paid'"
+        )->execute([
+            $gigSessionId,
+            $performerUserId,
+            $tipperName !== '' ? $tipperName : null,
+            $tipNote !== '' ? $tipNote : null,
+            $amountCents,
+            $paymentIntentId,
+        ]);
+    }
+}
+
 if (!function_exists('handle_subscription_checkout_completed')) {
     function handle_subscription_checkout_completed(PDO $pdo, \Stripe\Checkout\Session $session): void
     {
@@ -702,6 +769,14 @@ try {
 
             if (trim((string)($session->metadata->kind ?? '')) === 'setmaxx_tip') {
                 handle_setmaxx_tip_checkout($pdo, $session);
+                mark_webhook_event($pdo, $event->id, $livemode, 'processed', null);
+                http_response_code(200);
+                echo 'OK';
+                exit;
+            }
+
+            if (trim((string)($session->metadata->kind ?? '')) === 'setmaxx_general_tip') {
+                handle_setmaxx_general_tip_checkout($pdo, $session);
                 mark_webhook_event($pdo, $event->id, $livemode, 'processed', null);
                 http_response_code(200);
                 echo 'OK';

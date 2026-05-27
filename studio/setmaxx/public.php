@@ -11,6 +11,7 @@ $songs = [];
 $lockedSongIds = [];
 $availableLetters = [];
 $songCount = 0;
+$publicProfile = ['website_url' => '', 'review_url' => '', 'logo_path' => '', 'minimum_tip_dollars' => 10, 'price_step_dollars' => 1];
 
 function setmaxx_public_absolute_url(string $path): string {
     if (preg_match('#^https?://#i', $path)) return $path;
@@ -56,6 +57,89 @@ function setmaxx_public_ensure_suggestions_table(PDO $pdo): void {
           CONSTRAINT `fk_setmaxx_suggestions_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
     ");
+}
+
+function setmaxx_public_ensure_profile_table(PDO $pdo): void {
+    if (setmaxx_public_table_exists($pdo, 'setmaxx_public_profiles')) return;
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS `setmaxx_public_profiles` (
+          `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+          `user_id` int(10) unsigned NOT NULL,
+          `website_url` varchar(255) DEFAULT NULL,
+          `review_url` varchar(255) DEFAULT NULL,
+          `logo_path` varchar(255) DEFAULT NULL,
+          `minimum_tip_dollars` tinyint(3) unsigned NOT NULL DEFAULT 10,
+          `price_step_dollars` tinyint(3) unsigned NOT NULL DEFAULT 1,
+          `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+          `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+          PRIMARY KEY (`id`),
+          UNIQUE KEY `uq_setmaxx_public_profiles_user` (`user_id`),
+          CONSTRAINT `fk_setmaxx_public_profiles_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
+    ");
+}
+
+function setmaxx_public_profile_column_exists(PDO $pdo, string $columnName): bool {
+    $stmt = $pdo->prepare("SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'setmaxx_public_profiles' AND column_name = ? LIMIT 1");
+    $stmt->execute([$columnName]);
+    return (bool)$stmt->fetchColumn();
+}
+
+function setmaxx_public_ensure_profile_pricing_columns(PDO $pdo): void {
+    setmaxx_public_ensure_profile_table($pdo);
+    if (!setmaxx_public_profile_column_exists($pdo, 'minimum_tip_dollars')) {
+        $pdo->exec("ALTER TABLE setmaxx_public_profiles ADD COLUMN minimum_tip_dollars tinyint(3) unsigned NOT NULL DEFAULT 10 AFTER logo_path");
+    }
+    if (!setmaxx_public_profile_column_exists($pdo, 'price_step_dollars')) {
+        $pdo->exec("ALTER TABLE setmaxx_public_profiles ADD COLUMN price_step_dollars tinyint(3) unsigned NOT NULL DEFAULT 1 AFTER minimum_tip_dollars");
+    }
+}
+
+function setmaxx_public_ensure_general_tips_table(PDO $pdo): void {
+    if (setmaxx_public_table_exists($pdo, 'setmaxx_general_tips')) return;
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS `setmaxx_general_tips` (
+          `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+          `gig_session_id` bigint(20) unsigned NOT NULL,
+          `user_id` int(10) unsigned NOT NULL,
+          `tipper_name` varchar(190) DEFAULT NULL,
+          `tip_note` varchar(255) DEFAULT NULL,
+          `amount_cents` int(10) unsigned NOT NULL DEFAULT 0,
+          `status` enum('paid','refunded') NOT NULL DEFAULT 'paid',
+          `stripe_payment_intent_id` varchar(255) DEFAULT NULL,
+          `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+          PRIMARY KEY (`id`),
+          UNIQUE KEY `uq_setmaxx_general_tips_pi` (`stripe_payment_intent_id`),
+          KEY `idx_setmaxx_general_tips_user` (`user_id`,`created_at`),
+          KEY `idx_setmaxx_general_tips_session` (`gig_session_id`,`created_at`),
+          CONSTRAINT `fk_setmaxx_general_tips_session` FOREIGN KEY (`gig_session_id`) REFERENCES `setmaxx_gig_sessions` (`id`) ON DELETE CASCADE,
+          CONSTRAINT `fk_setmaxx_general_tips_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
+    ");
+}
+
+function setmaxx_public_profile(PDO $pdo, int $userId): array {
+    setmaxx_public_ensure_profile_pricing_columns($pdo);
+    $stmt = $pdo->prepare("SELECT website_url, review_url, logo_path, minimum_tip_dollars, price_step_dollars FROM setmaxx_public_profiles WHERE user_id = ? LIMIT 1");
+    $stmt->execute([$userId]);
+    return $stmt->fetch(PDO::FETCH_ASSOC) ?: ['website_url' => '', 'review_url' => '', 'logo_path' => '', 'minimum_tip_dollars' => 10, 'price_step_dollars' => 1];
+}
+
+function setmaxx_public_price_options(int $minimumDollars, int $stepDollars, int $maxDollars = 100): array {
+    $minimumDollars = max(1, min($maxDollars, $minimumDollars));
+    $stepDollars = in_array($stepDollars, [1, 5, 10], true) ? $stepDollars : 1;
+    $start = $minimumDollars;
+    if ($stepDollars > 1) {
+        $start = (int)(ceil($minimumDollars / $stepDollars) * $stepDollars);
+    }
+    $options = [];
+    for ($amount = $start; $amount <= $maxDollars; $amount += $stepDollars) {
+        if ($amount >= $minimumDollars) $options[] = $amount;
+    }
+    if (!$options || $options[0] !== $minimumDollars) {
+        array_unshift($options, $minimumDollars);
+    }
+    return array_values(array_unique(array_filter($options, fn($amount) => $amount >= $minimumDollars && $amount <= $maxDollars)));
 }
 
 function setmaxx_public_tip_fee_percent(): int {
@@ -111,9 +195,20 @@ if ($tablesReady && $linkToken !== '' && setmaxx_public_table_exists($pdo, 'setm
 if ($session && $tablesReady) {
     if (isset($_GET['paid'])) {
         $messages[] = 'Payment received. Your request is being sent to the performer.';
+    } elseif (isset($_GET['tip'])) {
+        $messages[] = 'Thank you. Your tip was sent to the performer.';
     } elseif (isset($_GET['canceled'])) {
-        $errors[] = 'Payment was canceled, so the paid request was not sent.';
+        $errors[] = 'Payment was canceled.';
     }
+
+    try {
+        $publicProfile = setmaxx_public_profile($pdo, (int)$session['user_id']);
+    } catch (Throwable $e) {
+        $publicProfile = ['website_url' => '', 'review_url' => '', 'logo_path' => '', 'minimum_tip_dollars' => 10, 'price_step_dollars' => 1];
+    }
+    $sessionMinimumDollars = max(0, min(100, (int)($publicProfile['minimum_tip_dollars'] ?? 10)));
+    $priceStepDollars = (int)($publicProfile['price_step_dollars'] ?? 1);
+    if (!in_array($priceStepDollars, [1, 5, 10], true)) $priceStepDollars = 1;
 
     $songsStmt = $pdo->prepare(
         "SELECT id, title, artist, tip_amount_cents
@@ -177,6 +272,72 @@ if ($session && $tablesReady && is_post()) {
                     $errors[] = 'The suggestion could not be sent right now.';
                 }
             }
+        } elseif ($action === 'general_tip') {
+            $tipDollars = (int)($_POST['tip_amount_dollars'] ?? 0);
+            $tipperName = trim((string)($_POST['tipper_name'] ?? ''));
+            $tipNote = trim((string)($_POST['tip_note'] ?? ''));
+            $tipMinimumDollars = max(5, $sessionMinimumDollars);
+            if ($tipDollars < $tipMinimumDollars || $tipDollars > 100) {
+                $errors[] = 'Choose a tip amount from $' . $tipMinimumDollars . ' to $100.';
+            } else {
+                try {
+                    setmaxx_public_ensure_general_tips_table($pdo);
+                    require_once __DIR__ . '/../_private/config/stripe.php';
+
+                    $performerUserId = (int)($session['user_id'] ?? 0);
+                    $amountCents = $tipDollars * 100;
+                    $checkoutPayload = [
+                        'mode' => 'payment',
+                        'line_items' => [[
+                            'price_data' => [
+                                'currency' => 'usd',
+                                'product_data' => [
+                                    'name' => 'Tip for ' . (string)($session['display_name'] ?: 'the performer'),
+                                    'description' => 'Set Maxx performer tip',
+                                ],
+                                'unit_amount' => $amountCents,
+                            ],
+                            'quantity' => 1,
+                        ]],
+                        'success_url' => setmaxx_public_absolute_url(base_url('/setmaxx/public.php?' . ($linkToken !== '' ? 'link=' . rawurlencode($linkToken) : 'token=' . rawurlencode($token)) . '&tip=1')),
+                        'cancel_url' => setmaxx_public_absolute_url(base_url('/setmaxx/public.php?' . ($linkToken !== '' ? 'link=' . rawurlencode($linkToken) : 'token=' . rawurlencode($token)) . '&canceled=1')),
+                        'metadata' => [
+                            'kind' => 'setmaxx_general_tip',
+                            'gig_session_id' => (string)(int)$session['id'],
+                            'performer_user_id' => (string)$performerUserId,
+                            'tipper_name' => mb_substr($tipperName, 0, 190),
+                            'tip_note' => mb_substr($tipNote, 0, 255),
+                        ],
+                    ];
+
+                    if (!setmaxx_public_user_uses_direct_platform_tips($performerUserId)) {
+                        if (!setmaxx_public_table_exists($pdo, 'setmaxx_connect_accounts')) {
+                            $errors[] = 'Tips are not ready for this performer yet.';
+                        } else {
+                            $connectStmt = $pdo->prepare("SELECT stripe_account_id, charges_enabled, payouts_enabled, details_submitted FROM setmaxx_connect_accounts WHERE user_id = ? LIMIT 1");
+                            $connectStmt->execute([$performerUserId]);
+                            $connectAccount = $connectStmt->fetch(PDO::FETCH_ASSOC) ?: null;
+                            if (!$connectAccount || empty($connectAccount['charges_enabled']) || empty($connectAccount['payouts_enabled']) || empty($connectAccount['details_submitted'])) {
+                                $errors[] = 'Tips are not ready for this performer yet.';
+                            } else {
+                                $checkoutPayload['payment_intent_data'] = [
+                                    'application_fee_amount' => (int)floor($amountCents * (setmaxx_public_tip_fee_percent() / 100)),
+                                    'transfer_data' => ['destination' => (string)$connectAccount['stripe_account_id']],
+                                ];
+                            }
+                        }
+                    }
+
+                    if (!$errors) {
+                        $checkoutSession = \Stripe\Checkout\Session::create($checkoutPayload);
+                        header('Location: ' . (string)$checkoutSession->url);
+                        exit;
+                    }
+                } catch (Throwable $e) {
+                    error_log('SetMaxx general tip checkout failed: ' . $e->getMessage());
+                    $errors[] = 'Tips are not available right now.';
+                }
+            }
         } else {
         $songId = (int)($_POST['song_id'] ?? 0);
         $requesterName = trim((string)($_POST['requester_name'] ?? ''));
@@ -196,7 +357,7 @@ if ($session && $tablesReady && is_post()) {
         $songStmt->execute([$songId, (int)$session['id']]);
         $song = $songStmt->fetch(PDO::FETCH_ASSOC) ?: null;
         $minimumDollars = $song ? (int)ceil(((int)$song['tip_amount_cents']) / 100) : 0;
-        $minimumDollars = max(0, min(100, $minimumDollars));
+        $minimumDollars = max(0, min(100, max($minimumDollars, $sessionMinimumDollars)));
 
         if (!($requestAmountDollars === 0 || ($requestAmountDollars >= 10 && $requestAmountDollars <= 100))) {
             $errors[] = 'Choose $0 for a free request, or a paid amount from $10 to $100.';
@@ -325,13 +486,17 @@ if ($session && $tablesReady && is_post()) {
     .request-input::placeholder { color:rgba(255,255,255,.52); }
     .request-submit { padding:.54rem .85rem; white-space:nowrap; }
     .request-note { margin-top:1rem; padding:1rem; border-radius:16px; background:rgba(140,107,255,.1); border:1px solid rgba(140,107,255,.16); }
+    .public-logo { width:64px; height:64px; object-fit:contain; border-radius:16px; background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.1); padding:.4rem; }
+    .public-quick-links { display:flex; gap:.5rem; flex-wrap:wrap; margin-top:.75rem; }
+    .public-mini-button { display:inline-flex; align-items:center; min-height:34px; padding:.4rem .75rem; border-radius:999px; border:1px solid rgba(255,255,255,.14); color:#fff; text-decoration:none; font-size:.86rem; background:rgba(255,255,255,.04); }
     .suggestion-card { margin-top:1rem; padding:1rem; border-radius:18px; background:rgba(255,255,255,.035); border:1px solid rgba(255,255,255,.07); }
     .suggestion-form { display:grid; grid-template-columns:minmax(160px, 1fr) minmax(140px, .9fr) minmax(120px, .8fr) minmax(180px, 1.2fr) auto; gap:.55rem; align-items:center; }
+    .tip-form { display:grid; grid-template-columns:110px minmax(130px, 1fr) minmax(180px, 1.3fr) auto; gap:.55rem; align-items:center; }
     .alert { border-radius:16px; padding:.95rem 1rem; margin-bottom:1rem; }
     .alert-success { background:rgba(51,176,102,.16); border:1px solid rgba(51,176,102,.28); }
     .alert-error { background:rgba(199,64,64,.16); border:1px solid rgba(199,64,64,.28); }
     @media (max-width: 900px) {
-      .song-row, .request-form, .suggestion-form { grid-template-columns:1fr; }
+      .song-row, .request-form, .suggestion-form, .tip-form { grid-template-columns:1fr; }
       .request-submit { width:100%; }
     }
   </style>
@@ -355,20 +520,47 @@ if ($session && $tablesReady && is_post()) {
       <?php endif; ?>
     <?php else: ?>
       <div style="display:flex; justify-content:space-between; gap:1rem; align-items:flex-start; flex-wrap:wrap;">
-        <div>
+        <div style="display:flex; gap:1rem; align-items:flex-start;">
+          <?php if (!empty($publicProfile['logo_path'])): ?>
+            <img class="public-logo" src="<?= e(base_url((string)$publicProfile['logo_path'])) ?>" alt="">
+          <?php endif; ?>
+          <div>
           <div style="display:inline-flex; padding:.3rem .7rem; border-radius:999px; background:rgba(140,107,255,.16); color:#efe7ff; font-weight:600;">Live song requests</div>
           <h1 style="margin:.8rem 0 .35rem;"><?= e($session['title']) ?></h1>
           <div class="song-meta"><?= e((string)($session['venue_name'] ?: 'Tonight\'s show')) ?> &middot; hosted by <?= e((string)($session['display_name'] ?: 'the performer')) ?></div>
+          <?php if (!empty($publicProfile['website_url']) || !empty($publicProfile['review_url'])): ?>
+            <div class="public-quick-links">
+              <?php if (!empty($publicProfile['website_url'])): ?><a class="public-mini-button" href="<?= e((string)$publicProfile['website_url']) ?>" target="_blank" rel="noopener">Website</a><?php endif; ?>
+              <?php if (!empty($publicProfile['review_url'])): ?><a class="public-mini-button" href="<?= e((string)$publicProfile['review_url']) ?>" target="_blank" rel="noopener">Leave a review</a><?php endif; ?>
+            </div>
+          <?php endif; ?>
+          </div>
         </div>
-        <div class="song-meta" style="max-width:320px;"><?= (int)$songCount ?> active <?= $songCount === 1 ? 'song' : 'songs' ?> available. One active request per song is allowed tonight, so anything already requested is locked.</div>
+        <div class="song-meta" style="max-width:320px;"><?= (int)$songCount ?> active <?= $songCount === 1 ? 'song' : 'songs' ?> available. Paid requests lock the song for tonight; free requests keep it open.</div>
       </div>
 
       <div class="request-note song-meta">
-        Choose $0 for a free request, or choose a paid request from $10 to $100. Requests are still subject to performer discretion.
+        Choose $0 for a free request, or choose a paid request from $<?= (int)max(10, $sessionMinimumDollars) ?> to $100. Requests are still subject to performer discretion.
       </div>
 
       <div class="suggestion-card">
-        <div style="font-weight:600; margin-bottom:.55rem;">Suggest a song for the future</div>
+        <div style="font-weight:600; margin-bottom:.55rem;">Tip the performer</div>
+        <form method="post" class="tip-form" action="">
+          <input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>">
+          <input type="hidden" name="action" value="general_tip">
+          <select class="request-select" name="tip_amount_dollars" aria-label="Tip amount">
+            <?php foreach (setmaxx_public_price_options(max(5, $sessionMinimumDollars), $priceStepDollars) as $tipAmount): ?>
+              <option value="<?= $tipAmount ?>">$<?= $tipAmount ?></option>
+            <?php endforeach; ?>
+          </select>
+          <input class="request-input" name="tipper_name" placeholder="Your name">
+          <input class="request-input" name="tip_note" placeholder="Optional note">
+          <button class="btn btn-primary request-submit" type="submit">Tip</button>
+        </form>
+      </div>
+
+      <div class="suggestion-card">
+        <div style="font-weight:600; margin-bottom:.55rem;">Don't see your song? Let me know here for future shows.</div>
         <form method="post" class="suggestion-form" action="">
           <input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>">
           <input type="hidden" name="action" value="suggest_song">
@@ -405,7 +597,7 @@ if ($session && $tablesReady && is_post()) {
             $artistSort = (string)($song['artist'] ?: $song['title']);
             $artistFirst = strtoupper(substr(trim($artistSort), 0, 1));
             $artistLetter = preg_match('/[A-Z]/', $artistFirst) ? $artistFirst : '#';
-            $minimumDollars = max(0, min(100, (int)ceil(((int)$song['tip_amount_cents']) / 100)));
+            $minimumDollars = max(0, min(100, max((int)ceil(((int)$song['tip_amount_cents']) / 100), $sessionMinimumDollars)));
           ?>
           <div class="song-card <?= $locked ? 'locked' : '' ?>" data-letter="<?= e($letter) ?>" data-title-letter="<?= e($letter) ?>" data-artist-letter="<?= e($artistLetter) ?>" data-title="<?= e(strtolower((string)$song['title'])) ?>" data-artist="<?= e(strtolower($artistSort)) ?>">
             <div class="song-row">
@@ -425,9 +617,9 @@ if ($session && $tablesReady && is_post()) {
                     <?php if ($minimumDollars <= 0): ?>
                       <option value="0">$0</option>
                     <?php endif; ?>
-                    <?php for ($amount = max(10, $minimumDollars); $amount <= 100; $amount++): ?>
+                    <?php foreach (setmaxx_public_price_options(max(10, $minimumDollars), $priceStepDollars) as $amount): ?>
                       <option value="<?= $amount ?>">$<?= $amount ?></option>
-                    <?php endfor; ?>
+                    <?php endforeach; ?>
                   </select>
                   <input class="request-input" name="requester_name" placeholder="Your name">
                   <input class="request-input" name="request_note" placeholder="Optional note">

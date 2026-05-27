@@ -6,6 +6,7 @@ $connectAccount = null;
 $isDirectPlatformUser = setmaxx_user_uses_direct_platform_tips($userId);
 $needsPlatformProfile = false;
 $stripeSetupUrl = 'https://dashboard.stripe.com/settings/connect/platform-profile';
+$platformStripeAccountId = '';
 
 if (isset($_GET['stripe_error'])) {
     $stripeError = trim((string)($_SESSION['setmaxx_stripe_error'] ?? ''));
@@ -35,6 +36,13 @@ try {
 
 if ($stripeReady) {
     try {
+        try {
+            $platformAccount = \Stripe\Account::retrieve();
+            $platformStripeAccountId = (string)($platformAccount->id ?? '');
+        } catch (Throwable $e) {
+            $platformStripeAccountId = '';
+        }
+
         $connectAccount = setmaxx_connect_account_row($pdo, $userId);
         if ($connectAccount && !empty($connectAccount['stripe_account_id'])) {
             $stripeAccount = \Stripe\Account::retrieve((string)$connectAccount['stripe_account_id']);
@@ -61,6 +69,9 @@ setmaxx_page_head('Set Maxx | Payments');
       <div class="setmaxx-actions">
         <a class="btn btn-primary" href="<?= e($stripeSetupUrl) ?>" target="_blank" rel="noopener">Open Stripe Connect Setup</a>
         <span class="setmaxx-pill">Mode: <?= e((string)env('STRIPE_MODE', 'test')) ?></span>
+        <?php if ($platformStripeAccountId !== ''): ?>
+          <span class="setmaxx-pill">Platform: <?= e($platformStripeAccountId) ?></span>
+        <?php endif; ?>
       </div>
     </div>
   <?php endif; ?>
@@ -89,6 +100,12 @@ setmaxx_page_head('Set Maxx | Payments');
           </div>
           <span class="setmaxx-pill">Connect required</span>
         </div>
+        <?php if ($platformStripeAccountId !== ''): ?>
+          <div class="setmaxx-row">
+            <span class="setmaxx-meta">Stripe platform</span>
+            <strong><?= e($platformStripeAccountId) ?></strong>
+          </div>
+        <?php endif; ?>
       <?php endif; ?>
     </div>
   </section>

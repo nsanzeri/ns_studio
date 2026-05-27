@@ -184,7 +184,7 @@ if ($tablesReady && is_post()) {
                         $skipped++;
                         continue;
                     }
-                    $insert->execute([$userId, $row['title'], $row['artist'], $row['release_year'], $row['genre'], $row['broad_genre'], 1000]);
+                    $insert->execute([$userId, $row['title'], $row['artist'], $row['release_year'], $row['genre'], $row['broad_genre'], 0]);
                     $existing[$key] = true;
                     $added++;
                 }
@@ -211,7 +211,7 @@ if ($tablesReady && is_post()) {
 
                     $difficulty = setmaxx_clean_text($row['vocal_difficulty'] ?? '', 12);
                     if (!in_array($difficulty, ['easy', 'medium', 'hard'], true)) $difficulty = null;
-                    $tipDollars = (float)($row['tip_dollars'] ?? 10);
+                    $tipDollars = (float)($row['tip_dollars'] ?? 0);
 
                     $update->execute([
                         $title,
@@ -256,7 +256,7 @@ if ($tablesReady && is_post()) {
                 $title = setmaxx_clean_text($_POST['title'] ?? '');
                 $artist = setmaxx_clean_text($_POST['artist'] ?? '');
                 if ($title === null) throw new RuntimeException('Song title is required.');
-                $stmt = $pdo->prepare("INSERT INTO setmaxx_songs (user_id, title, artist, tip_amount_cents) VALUES (?, ?, ?, 1000)");
+                $stmt = $pdo->prepare("INSERT INTO setmaxx_songs (user_id, title, artist, tip_amount_cents) VALUES (?, ?, ?, 0)");
                 $stmt->execute([$userId, $title, $artist]);
                 $messages[] = 'Song added to your Set Maxx catalog.';
             }
@@ -376,6 +376,7 @@ setmaxx_page_head('Set Maxx | Song Catalog');
               <th>Title</th>
               <th>Artist</th>
               <th>Lyrics</th>
+              <th>Min $</th>
               <th>Year</th>
               <th>Source genre</th>
               <th>Broad genre</th>
@@ -403,12 +404,12 @@ setmaxx_page_head('Set Maxx | Song Catalog');
                 <td>
                   <input class="js-row-select" type="checkbox" name="selected_song_ids[]" value="<?= $id ?>" aria-label="Select <?= e($song['title']) ?>">
                   <input class="js-row-dirty" type="hidden" name="dirty_song_ids[]" value="" disabled>
-                  <input type="hidden" name="songs[<?= $id ?>][tip_dollars]" value="<?= e((string)(((int)$song['tip_amount_cents']) / 100)) ?>">
                 </td>
                 <td><input type="hidden" name="songs[<?= $id ?>][is_active]" value="0"><input type="checkbox" name="songs[<?= $id ?>][is_active]" value="1" <?= !empty($song['is_active']) ? 'checked' : '' ?>></td>
                 <td><input class="setmaxx-grid-input js-title" name="songs[<?= $id ?>][title]" value="<?= e($song['title']) ?>" required></td>
                 <td><input class="setmaxx-grid-input js-artist" name="songs[<?= $id ?>][artist]" value="<?= e((string)$song['artist']) ?>"></td>
                 <td><a class="setmaxx-mini-link" href="<?= e(setmaxx_lyrics_url((string)$song['title'], (string)$song['artist'])) ?>" target="_blank" rel="noopener">Lyrics</a></td>
+                <td><input class="setmaxx-grid-input" name="songs[<?= $id ?>][tip_dollars]" type="number" min="0" max="100" step="1" value="<?= e((string)(((int)$song['tip_amount_cents']) / 100)) ?>"></td>
                 <td><input class="setmaxx-grid-input js-year" name="songs[<?= $id ?>][release_year]" type="number" min="1800" max="<?= (int)date('Y') + 1 ?>" value="<?= e((string)$song['release_year']) ?>"></td>
                 <td><input class="setmaxx-grid-input js-genre" name="songs[<?= $id ?>][genre]" value="<?= e((string)$song['genre']) ?>"></td>
                 <td><input class="setmaxx-grid-input" name="songs[<?= $id ?>][broad_genre]" placeholder="Pop, Rock, Rap" value="<?= e((string)$song['broad_genre']) ?>"></td>

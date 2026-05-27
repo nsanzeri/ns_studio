@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS `setmaxx_songs` (
   `family_friendly` tinyint(1) NOT NULL DEFAULT 1,
   `instrumental` tinyint(1) NOT NULL DEFAULT 0,
   `performance_notes` text DEFAULT NULL,
-  `tip_amount_cents` int(10) unsigned NOT NULL DEFAULT 1000,
+  `tip_amount_cents` int(10) unsigned NOT NULL DEFAULT 0,
   `is_active` tinyint(1) NOT NULL DEFAULT 1,
   `display_order` int(10) unsigned NOT NULL DEFAULT 0,
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
@@ -82,7 +82,7 @@ CREATE TABLE IF NOT EXISTS `setmaxx_requests` (
   `request_note` varchar(255) DEFAULT NULL,
   `amount_cents` int(10) unsigned NOT NULL DEFAULT 0,
   `status` enum('pending','queued','played','declined','canceled') NOT NULL DEFAULT 'pending',
-  `active_lock` tinyint(1) NOT NULL DEFAULT 1,
+  `active_lock` tinyint(1) DEFAULT 1,
   `stripe_payment_intent_id` varchar(255) DEFAULT NULL,
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
@@ -92,4 +92,21 @@ CREATE TABLE IF NOT EXISTS `setmaxx_requests` (
   KEY `idx_setmaxx_requests_song` (`song_id`),
   CONSTRAINT `fk_setmaxx_requests_session` FOREIGN KEY (`gig_session_id`) REFERENCES `setmaxx_gig_sessions` (`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_setmaxx_requests_song` FOREIGN KEY (`song_id`) REFERENCES `setmaxx_songs` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS `setmaxx_song_suggestions` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `gig_session_id` bigint(20) unsigned NOT NULL,
+  `user_id` int(10) unsigned NOT NULL,
+  `suggested_title` varchar(190) NOT NULL,
+  `suggested_artist` varchar(190) DEFAULT NULL,
+  `requester_name` varchar(190) DEFAULT NULL,
+  `suggestion_note` varchar(255) DEFAULT NULL,
+  `status` enum('new','reviewed','added','dismissed') NOT NULL DEFAULT 'new',
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_setmaxx_suggestions_user` (`user_id`,`status`,`created_at`),
+  KEY `idx_setmaxx_suggestions_session` (`gig_session_id`,`created_at`),
+  CONSTRAINT `fk_setmaxx_suggestions_session` FOREIGN KEY (`gig_session_id`) REFERENCES `setmaxx_gig_sessions` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_setmaxx_suggestions_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;

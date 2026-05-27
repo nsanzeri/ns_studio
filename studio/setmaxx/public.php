@@ -36,6 +36,28 @@ function setmaxx_public_table_exists(PDO $pdo, string $tableName): bool {
     return (bool)$stmt->fetchColumn();
 }
 
+function setmaxx_public_ensure_suggestions_table(PDO $pdo): void {
+    if (setmaxx_public_table_exists($pdo, 'setmaxx_song_suggestions')) return;
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS `setmaxx_song_suggestions` (
+          `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+          `gig_session_id` bigint(20) unsigned NOT NULL,
+          `user_id` int(10) unsigned NOT NULL,
+          `suggested_title` varchar(190) NOT NULL,
+          `suggested_artist` varchar(190) DEFAULT NULL,
+          `requester_name` varchar(190) DEFAULT NULL,
+          `suggestion_note` varchar(255) DEFAULT NULL,
+          `status` enum('new','reviewed','added','dismissed') NOT NULL DEFAULT 'new',
+          `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+          PRIMARY KEY (`id`),
+          KEY `idx_setmaxx_suggestions_user` (`user_id`,`status`,`created_at`),
+          KEY `idx_setmaxx_suggestions_session` (`gig_session_id`,`created_at`),
+          CONSTRAINT `fk_setmaxx_suggestions_session` FOREIGN KEY (`gig_session_id`) REFERENCES `setmaxx_gig_sessions` (`id`) ON DELETE CASCADE,
+          CONSTRAINT `fk_setmaxx_suggestions_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
+    ");
+}
+
 function setmaxx_public_tip_fee_percent(): int {
     return max(0, min(100, (int)env('SETMAXX_TIP_PLATFORM_FEE_PERCENT', 10)));
 }
@@ -94,7 +116,7 @@ if ($session && $tablesReady) {
     }
 
     $songsStmt = $pdo->prepare(
-        "SELECT id, title, artist
+        "SELECT id, title, artist, tip_amount_cents
          FROM setmaxx_songs
          WHERE user_id = (
             SELECT user_id FROM setmaxx_gig_sessions WHERE id = ?
@@ -124,13 +146,45 @@ if ($session && $tablesReady && is_post()) {
     } elseif (($session['status'] ?? '') !== 'live') {
         $errors[] = 'This request page is not accepting live requests right now.';
     } else {
+        $action = (string)($_POST['action'] ?? 'request_song');
+        if ($action === 'suggest_song') {
+            $suggestedTitle = trim((string)($_POST['suggested_title'] ?? ''));
+            $suggestedArtist = trim((string)($_POST['suggested_artist'] ?? ''));
+            $suggestionName = trim((string)($_POST['suggestion_name'] ?? ''));
+            $suggestionNote = trim((string)($_POST['suggestion_note'] ?? ''));
+
+            if ($suggestedTitle === '') {
+                $errors[] = 'Add a song title for the suggestion.';
+            } else {
+                try {
+                    setmaxx_public_ensure_suggestions_table($pdo);
+                    $suggestStmt = $pdo->prepare(
+                        "INSERT INTO setmaxx_song_suggestions
+                            (gig_session_id, user_id, suggested_title, suggested_artist, requester_name, suggestion_note)
+                         VALUES
+                            (?, ?, ?, ?, ?, ?)"
+                    );
+                    $suggestStmt->execute([
+                        (int)$session['id'],
+                        (int)$session['user_id'],
+                        mb_substr($suggestedTitle, 0, 190),
+                        $suggestedArtist !== '' ? mb_substr($suggestedArtist, 0, 190) : null,
+                        $suggestionName !== '' ? mb_substr($suggestionName, 0, 190) : null,
+                        $suggestionNote !== '' ? mb_substr($suggestionNote, 0, 255) : null,
+                    ]);
+                    $messages[] = 'Suggestion sent to the performer.';
+                } catch (Throwable $e) {
+                    $errors[] = 'The suggestion could not be sent right now.';
+                }
+            }
+        } else {
         $songId = (int)($_POST['song_id'] ?? 0);
         $requesterName = trim((string)($_POST['requester_name'] ?? ''));
         $requestNote = trim((string)($_POST['request_note'] ?? ''));
         $requestAmountDollars = (int)($_POST['request_amount_dollars'] ?? 0);
 
         $songStmt = $pdo->prepare(
-            "SELECT id, title, artist
+            "SELECT id, title, artist, tip_amount_cents
              FROM setmaxx_songs
              WHERE id = ?
                AND user_id = (
@@ -141,12 +195,16 @@ if ($session && $tablesReady && is_post()) {
         );
         $songStmt->execute([$songId, (int)$session['id']]);
         $song = $songStmt->fetch(PDO::FETCH_ASSOC) ?: null;
+        $minimumDollars = $song ? (int)ceil(((int)$song['tip_amount_cents']) / 100) : 0;
+        $minimumDollars = max(0, min(100, $minimumDollars));
 
         if (!($requestAmountDollars === 0 || ($requestAmountDollars >= 10 && $requestAmountDollars <= 100))) {
             $errors[] = 'Choose $0 for a free request, or a paid amount from $10 to $100.';
+        } elseif ($minimumDollars > 0 && $requestAmountDollars < $minimumDollars) {
+            $errors[] = 'This song starts at $' . $minimumDollars . '.';
         } elseif (!$song) {
             $errors[] = 'That song is not available for this request page.';
-        } elseif (in_array($songId, $lockedSongIds, true)) {
+        } elseif ($requestAmountDollars > 0 && in_array($songId, $lockedSongIds, true)) {
             $errors[] = 'That song has already been requested for this gig.';
         } elseif ($requestAmountDollars > 0) {
             try {
@@ -213,7 +271,7 @@ if ($session && $tablesReady && is_post()) {
             try {
                 $insert = $pdo->prepare(
                     "INSERT INTO setmaxx_requests (gig_session_id, song_id, requester_name, request_note, amount_cents, status, active_lock)
-                     VALUES (?, ?, ?, ?, ?, 'pending', 1)"
+                     VALUES (?, ?, ?, ?, ?, 'pending', NULL)"
                 );
                 $insert->execute([
                     (int)$session['id'],
@@ -223,10 +281,10 @@ if ($session && $tablesReady && is_post()) {
                     $requestAmountDollars * 100,
                 ]);
                 $messages[] = 'Request sent to the performer.';
-                $lockedSongIds[] = $songId;
             } catch (Throwable $e) {
                 $errors[] = 'That song has already been requested for this gig.';
             }
+        }
         }
     }
 }
@@ -267,11 +325,13 @@ if ($session && $tablesReady && is_post()) {
     .request-input::placeholder { color:rgba(255,255,255,.52); }
     .request-submit { padding:.54rem .85rem; white-space:nowrap; }
     .request-note { margin-top:1rem; padding:1rem; border-radius:16px; background:rgba(140,107,255,.1); border:1px solid rgba(140,107,255,.16); }
+    .suggestion-card { margin-top:1rem; padding:1rem; border-radius:18px; background:rgba(255,255,255,.035); border:1px solid rgba(255,255,255,.07); }
+    .suggestion-form { display:grid; grid-template-columns:minmax(160px, 1fr) minmax(140px, .9fr) minmax(120px, .8fr) minmax(180px, 1.2fr) auto; gap:.55rem; align-items:center; }
     .alert { border-radius:16px; padding:.95rem 1rem; margin-bottom:1rem; }
     .alert-success { background:rgba(51,176,102,.16); border:1px solid rgba(51,176,102,.28); }
     .alert-error { background:rgba(199,64,64,.16); border:1px solid rgba(199,64,64,.28); }
     @media (max-width: 900px) {
-      .song-row, .request-form { grid-template-columns:1fr; }
+      .song-row, .request-form, .suggestion-form { grid-template-columns:1fr; }
       .request-submit { width:100%; }
     }
   </style>
@@ -307,6 +367,19 @@ if ($session && $tablesReady && is_post()) {
         Choose $0 for a free request, or choose a paid request from $10 to $100. Requests are still subject to performer discretion.
       </div>
 
+      <div class="suggestion-card">
+        <div style="font-weight:600; margin-bottom:.55rem;">Suggest a song for the future</div>
+        <form method="post" class="suggestion-form" action="">
+          <input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>">
+          <input type="hidden" name="action" value="suggest_song">
+          <input class="request-input" name="suggested_title" placeholder="Song title" required>
+          <input class="request-input" name="suggested_artist" placeholder="Artist">
+          <input class="request-input" name="suggestion_name" placeholder="Your name">
+          <input class="request-input" name="suggestion_note" placeholder="Optional note">
+          <button class="btn btn-outline request-submit" type="submit">Suggest</button>
+        </form>
+      </div>
+
       <?php if ($songs): ?>
         <div class="alpha-menu" aria-label="Song alphabet filter">
           <span class="alpha-label">Filter</span>
@@ -332,6 +405,7 @@ if ($session && $tablesReady && is_post()) {
             $artistSort = (string)($song['artist'] ?: $song['title']);
             $artistFirst = strtoupper(substr(trim($artistSort), 0, 1));
             $artistLetter = preg_match('/[A-Z]/', $artistFirst) ? $artistFirst : '#';
+            $minimumDollars = max(0, min(100, (int)ceil(((int)$song['tip_amount_cents']) / 100)));
           ?>
           <div class="song-card <?= $locked ? 'locked' : '' ?>" data-letter="<?= e($letter) ?>" data-title-letter="<?= e($letter) ?>" data-artist-letter="<?= e($artistLetter) ?>" data-title="<?= e(strtolower((string)$song['title'])) ?>" data-artist="<?= e(strtolower($artistSort)) ?>">
             <div class="song-row">
@@ -345,10 +419,13 @@ if ($session && $tablesReady && is_post()) {
               <?php else: ?>
                 <form method="post" class="request-form" action="">
                   <input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>">
+                  <input type="hidden" name="action" value="request_song">
                   <input type="hidden" name="song_id" value="<?= (int)$song['id'] ?>">
                   <select class="request-select" name="request_amount_dollars" aria-label="Request amount">
-                    <option value="0">$0</option>
-                    <?php for ($amount = 10; $amount <= 100; $amount++): ?>
+                    <?php if ($minimumDollars <= 0): ?>
+                      <option value="0">$0</option>
+                    <?php endif; ?>
+                    <?php for ($amount = max(10, $minimumDollars); $amount <= 100; $amount++): ?>
                       <option value="<?= $amount ?>">$<?= $amount ?></option>
                     <?php endfor; ?>
                   </select>

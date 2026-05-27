@@ -126,6 +126,61 @@ function setmaxx_tip_application_fee_cents(int $amountCents, int $performerUserI
     return (int)floor($amountCents * (setmaxx_tip_platform_fee_percent() / 100));
 }
 
+function setmaxx_ensure_connect_accounts_table(PDO $pdo): void {
+    if (setmaxx_table_exists($pdo, 'setmaxx_connect_accounts')) return;
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS `setmaxx_connect_accounts` (
+          `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+          `user_id` int(10) unsigned NOT NULL,
+          `stripe_account_id` varchar(255) NOT NULL,
+          `charges_enabled` tinyint(1) NOT NULL DEFAULT 0,
+          `payouts_enabled` tinyint(1) NOT NULL DEFAULT 0,
+          `details_submitted` tinyint(1) NOT NULL DEFAULT 0,
+          `onboarding_completed` tinyint(1) NOT NULL DEFAULT 0,
+          `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+          `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+          PRIMARY KEY (`id`),
+          UNIQUE KEY `uq_setmaxx_connect_user` (`user_id`),
+          UNIQUE KEY `uq_setmaxx_connect_account` (`stripe_account_id`),
+          CONSTRAINT `fk_setmaxx_connect_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
+    ");
+}
+
+function setmaxx_connect_account_row(PDO $pdo, int $userId): ?array {
+    setmaxx_ensure_connect_accounts_table($pdo);
+    $stmt = $pdo->prepare("SELECT * FROM setmaxx_connect_accounts WHERE user_id = ? LIMIT 1");
+    $stmt->execute([$userId]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
+    return $row ?: null;
+}
+
+function setmaxx_upsert_connect_account(PDO $pdo, int $userId, string $accountId, $stripeAccount): void {
+    setmaxx_ensure_connect_accounts_table($pdo);
+    $chargesEnabled = !empty($stripeAccount->charges_enabled) ? 1 : 0;
+    $payoutsEnabled = !empty($stripeAccount->payouts_enabled) ? 1 : 0;
+    $detailsSubmitted = !empty($stripeAccount->details_submitted) ? 1 : 0;
+    $onboardingCompleted = ($chargesEnabled && $payoutsEnabled && $detailsSubmitted) ? 1 : 0;
+
+    $pdo->prepare(
+        "INSERT INTO setmaxx_connect_accounts
+            (user_id, stripe_account_id, charges_enabled, payouts_enabled, details_submitted, onboarding_completed)
+         VALUES
+            (?, ?, ?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE
+            stripe_account_id = VALUES(stripe_account_id),
+            charges_enabled = VALUES(charges_enabled),
+            payouts_enabled = VALUES(payouts_enabled),
+            details_submitted = VALUES(details_submitted),
+            onboarding_completed = VALUES(onboarding_completed)"
+    )->execute([$userId, $accountId, $chargesEnabled, $payoutsEnabled, $detailsSubmitted, $onboardingCompleted]);
+}
+
+function setmaxx_connect_ready(?array $row): bool {
+    if (!$row) return false;
+    return !empty($row['charges_enabled']) && !empty($row['payouts_enabled']) && !empty($row['details_submitted']);
+}
+
 $tablesReady = setmaxx_tables_ready($pdo);
 
 function setmaxx_page_head(string $title): void { ?>

@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Nick Sanzeri | One Man · Full‑Band Experience</title>
     <meta name="description" content="Nick Sanzeri is a Chicagoland singing bassist and live entertainer for weddings, private parties, corporate events, restaurants, clubs, casinos, festivals, and community events.">
+    <script id="mcjs">!function(c,h,i,m,p){m=c.createElement(h),p=c.getElementsByTagName(h)[0],m.async=1,m.src=i,p.parentNode.insertBefore(m,p)}(document,"script","https://chimpstatic.com/mcjs-connected/js/users/758e0b12aa6b2c9e1c489b5f1/19d51ba4bab265cb87fd8e398.js");</script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;700&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
@@ -15,6 +16,7 @@
 	<link rel="apple-touch-icon" sizes="180x180" href="assets/favicons/favicon-180.png">
 	<link rel="shortcut icon" href="assets/favicons/favicon.ico">
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+	    
 <script>
 document.addEventListener("DOMContentLoaded", () => {
     const video = document.getElementById("heroVideo");

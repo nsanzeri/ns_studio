@@ -13,6 +13,7 @@ $studioBase = $siteBase . '/studio';
                 <li><a href="<?= htmlspecialchars($studioBase . '/setmaxx/setlists.php') ?>">Setlists</a></li>
                 <li><a href="<?= htmlspecialchars($studioBase . '/setmaxx/sessions.php') ?>">Sessions</a></li>
                 <li><a href="<?= htmlspecialchars($studioBase . '/setmaxx/requests.php') ?>">Requests</a></li>
+                <li><a href="<?= htmlspecialchars($studioBase . '/setmaxx/payments.php') ?>">Payments</a></li>
                 <li><a href="<?= htmlspecialchars($studioBase . '/member/library.php') ?>">My Products</a></li>
                 <li><a href="<?= htmlspecialchars($studioBase . '/tools/index.php') ?>">Calendar Tools</a></li>
                 <li><a href="<?= htmlspecialchars($siteBase . '/contact.php') ?>">Support</a></li>

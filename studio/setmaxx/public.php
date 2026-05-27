@@ -12,6 +12,13 @@ $lockedSongIds = [];
 $availableLetters = [];
 $songCount = 0;
 
+function setmaxx_public_absolute_url(string $path): string {
+    if (preg_match('#^https?://#i', $path)) return $path;
+    $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+    $host = (string)($_SERVER['HTTP_HOST'] ?? 'localhost');
+    return $scheme . '://' . $host . '/' . ltrim($path, '/');
+}
+
 function setmaxx_public_tables_ready(PDO $pdo): bool {
     foreach (['setmaxx_songs', 'setmaxx_gig_sessions', 'setmaxx_requests'] as $tableName) {
         $stmt = $pdo->prepare("SELECT 1 FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ? LIMIT 1");
@@ -29,11 +36,25 @@ function setmaxx_public_table_exists(PDO $pdo, string $tableName): bool {
     return (bool)$stmt->fetchColumn();
 }
 
+function setmaxx_public_tip_fee_percent(): int {
+    return max(0, min(100, (int)env('SETMAXX_TIP_PLATFORM_FEE_PERCENT', 10)));
+}
+
+function setmaxx_public_direct_platform_tip_user_ids(): array {
+    $raw = (string)env('SETMAXX_DIRECT_PLATFORM_TIP_USER_IDS', '');
+    if (trim($raw) === '') return [];
+    return array_values(array_unique(array_filter(array_map('intval', preg_split('/[,\s]+/', $raw) ?: []), fn($id) => $id > 0)));
+}
+
+function setmaxx_public_user_uses_direct_platform_tips(int $userId): bool {
+    return in_array($userId, setmaxx_public_direct_platform_tip_user_ids(), true);
+}
+
 $tablesReady = setmaxx_public_tables_ready($pdo);
 
 if ($tablesReady && $token !== '') {
     $stmt = $pdo->prepare(
-        "SELECT gs.id, gs.title, gs.venue_name, gs.status, gs.starts_at, u.display_name
+        "SELECT gs.id, gs.user_id, gs.title, gs.venue_name, gs.status, gs.starts_at, u.display_name
          FROM setmaxx_gig_sessions gs
          JOIN users u ON u.id = gs.user_id
          WHERE gs.public_token = ?
@@ -45,7 +66,7 @@ if ($tablesReady && $token !== '') {
 
 if ($tablesReady && $linkToken !== '' && setmaxx_public_table_exists($pdo, 'setmaxx_public_links')) {
     $linkStmt = $pdo->prepare(
-        "SELECT gs.id, gs.title, gs.venue_name, gs.status, gs.starts_at, u.display_name
+        "SELECT gs.id, gs.user_id, gs.title, gs.venue_name, gs.status, gs.starts_at, u.display_name
          FROM setmaxx_public_links spl
          JOIN users u ON u.id = spl.user_id
          LEFT JOIN setmaxx_gig_sessions gs
@@ -66,6 +87,12 @@ if ($tablesReady && $linkToken !== '' && setmaxx_public_table_exists($pdo, 'setm
 }
 
 if ($session && $tablesReady) {
+    if (isset($_GET['paid'])) {
+        $messages[] = 'Payment received. Your request is being sent to the performer.';
+    } elseif (isset($_GET['canceled'])) {
+        $errors[] = 'Payment was canceled, so the paid request was not sent.';
+    }
+
     $songsStmt = $pdo->prepare(
         "SELECT id, title, artist
          FROM setmaxx_songs
@@ -103,7 +130,7 @@ if ($session && $tablesReady && is_post()) {
         $requestAmountDollars = (int)($_POST['request_amount_dollars'] ?? 0);
 
         $songStmt = $pdo->prepare(
-            "SELECT id
+            "SELECT id, title, artist
              FROM setmaxx_songs
              WHERE id = ?
                AND user_id = (
@@ -121,6 +148,67 @@ if ($session && $tablesReady && is_post()) {
             $errors[] = 'That song is not available for this request page.';
         } elseif (in_array($songId, $lockedSongIds, true)) {
             $errors[] = 'That song has already been requested for this gig.';
+        } elseif ($requestAmountDollars > 0) {
+            try {
+                require_once __DIR__ . '/../_private/config/stripe.php';
+
+                $performerUserId = (int)($session['user_id'] ?? 0);
+                $amountCents = $requestAmountDollars * 100;
+                $checkoutPayload = [
+                    'mode' => 'payment',
+                    'line_items' => [[
+                        'price_data' => [
+                            'currency' => 'usd',
+                            'product_data' => [
+                                'name' => 'Song request: ' . (string)$song['title'],
+                                'description' => trim((string)($song['artist'] ?? '')) !== '' ? (string)$song['artist'] : 'Set Maxx request',
+                            ],
+                            'unit_amount' => $amountCents,
+                        ],
+                        'quantity' => 1,
+                    ]],
+                    'success_url' => setmaxx_public_absolute_url(base_url('/setmaxx/public.php?' . ($linkToken !== '' ? 'link=' . rawurlencode($linkToken) : 'token=' . rawurlencode($token)) . '&paid=1')),
+                    'cancel_url' => setmaxx_public_absolute_url(base_url('/setmaxx/public.php?' . ($linkToken !== '' ? 'link=' . rawurlencode($linkToken) : 'token=' . rawurlencode($token)) . '&canceled=1')),
+                    'metadata' => [
+                        'kind' => 'setmaxx_tip',
+                        'gig_session_id' => (string)(int)$session['id'],
+                        'song_id' => (string)$songId,
+                        'performer_user_id' => (string)$performerUserId,
+                        'requester_name' => mb_substr($requesterName, 0, 190),
+                        'request_note' => mb_substr($requestNote, 0, 255),
+                    ],
+                ];
+
+                if (!setmaxx_public_user_uses_direct_platform_tips($performerUserId)) {
+                    if (!setmaxx_public_table_exists($pdo, 'setmaxx_connect_accounts')) {
+                        $errors[] = 'Paid requests are not ready for this performer yet.';
+                    } else {
+                        $connectStmt = $pdo->prepare("SELECT stripe_account_id, charges_enabled, payouts_enabled, details_submitted FROM setmaxx_connect_accounts WHERE user_id = ? LIMIT 1");
+                        $connectStmt->execute([$performerUserId]);
+                        $connectAccount = $connectStmt->fetch(PDO::FETCH_ASSOC) ?: null;
+
+                        if (!$connectAccount || empty($connectAccount['charges_enabled']) || empty($connectAccount['payouts_enabled']) || empty($connectAccount['details_submitted'])) {
+                            $errors[] = 'Paid requests are not ready for this performer yet.';
+                        } else {
+                            $checkoutPayload['payment_intent_data'] = [
+                                'application_fee_amount' => (int)floor($amountCents * (setmaxx_public_tip_fee_percent() / 100)),
+                                'transfer_data' => [
+                                    'destination' => (string)$connectAccount['stripe_account_id'],
+                                ],
+                            ];
+                        }
+                    }
+                }
+
+                if (!$errors) {
+                    $checkoutSession = \Stripe\Checkout\Session::create($checkoutPayload);
+                    header('Location: ' . (string)$checkoutSession->url);
+                    exit;
+                }
+            } catch (Throwable $e) {
+                error_log('SetMaxx paid request checkout failed: ' . $e->getMessage());
+                $errors[] = 'Paid requests are not available right now. Please try a free request or check back shortly.';
+            }
         } else {
             try {
                 $insert = $pdo->prepare(

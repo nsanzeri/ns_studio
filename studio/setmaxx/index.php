@@ -94,6 +94,11 @@ setmaxx_page_head('Set Maxx | Dashboard');
         <h2>Request Dashboard</h2>
         <p class="setmaxx-help">Queue, play, decline, or cancel requests.</p>
       </a>
+      <a class="setmaxx-card setmaxx-module-card" href="<?= e(base_url('/setmaxx/payments.php')) ?>">
+        <div class="setmaxx-pill">Tips</div>
+        <h2>Payments</h2>
+        <p class="setmaxx-help">Connect Stripe for paid request payouts.</p>
+      </a>
     </section>
 
     <section class="setmaxx-grid">

@@ -510,6 +510,60 @@ if (!function_exists('handle_paid_product_checkout')) {
     }
 }
 
+if (!function_exists('handle_setmaxx_tip_checkout')) {
+    function handle_setmaxx_tip_checkout(PDO $pdo, \Stripe\Checkout\Session $session): void
+    {
+        $sessionId = (string)($session->id ?? '');
+        $paymentIntentId = (string)($session->payment_intent ?? '');
+        $gigSessionId = (int)($session->metadata->gig_session_id ?? 0);
+        $songId = (int)($session->metadata->song_id ?? 0);
+        $performerUserId = (int)($session->metadata->performer_user_id ?? 0);
+        $requesterName = trim((string)($session->metadata->requester_name ?? ''));
+        $requestNote = trim((string)($session->metadata->request_note ?? ''));
+        $amountCents = (int)($session->amount_total ?? 0);
+
+        if ($sessionId === '' || $paymentIntentId === '' || $gigSessionId <= 0 || $songId <= 0 || $performerUserId <= 0 || $amountCents <= 0) {
+            throw new RuntimeException('Missing Set Maxx tip checkout metadata.');
+        }
+
+        $stmt = $pdo->prepare(
+            "SELECT s.id
+             FROM setmaxx_songs s
+             JOIN setmaxx_gig_sessions gs ON gs.user_id = s.user_id
+             WHERE gs.id = ?
+               AND gs.user_id = ?
+               AND s.id = ?
+               AND s.is_active = 1
+             LIMIT 1"
+        );
+        $stmt->execute([$gigSessionId, $performerUserId, $songId]);
+        if (!$stmt->fetchColumn()) {
+            throw new RuntimeException('Set Maxx paid request song/session mismatch.');
+        }
+
+        $pdo->prepare(
+            "INSERT INTO setmaxx_requests
+                (gig_session_id, song_id, requester_name, request_note, amount_cents, status, active_lock, stripe_payment_intent_id)
+             VALUES
+                (?, ?, ?, ?, ?, 'pending', 1, ?)
+             ON DUPLICATE KEY UPDATE
+                requester_name = COALESCE(requester_name, VALUES(requester_name)),
+                request_note = COALESCE(request_note, VALUES(request_note)),
+                amount_cents = GREATEST(amount_cents, VALUES(amount_cents)),
+                stripe_payment_intent_id = COALESCE(stripe_payment_intent_id, VALUES(stripe_payment_intent_id)),
+                status = IF(status = 'canceled', 'pending', status),
+                active_lock = 1"
+        )->execute([
+            $gigSessionId,
+            $songId,
+            $requesterName !== '' ? $requesterName : null,
+            $requestNote !== '' ? $requestNote : null,
+            $amountCents,
+            $paymentIntentId,
+        ]);
+    }
+}
+
 if (!function_exists('handle_subscription_checkout_completed')) {
     function handle_subscription_checkout_completed(PDO $pdo, \Stripe\Checkout\Session $session): void
     {
@@ -643,6 +697,14 @@ try {
                 mark_webhook_event($pdo, $event->id, $livemode, 'ignored', 'Not paid');
                 http_response_code(200);
                 echo 'Not paid';
+                exit;
+            }
+
+            if (trim((string)($session->metadata->kind ?? '')) === 'setmaxx_tip') {
+                handle_setmaxx_tip_checkout($pdo, $session);
+                mark_webhook_event($pdo, $event->id, $livemode, 'processed', null);
+                http_response_code(200);
+                echo 'OK';
                 exit;
             }
 

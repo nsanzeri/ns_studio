@@ -42,6 +42,7 @@ if (!function_exists('nav_active')) {
         <nav class="main-nav" id="mainNav">
             <ul>
                 <li><a href="<?= htmlspecialchars($siteBase . '/shows.php') ?>" class="<?= nav_active($currentPage === 'shows.php') ?>">Dates</a></li>
+                <li><a href="<?= htmlspecialchars($siteBase . '/requests.php') ?>" class="<?= nav_active($currentPage === 'requests.php') ?>">Requests</a></li>
                 <li><a href="<?= htmlspecialchars($siteBase . '/media.php') ?>" class="<?= nav_active($currentPage === 'media.php') ?>">Video</a></li>
                 <li><a href="<?= htmlspecialchars($siteBase . '/testimonials.php') ?>" class="<?= nav_active($currentPage === 'testimonials.php') ?>">Reviews</a></li>
                 <li><a href="<?= htmlspecialchars($siteBase . '/booking.php') ?>" class="<?= nav_active($currentPage === 'booking.php') ?>">Book</a></li>

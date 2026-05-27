@@ -90,6 +90,28 @@ include __DIR__ . '/includes/header.php';
             </div>
         </section>
 
+        <!-- Live Requests -->
+        <section class="section section-live-requests">
+            <div class="container live-requests-inner">
+                <div>
+                    <p class="eyebrow">At the show</p>
+                    <h2>Request songs, send tips, and stay in the loop.</h2>
+                    <p>
+                        When Nick opens requests at a live gig, this is the easy way to jump in without waving from across the room.
+                        The same link also works between shows for tips, reviews, and future song ideas.
+                    </p>
+                    <div class="hero-actions">
+                        <a href="requests.php" class="btn btn-primary">Open Live Requests</a>
+                        <a href="shows.php" class="btn btn-outline">See Upcoming Dates</a>
+                    </div>
+                </div>
+                <a class="live-requests-qr" href="requests.php" aria-label="Open live requests">
+                    <img src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=12&data=<?= urlencode(((isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http') . '://' . ($_SERVER['HTTP_HOST'] ?? 'nicksanzeri.com') . rtrim(dirname($_SERVER['SCRIPT_NAME'] ?? '/'), '/\\') . '/requests.php') ?>" alt="QR code for Nick Sanzeri live requests">
+                    <span>Scan at the gig</span>
+                </a>
+            </div>
+        </section>
+
         <!-- Why Nick Section -->
         <section class="section section-why">
             <div class="container grid-2">

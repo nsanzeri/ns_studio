@@ -268,6 +268,56 @@ a:hover {
   background: linear-gradient(to bottom, transparent, rgba(255,255,255,0.4), transparent);
 }
 
+.section-live-requests {
+  background:
+    linear-gradient(135deg, rgba(212,175,55,0.08), rgba(255,255,255,0.02)),
+    rgba(5,5,9,0.72);
+  border-top: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.live-requests-inner {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2rem;
+  align-items: center;
+}
+
+.live-requests-inner h2 {
+  margin-top: 0.2rem;
+}
+
+.live-requests-inner p:not(.eyebrow) {
+  max-width: 44rem;
+  color: var(--muted);
+}
+
+.live-requests-qr {
+  width: 180px;
+  display: grid;
+  gap: 0.65rem;
+  justify-items: center;
+  padding: 0.85rem;
+  border-radius: 16px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.08);
+  box-shadow: 0 16px 40px rgba(0,0,0,0.28);
+}
+
+.live-requests-qr img {
+  width: 150px;
+  height: 150px;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.live-requests-qr span {
+  color: var(--muted);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+}
+
 .hero-card {
   background: rgba(8,8,16,0.92);
   border-radius: 20px;
@@ -1036,6 +1086,15 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 
   .grid-2 {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .live-requests-inner {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .live-requests-qr {
+    width: min(100%, 220px);
+    justify-self: start;
   }
 
   .grid-3 {

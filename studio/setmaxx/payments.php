@@ -55,7 +55,6 @@ if ($stripeReady) {
 }
 
 $connectReady = setmaxx_connect_ready($connectAccount);
-$feePercent = setmaxx_tip_platform_fee_percent();
 $paymentTotals = [
     'tonight' => ['label' => 'Tonight', 'gross_cents' => 0],
     'last_30' => ['label' => 'Last 30 days', 'gross_cents' => 0],
@@ -104,13 +103,6 @@ if ($tablesReady) {
     }
 }
 
-foreach ($paymentTotals as $key => $total) {
-    $grossCents = (int)$total['gross_cents'];
-    $feeCents = $isDirectPlatformUser ? 0 : (int)floor($grossCents * ($feePercent / 100));
-    $paymentTotals[$key]['fee_cents'] = $feeCents;
-    $paymentTotals[$key]['payout_cents'] = max(0, $grossCents - $feeCents);
-}
-
 setmaxx_page_head('Set Maxx | Payments');
 ?>
 <main class="container setmaxx-shell">
@@ -149,8 +141,8 @@ setmaxx_page_head('Set Maxx | Payments');
       <?php else: ?>
         <div class="setmaxx-row">
           <div>
-            <strong>No Ready Set Shows platform fee</strong>
-            <div class="setmaxx-meta">Tips and paid requests are charged on the connected performer Stripe account. Stripe processing fees are handled by that account.</div>
+            <strong>You keep the money</strong>
+            <div class="setmaxx-meta">Tips and paid requests go straight to your connected Stripe account. Stripe sends the payout to you after its normal processing fee.</div>
           </div>
           <span class="setmaxx-pill"><?= $connectReady ? 'Connected' : 'Connect required' ?></span>
         </div>
@@ -183,10 +175,8 @@ setmaxx_page_head('Set Maxx | Payments');
         <?php foreach ($paymentTotals as $total): ?>
           <div class="setmaxx-row" style="display:grid; gap:.55rem;">
             <strong><?= e($total['label']) ?></strong>
-            <div class="setmaxx-meta">Gross <span style="float:right; color:#fff; font-weight:700;"><?= e(setmaxx_money((int)$total['gross_cents'])) ?></span></div>
-            <div class="setmaxx-meta">Ready Set Shows fees <span style="float:right; color:#fff; font-weight:700;"><?= e(setmaxx_money((int)$total['fee_cents'])) ?></span></div>
-            <div class="setmaxx-meta">Stripe fees are shown in the connected Stripe account.</div>
-            <div class="setmaxx-meta">Performer payouts <span style="float:right; color:#fff; font-weight:700;"><?= e(setmaxx_money((int)$total['payout_cents'])) ?></span></div>
+            <div class="setmaxx-meta">Collected <span style="float:right; color:#fff; font-weight:700;"><?= e(setmaxx_money((int)$total['gross_cents'])) ?></span></div>
+            <div class="setmaxx-meta">Stripe sends your payout after its normal processing fee.</div>
           </div>
         <?php endforeach; ?>
       </div>
@@ -218,7 +208,7 @@ setmaxx_page_head('Set Maxx | Payments');
       <div class="setmaxx-card">
         <h2 style="margin-top:0;"><?= $connectReady ? 'Ready for paid requests' : 'Finish onboarding' ?></h2>
         <?php if ($connectReady): ?>
-          <p class="setmaxx-help">This account is ready to process tips and paid requests. Stripe processing fees are deducted by Stripe on the performer account.</p>
+          <p class="setmaxx-help">This account is ready to process tips and paid requests. The money goes to your connected Stripe account, and Stripe sends your payout after its normal processing fee.</p>
         <?php else: ?>
           <p class="setmaxx-help">Stripe will collect the performer payout details securely. Set Maxx only stores the connected account ID and readiness status.</p>
         <?php endif; ?>
@@ -236,10 +226,8 @@ setmaxx_page_head('Set Maxx | Payments');
         <?php foreach ($paymentTotals as $total): ?>
           <div class="setmaxx-row" style="display:grid; gap:.55rem;">
             <strong><?= e($total['label']) ?></strong>
-            <div class="setmaxx-meta">Gross <span style="float:right; color:#fff; font-weight:700;"><?= e(setmaxx_money((int)$total['gross_cents'])) ?></span></div>
-            <div class="setmaxx-meta">Ready Set Shows fees <span style="float:right; color:#fff; font-weight:700;"><?= e(setmaxx_money((int)$total['fee_cents'])) ?></span></div>
-            <div class="setmaxx-meta">Stripe fees are shown in the connected Stripe account.</div>
-            <div class="setmaxx-meta">Performer payouts <span style="float:right; color:#fff; font-weight:700;"><?= e(setmaxx_money((int)$total['payout_cents'])) ?></span></div>
+            <div class="setmaxx-meta">Collected <span style="float:right; color:#fff; font-weight:700;"><?= e(setmaxx_money((int)$total['gross_cents'])) ?></span></div>
+            <div class="setmaxx-meta">Stripe sends your payout after its normal processing fee.</div>
           </div>
         <?php endforeach; ?>
       </div>

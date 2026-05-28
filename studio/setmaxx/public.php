@@ -498,6 +498,10 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
     .sort-button { padding:0 .75rem; }
     .alpha-button.active, .sort-button.active, .alpha-button:hover, .sort-button:hover { background:rgba(140,107,255,.24); border-color:rgba(140,107,255,.45); }
     .alpha-button:disabled { opacity:.35; cursor:not-allowed; }
+    .catalog-search { flex:1 1 240px; min-width:210px; height:38px; border-radius:12px; border:1px solid rgba(255,255,255,.12); background:rgba(255,255,255,.06); color:#fff; font:inherit; padding:0 .85rem; }
+    .catalog-search::placeholder { color:rgba(255,255,255,.5); }
+    .catalog-empty { display:none; margin-top:.85rem; padding:1rem; border-radius:14px; background:rgba(255,255,255,.035); border:1px solid rgba(255,255,255,.07); color:rgba(255,255,255,.72); }
+    .catalog-empty.visible { display:block; }
     .public-grid { display:grid; gap:.45rem; margin-top:.85rem; }
     .song-card { padding:.6rem .7rem; border-radius:14px; background: rgba(255,255,255,.035); border:1px solid rgba(255,255,255,.07); }
     .song-card.locked { opacity:.6; }
@@ -644,6 +648,7 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
 
       <?php if ($songs): ?>
         <div class="alpha-menu" aria-label="Song alphabet filter">
+          <input class="catalog-search" id="catalogSearch" type="search" placeholder="Search songs or artists" autocomplete="off" aria-label="Search songs or artists">
           <span class="alpha-label">Filter</span>
           <button class="alpha-button active" type="button" data-letter="all">All</button>
           <?php foreach (array_merge(['#'], range('A', 'Z')) as $letter): ?>
@@ -700,6 +705,9 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
           </div>
         <?php endforeach; endif; ?>
       </div>
+      <?php if ($songs): ?>
+        <div class="catalog-empty" id="catalogEmpty">No matching songs found.</div>
+      <?php endif; ?>
     <?php endif; ?>
   </div>
 </main>
@@ -709,8 +717,11 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
   const sortButtons = Array.from(document.querySelectorAll('.sort-button'));
   const cards = Array.from(document.querySelectorAll('.song-card[data-letter]'));
   const grid = document.querySelector('.public-grid');
+  const searchInput = document.getElementById('catalogSearch');
+  const emptyState = document.getElementById('catalogEmpty');
   let currentLetter = 'all';
   let currentSort = 'title';
+  let currentSearch = '';
   if (!buttons.length || !cards.length) return;
 
   function cardLetter(card) {
@@ -718,7 +729,7 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
   }
 
   function updateAlphabetAvailability() {
-    const letters = new Set(cards.map(cardLetter));
+    const letters = new Set(cards.filter(cardMatchesSearch).map(cardLetter));
     buttons.forEach(function(button) {
       const letter = button.getAttribute('data-letter');
       if (letter === 'all') {
@@ -741,15 +752,27 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
     cards.forEach(function(card) { grid.appendChild(card); });
   }
 
+  function cardMatchesSearch(card) {
+    if (!currentSearch) return true;
+    const title = card.getAttribute('data-title') || '';
+    const artist = card.getAttribute('data-artist') || '';
+    return title.includes(currentSearch) || artist.includes(currentSearch);
+  }
+
   function applyCatalogView(shouldScroll) {
     updateAlphabetAvailability();
     sortCards();
     buttons.forEach(function(item) {
       item.classList.toggle('active', item.getAttribute('data-letter') === currentLetter);
     });
+    let visibleCount = 0;
     cards.forEach(function(card) {
-      card.hidden = currentLetter !== 'all' && cardLetter(card) !== currentLetter;
+      const matchesLetter = currentLetter === 'all' || cardLetter(card) === currentLetter;
+      const matchesSearch = cardMatchesSearch(card);
+      card.hidden = !(matchesLetter && matchesSearch);
+      if (!card.hidden) visibleCount += 1;
     });
+    if (emptyState) emptyState.classList.toggle('visible', visibleCount === 0);
     if (shouldScroll) {
       const firstVisible = cards.find(function(card) { return !card.hidden; });
       if (firstVisible) firstVisible.scrollIntoView({ block: 'start', behavior: 'smooth' });
@@ -772,6 +795,14 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
       applyCatalogView(false);
     });
   });
+
+  if (searchInput) {
+    searchInput.addEventListener('input', function() {
+      currentSearch = searchInput.value.trim().toLowerCase();
+      currentLetter = 'all';
+      applyCatalogView(false);
+    });
+  }
 
   applyCatalogView(false);
 })();

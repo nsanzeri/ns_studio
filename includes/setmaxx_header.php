@@ -6,6 +6,8 @@ $isLocal = str_contains($currentPath, '/ns_studio/');
 $siteBase   = $isLocal ? '/ns_studio' : '';
 $studioBase = $siteBase . '/studio';
 
+require_once __DIR__ . '/rss_header_widgets.php';
+
 if (!function_exists('nav_active')) {
     function nav_active(bool $condition): string
     {
@@ -42,9 +44,12 @@ if (!function_exists('nav_active')) {
                 <li><a href="<?= htmlspecialchars($studioBase . '/setmaxx/sessions.php') ?>" class="<?= nav_active($currentPage === 'sessions.php') ?>">Sessions</a></li>
                 <li><a href="<?= htmlspecialchars($studioBase . '/setmaxx/requests.php') ?>" class="<?= nav_active($currentPage === 'requests.php') ?>">Requests</a></li>
                 <li><a href="<?= htmlspecialchars($studioBase . '/setmaxx/payments.php') ?>" class="<?= nav_active($currentPage === 'payments.php') ?>">Payments</a></li>
-                <li><a href="<?= htmlspecialchars($studioBase . '/member/library.php') ?>" class="<?= nav_active($currentPage === 'library.php') ?>">My Products</a></li>
             </ul>
         </nav>
+
+        <div class="setmaxx-header-actions">
+            <?php rss_render_account_menu('setmaxx'); ?>
+        </div>
     </div>
 
     <nav class="setmaxx-mobile-nav" id="setmaxxMobileNav" aria-label="Mobile Set Maxx navigation" hidden>
@@ -55,14 +60,14 @@ if (!function_exists('nav_active')) {
             <a href="<?= htmlspecialchars($studioBase . '/setmaxx/sessions.php') ?>" class="<?= nav_active($currentPage === 'sessions.php') ?>">Sessions</a>
             <a href="<?= htmlspecialchars($studioBase . '/setmaxx/requests.php') ?>" class="<?= nav_active($currentPage === 'requests.php') ?>">Requests</a>
             <a href="<?= htmlspecialchars($studioBase . '/setmaxx/payments.php') ?>" class="<?= nav_active($currentPage === 'payments.php') ?>">Payments</a>
-            <a href="<?= htmlspecialchars($studioBase . '/member/library.php') ?>" class="<?= nav_active($currentPage === 'library.php') ?>">My Products</a>
-            <a href="<?= htmlspecialchars($studioBase . '/tools/index.php') ?>">Calendar Tools</a>
             <div class="setmaxx-mobile-extra">
                 <a href="<?= htmlspecialchars($siteBase . '/index.php') ?>">← Back to Main Site</a>
             </div>
         </div>
     </nav>
 </header>
+
+<?php rss_render_header_widget_script('setmaxx'); ?>
 
 <style>
   .setmaxx-site-header {
@@ -105,6 +110,11 @@ if (!function_exists('nav_active')) {
     background: rgba(140,107,255,.16);
     color:#efe7ff;
   }
+  .setmaxx-header-actions {
+    display:flex;
+    align-items:center;
+    gap:.55rem;
+  }
   .setmaxx-nav-toggle,
   .setmaxx-mobile-nav {
     display:none;
@@ -124,6 +134,7 @@ if (!function_exists('nav_active')) {
   }
   @media (max-width: 980px) {
     .setmaxx-desktop-nav { display:none !important; }
+    .setmaxx-header-actions { margin-left:auto; }
     .setmaxx-nav-toggle { display:inline-flex !important; align-items:center; justify-content:center; }
     .setmaxx-mobile-nav { position:absolute; top:100%; left:1rem; right:1rem; z-index:1001; display:block; }
     .setmaxx-mobile-nav[hidden] { display:none !important; }

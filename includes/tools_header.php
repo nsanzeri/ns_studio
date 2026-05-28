@@ -5,6 +5,7 @@ $currentPage = basename($currentPath);
 $isLocal = str_contains($currentPath, '/ns_studio/');
 $siteBase   = $isLocal ? '/ns_studio' : '';
 $studioBase = $siteBase . '/studio';
+require_once __DIR__ . '/rss_header_widgets.php';
 
 $trialStatus = null;
 if (isset($pdo) && function_exists('rss_get_current_user_trial_status')) {
@@ -46,9 +47,11 @@ if (!function_exists('nav_active')) {
                 <li><a href="<?= htmlspecialchars($studioBase . '/tools/pretty-print.php') ?>" class="<?= nav_active($currentPage === 'pretty-print.php') ?>">Print</a></li>
                 <li><a href="<?= htmlspecialchars($studioBase . '/tools/bandsintown.php') ?>" class="<?= nav_active($currentPage === 'bandsintown.php') ?>">Export</a></li>
                 <li><a href="<?= htmlspecialchars($studioBase . '/tools/calendars.php') ?>" class="<?= nav_active($currentPage === 'calendars.php') ?>">Calendars</a></li>
-                <li><a href="<?= htmlspecialchars($studioBase . '/member/library.php') ?>" class="<?= nav_active($currentPage === 'library.php') ?>">My Products</a></li>
             </ul>
         </nav>
+        <div class="tools-header-actions">
+            <?php rss_render_account_menu('tools'); ?>
+        </div>
     </div>
 
     <nav class="tools-mobile-nav" id="toolsMobileNav" aria-label="Mobile tools navigation" hidden>
@@ -57,7 +60,6 @@ if (!function_exists('nav_active')) {
             <a href="<?= htmlspecialchars($studioBase . '/tools/pretty-print.php') ?>" class="<?= nav_active($currentPage === 'pretty-print.php') ?>">Print</a>
             <a href="<?= htmlspecialchars($studioBase . '/tools/bandsintown.php') ?>" class="<?= nav_active($currentPage === 'bandsintown.php') ?>">Export</a>
             <a href="<?= htmlspecialchars($studioBase . '/tools/calendars.php') ?>" class="<?= nav_active($currentPage === 'calendars.php') ?>">Calendars</a>
-            <a href="<?= htmlspecialchars($studioBase . '/member/library.php') ?>" class="<?= nav_active($currentPage === 'library.php') ?>">My Products</a>
 
             <div class="tools-mobile-extra">
                 <a href="<?= htmlspecialchars($siteBase . '/index.php') ?>">← Back to Main Site</a>
@@ -75,6 +77,7 @@ if (!function_exists('nav_active')) {
     </div>
 </div>
 <?php endif; ?>
+<?php rss_render_header_widget_script('tools'); ?>
 
 <style>
   .tools-site-header {
@@ -135,6 +138,12 @@ if (!function_exists('nav_active')) {
     display: none;
   }
 
+  .tools-header-actions {
+    display:flex;
+    align-items:center;
+    gap:.55rem;
+  }
+
   .tools-mobile-nav {
     display: none;
   }
@@ -167,6 +176,10 @@ if (!function_exists('nav_active')) {
       display: inline-flex !important;
       align-items: center;
       justify-content: center;
+    }
+
+    .tools-header-actions {
+      margin-left:auto;
     }
 
     .tools-mobile-nav {

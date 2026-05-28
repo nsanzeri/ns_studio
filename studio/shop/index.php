@@ -298,7 +298,7 @@ $toolsAccess = $user ? rss_tools_access_badge($pdo) : ['state' => 'free', 'label
         </div>
       </details>
 
-      <details class="rss-suite-card">
+      <details class="rss-suite-card" id="publishing-tools">
         <summary>
           <span class="rss-icon"><i class="fa-solid fa-list-check"></i></span>
           <div>
@@ -320,7 +320,7 @@ $toolsAccess = $user ? rss_tools_access_badge($pdo) : ['state' => 'free', 'label
         </div>
       </details>
 
-      <details class="rss-suite-card">
+      <details class="rss-suite-card" id="business-tracking">
         <summary>
           <span class="rss-icon"><i class="fa-solid fa-bullhorn"></i></span>
           <div>

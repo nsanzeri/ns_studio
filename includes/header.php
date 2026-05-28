@@ -7,16 +7,12 @@ $isShop = str_contains($currentPath, '/studio/shop/') || str_contains($currentPa
 if ($isShop) {
 	require_once __DIR__ . '/../studio/_private/_core/bootstrap.php';
 }
+require_once __DIR__ . '/rss_header_widgets.php';
 
 $trialStatus = null;
 if ($isShop && isset($pdo) && function_exists('rss_get_current_user_trial_status')) {
 	$trialStatus = rss_get_current_user_trial_status($pdo);
 }
-
-$isLoggedIn = class_exists('Auth') && Auth::isLoggedIn();
-$currentUser = ($isLoggedIn && isset($pdo)) ? Auth::currentUser($pdo) : null;
-$accountLabel = $isLoggedIn ? trim((string)($currentUser['display_name'] ?? $currentUser['email'] ?? 'Account')) : 'Account';
-$accountInitial = strtoupper(substr($accountLabel !== '' ? $accountLabel : 'A', 0, 1));
 
 $isLocal = str_contains($currentPath, '/ns_studio/');
 $siteBase   = $isLocal ? '/ns_studio' : '';
@@ -55,22 +51,8 @@ if (!function_exists('nav_active')) {
             </ul>
         </nav>
 
-        <div class="account-menu">
-            <button class="account-menu-toggle" id="accountMenuToggle" type="button" aria-label="<?= htmlspecialchars($isLoggedIn ? 'Open account menu' : 'Open login menu') ?>" aria-expanded="false" aria-controls="accountMenuPanel">
-                <span class="account-menu-icon"><?= htmlspecialchars($isLoggedIn ? $accountInitial : '') ?></span>
-            </button>
-            <div class="account-menu-panel" id="accountMenuPanel" hidden>
-                <?php if ($isLoggedIn): ?>
-                    <div class="account-menu-name"><?= htmlspecialchars($accountLabel) ?></div>
-                    <a href="<?= htmlspecialchars($studioBase . '/member/library.php') ?>">My Products</a>
-                    <a href="<?= htmlspecialchars($studioBase . '/tools/index.php') ?>">Tools</a>
-                    <a href="<?= htmlspecialchars($studioBase . '/member/settings.php') ?>">Settings</a>
-                    <a href="<?= htmlspecialchars($studioBase . '/member/logout.php') ?>">Log out</a>
-                <?php else: ?>
-                    <a href="<?= htmlspecialchars($studioBase . '/member/login.php') ?>">Log in</a>
-                    <a href="<?= htmlspecialchars($studioBase . '/member/register.php') ?>">Create account</a>
-                <?php endif; ?>
-            </div>
+        <div class="header-actions">
+            <?php rss_render_account_menu('public'); ?>
         </div>
     </div>
 </header>
@@ -85,31 +67,4 @@ if (!function_exists('nav_active')) {
 </div>
 <?php endif; ?>
 
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-    const accountToggle = document.getElementById('accountMenuToggle');
-    const accountPanel = document.getElementById('accountMenuPanel');
-    if (!accountToggle || !accountPanel) return;
-
-    function closeAccountMenu() {
-        accountPanel.hidden = true;
-        accountToggle.setAttribute('aria-expanded', 'false');
-    }
-
-    accountToggle.addEventListener('click', function () {
-        const willOpen = accountPanel.hidden;
-        accountPanel.hidden = !willOpen;
-        accountToggle.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
-    });
-
-    document.addEventListener('click', function (event) {
-        if (!accountPanel.hidden && !accountPanel.contains(event.target) && !accountToggle.contains(event.target)) {
-            closeAccountMenu();
-        }
-    });
-
-    document.addEventListener('keydown', function (event) {
-        if (event.key === 'Escape') closeAccountMenu();
-    });
-});
-</script>
+<?php rss_render_header_widget_script('public'); ?>

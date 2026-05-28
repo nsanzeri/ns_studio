@@ -327,7 +327,7 @@ if (isset($_GET['upgraded'])) {
     <section class="pricing-note-panel">
       <strong>About tips and paid requests:</strong>
       Ready Set Shows does not take a platform fee from SetMaxx tips or paid song requests.
-      Stripe processing fees may still apply, and the remaining funds route to the performer's connected Stripe account.
+      Stripe processing fees are handled by the performer's connected Stripe account.
     </section>
   </div>
 </main>

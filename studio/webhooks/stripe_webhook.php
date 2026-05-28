@@ -13,6 +13,9 @@ $mode = env('STRIPE_MODE', 'test');
 $secret = ($mode === 'live')
     ? env('STRIPE_WEBHOOK_SECRET_LIVE')
     : env('STRIPE_WEBHOOK_SECRET_TEST');
+$connectSecret = ($mode === 'live')
+    ? (env('STRIPE_CONNECT_WEBHOOK_SECRET_LIVE') ?: env('STRIPE_WEBHOOK_SECRET_LIVE'))
+    : (env('STRIPE_CONNECT_WEBHOOK_SECRET_TEST') ?: env('STRIPE_WEBHOOK_SECRET_TEST'));
 
 if (!$secret) {
     http_response_code(500);
@@ -21,11 +24,21 @@ if (!$secret) {
 }
 
 try {
-	$event = \Stripe\Webhook::constructEvent($payload, $sig, $secret);
-} catch (\Throwable $e) {
-	http_response_code(400);
-	echo 'Invalid signature | mode=' . $mode . ' | secret_prefix=' . substr((string)$secret, 0, 8);
-	exit;
+    $event = \Stripe\Webhook::constructEvent($payload, $sig, $secret);
+} catch (\Throwable $primaryError) {
+    if ($connectSecret && $connectSecret !== $secret) {
+        try {
+            $event = \Stripe\Webhook::constructEvent($payload, $sig, $connectSecret);
+        } catch (\Throwable $connectError) {
+            http_response_code(400);
+            echo 'Invalid signature | mode=' . $mode . ' | secret_prefix=' . substr((string)$secret, 0, 8);
+            exit;
+        }
+    } else {
+        http_response_code(400);
+        echo 'Invalid signature | mode=' . $mode . ' | secret_prefix=' . substr((string)$secret, 0, 8);
+        exit;
+    }
 }
 
 $livemode = !empty($event->livemode) ? 1 : 0;

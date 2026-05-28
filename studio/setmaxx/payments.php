@@ -134,7 +134,7 @@ setmaxx_page_head('Set Maxx | Payments');
     <div class="setmaxx-card">
       <div class="setmaxx-pill">Payments</div>
       <h1 style="margin:.8rem 0 .45rem;">Tips and Payouts</h1>
-      <p class="setmaxx-help" style="font-size:1rem; margin:0;">Connect Stripe once, then paid song requests can be routed to the performer account for each show.</p>
+      <p class="setmaxx-help" style="font-size:1rem; margin:0;">Connect Stripe once, then paid song requests and tips can be charged directly through the performer account for each show.</p>
     </div>
     <div class="setmaxx-card">
       <h2 style="margin-top:0;">Tip routing</h2>
@@ -150,7 +150,7 @@ setmaxx_page_head('Set Maxx | Payments');
         <div class="setmaxx-row">
           <div>
             <strong>No Ready Set Shows platform fee</strong>
-            <div class="setmaxx-meta">Tips and paid requests are routed to the connected performer Stripe account.</div>
+            <div class="setmaxx-meta">Tips and paid requests are charged on the connected performer Stripe account. Stripe processing fees are handled by that account.</div>
           </div>
           <span class="setmaxx-pill"><?= $connectReady ? 'Connected' : 'Connect required' ?></span>
         </div>
@@ -185,6 +185,7 @@ setmaxx_page_head('Set Maxx | Payments');
             <strong><?= e($total['label']) ?></strong>
             <div class="setmaxx-meta">Gross <span style="float:right; color:#fff; font-weight:700;"><?= e(setmaxx_money((int)$total['gross_cents'])) ?></span></div>
             <div class="setmaxx-meta">Ready Set Shows fees <span style="float:right; color:#fff; font-weight:700;"><?= e(setmaxx_money((int)$total['fee_cents'])) ?></span></div>
+            <div class="setmaxx-meta">Stripe fees are shown in the connected Stripe account.</div>
             <div class="setmaxx-meta">Performer payouts <span style="float:right; color:#fff; font-weight:700;"><?= e(setmaxx_money((int)$total['payout_cents'])) ?></span></div>
           </div>
         <?php endforeach; ?>
@@ -217,7 +218,7 @@ setmaxx_page_head('Set Maxx | Payments');
       <div class="setmaxx-card">
         <h2 style="margin-top:0;"><?= $connectReady ? 'Ready for paid requests' : 'Finish onboarding' ?></h2>
         <?php if ($connectReady): ?>
-          <p class="setmaxx-help">This account is ready to receive paid request payouts when the public request checkout is turned on.</p>
+          <p class="setmaxx-help">This account is ready to process tips and paid requests. Stripe processing fees are deducted by Stripe on the performer account.</p>
         <?php else: ?>
           <p class="setmaxx-help">Stripe will collect the performer payout details securely. Set Maxx only stores the connected account ID and readiness status.</p>
         <?php endif; ?>
@@ -237,6 +238,7 @@ setmaxx_page_head('Set Maxx | Payments');
             <strong><?= e($total['label']) ?></strong>
             <div class="setmaxx-meta">Gross <span style="float:right; color:#fff; font-weight:700;"><?= e(setmaxx_money((int)$total['gross_cents'])) ?></span></div>
             <div class="setmaxx-meta">Ready Set Shows fees <span style="float:right; color:#fff; font-weight:700;"><?= e(setmaxx_money((int)$total['fee_cents'])) ?></span></div>
+            <div class="setmaxx-meta">Stripe fees are shown in the connected Stripe account.</div>
             <div class="setmaxx-meta">Performer payouts <span style="float:right; color:#fff; font-weight:700;"><?= e(setmaxx_money((int)$total['payout_cents'])) ?></span></div>
           </div>
         <?php endforeach; ?>

@@ -160,6 +160,17 @@ function setmaxx_public_user_uses_direct_platform_tips(int $userId): bool {
     return in_array($userId, setmaxx_public_direct_platform_tip_user_ids(), true);
 }
 
+function setmaxx_public_create_performer_checkout_session(array $checkoutPayload, array $connectAccount): \Stripe\Checkout\Session {
+    $stripeAccountId = trim((string)($connectAccount['stripe_account_id'] ?? ''));
+    if ($stripeAccountId === '') {
+        throw new RuntimeException('Missing performer Stripe account.');
+    }
+
+    return \Stripe\Checkout\Session::create($checkoutPayload, [
+        'stripe_account' => $stripeAccountId,
+    ]);
+}
+
 $tablesReady = setmaxx_public_tables_ready($pdo);
 
 if ($tablesReady && $token !== '') {
@@ -332,16 +343,16 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
                             $connectAccount = $connectStmt->fetch(PDO::FETCH_ASSOC) ?: null;
                             if (!$connectAccount || empty($connectAccount['charges_enabled']) || empty($connectAccount['payouts_enabled']) || empty($connectAccount['details_submitted'])) {
                                 $errors[] = 'Tips are not ready for this performer yet.';
-                            } else {
-                                $checkoutPayload['payment_intent_data'] = [
-                                    'transfer_data' => ['destination' => (string)$connectAccount['stripe_account_id']],
-                                ];
                             }
                         }
                     }
 
                     if (!$errors) {
-                        $checkoutSession = \Stripe\Checkout\Session::create($checkoutPayload);
+                        if (setmaxx_public_user_uses_direct_platform_tips($performerUserId)) {
+                            $checkoutSession = \Stripe\Checkout\Session::create($checkoutPayload);
+                        } else {
+                            $checkoutSession = setmaxx_public_create_performer_checkout_session($checkoutPayload, $connectAccount ?? []);
+                        }
                         header('Location: ' . (string)$checkoutSession->url);
                         exit;
                     }
@@ -423,18 +434,16 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
 
                         if (!$connectAccount || empty($connectAccount['charges_enabled']) || empty($connectAccount['payouts_enabled']) || empty($connectAccount['details_submitted'])) {
                             $errors[] = 'Paid requests are not ready for this performer yet.';
-                        } else {
-                            $checkoutPayload['payment_intent_data'] = [
-                                'transfer_data' => [
-                                    'destination' => (string)$connectAccount['stripe_account_id'],
-                                ],
-                            ];
                         }
                     }
                 }
 
                 if (!$errors) {
-                    $checkoutSession = \Stripe\Checkout\Session::create($checkoutPayload);
+                    if (setmaxx_public_user_uses_direct_platform_tips($performerUserId)) {
+                        $checkoutSession = \Stripe\Checkout\Session::create($checkoutPayload);
+                    } else {
+                        $checkoutSession = setmaxx_public_create_performer_checkout_session($checkoutPayload, $connectAccount ?? []);
+                    }
                     header('Location: ' . (string)$checkoutSession->url);
                     exit;
                 }

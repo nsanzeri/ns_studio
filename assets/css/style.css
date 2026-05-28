@@ -140,6 +140,89 @@ a:hover {
   width: 100%;
 }
 
+.account-menu {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.account-menu-toggle {
+  width: 38px;
+  height: 38px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.16);
+  background: rgba(255,255,255,0.05);
+  color: var(--fg);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: border-color 0.16s ease, background 0.16s ease, color 0.16s ease;
+}
+
+.account-menu-toggle:hover,
+.account-menu-toggle[aria-expanded="true"] {
+  border-color: rgba(212,175,55,0.65);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.account-menu-icon {
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.account-menu-icon:empty::before {
+  content: "\f007";
+  font-family: "Font Awesome 6 Free";
+  font-weight: 900;
+  font-size: 0.86rem;
+}
+
+.account-menu-panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.65rem);
+  width: 190px;
+  padding: 0.55rem;
+  border-radius: 14px;
+  background: rgba(10,10,18,0.98);
+  border: 1px solid rgba(255,255,255,0.1);
+  box-shadow: 0 18px 48px rgba(0,0,0,0.42);
+  z-index: 60;
+}
+
+.account-menu-panel[hidden] {
+  display: none;
+}
+
+.account-menu-panel a,
+.account-menu-name {
+  display: block;
+  padding: 0.68rem 0.75rem;
+  border-radius: 10px;
+  font-size: 0.86rem;
+}
+
+.account-menu-name {
+  color: var(--muted);
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  border-radius: 0;
+  margin-bottom: 0.35rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.account-menu-panel a:hover {
+  background: rgba(255,255,255,0.06);
+}
+
 .nav-toggle {
   display: none;
   background: transparent;
@@ -1140,6 +1223,10 @@ input[type="date"]::-webkit-calendar-picker-indicator {
     flex-direction: column;
     align-items: flex-start;
     padding: 0.4rem 1.2rem 0.9rem;
+  }
+
+  .account-menu {
+    margin-left: auto;
   }
 }
 .main-nav a.active{

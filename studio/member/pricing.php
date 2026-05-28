@@ -88,6 +88,9 @@ $access = $user ? rss_tools_access_badge($pdo) : [
 $planMeta = find_subscription_plan_meta($planKey);
 $checkoutEnabled = $user && $access['state'] !== 'paid' && !empty($planMeta['price_id']);
 $flash = flash_get('pricing_notice');
+$requestHost = strtolower((string)($_SERVER['HTTP_HOST'] ?? ''));
+$requestHost = preg_replace('/:\d+$/', '', $requestHost);
+$isReadySetShowsHost = in_array($requestHost, ['readysetshows.com', 'www.readysetshows.com'], true);
 
 if (isset($_GET['upgraded'])) {
 	$flash = 'Thanks — your checkout completed. Stripe is processing your subscription now.';
@@ -100,8 +103,8 @@ if (isset($_GET['upgraded'])) {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Calendar Tools Pricing | Nick Sanzeri Studio</title>
-  <meta name="description" content="Free, trial, and Pro access for Nick Sanzeri's Calendar Tools.">
+  <title><?= $isReadySetShowsHost ? 'Pricing | Ready Set Shows' : 'Ready Set Shows Pricing | Nick Sanzeri Studio' ?></title>
+  <meta name="description" content="Free, trial, and Pro access for Ready Set Shows calendar, setlist, request, finance, and publishing tools.">
   <link rel="stylesheet" href="<?= e(base_url('../assets/css/style.css')) ?>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -119,6 +122,11 @@ if (isset($_GET['upgraded'])) {
     .demo-copy p{color:rgba(255,255,255,.78);line-height:1.65;margin:0 0 .85rem;}
     .demo-points{display:grid;gap:.45rem;margin-top:.9rem;color:rgba(255,255,255,.84);}
     .demo-points span{display:block;}
+    .suite-included{max-width:1040px;margin:0 auto 2rem;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1rem;}
+    .suite-tile{background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.08);border-radius:18px;padding:1rem;}
+    .suite-tile h3{margin:.2rem 0 .35rem;font-size:1rem;}
+    .suite-tile p{margin:0;color:rgba(255,255,255,.68);font-size:.9rem;line-height:1.5;}
+    .pricing-section-heading{max-width:760px;margin:0 auto 1.2rem;text-align:center;}
     .pricing-card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:22px;padding:1.5rem;box-shadow:0 16px 34px rgba(0,0,0,.18);display:flex;flex-direction:column;}
     .pricing-card.featured{border-color:rgba(212,175,55,.45);box-shadow:0 20px 44px rgba(0,0,0,.24);}
     .pricing-badge{display:inline-flex;padding:.4rem .7rem;border-radius:999px;background:rgba(212,175,55,.14);color:#f2d67c;font-size:.78rem;font-weight:600;letter-spacing:.05em;text-transform:uppercase;margin-bottom:1rem;}
@@ -135,7 +143,9 @@ if (isset($_GET['upgraded'])) {
     .trial-form .btn{width:100%;border:none;cursor:pointer;}
     .stack-actions{margin-top:auto;display:grid;gap:.75rem;}
     .stack-actions .btn{width:100%;}
-    @media (max-width:980px){.pricing-grid{grid-template-columns:1fr;}.demo-feature{grid-template-columns:1fr;}.demo-copy{padding:.25rem;}}
+    .pricing-note-panel{max-width:860px;margin:2rem auto 0;padding:1.25rem;border-radius:20px;background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.08);color:rgba(255,255,255,.74);line-height:1.65;}
+    @media (max-width:980px){.pricing-grid{grid-template-columns:1fr;}.demo-feature{grid-template-columns:1fr;}.demo-copy{padding:.25rem;}.suite-included{grid-template-columns:repeat(2,minmax(0,1fr));}}
+    @media (max-width:620px){.suite-included{grid-template-columns:1fr;}}
   </style>
 </head>
 <body>
@@ -145,15 +155,15 @@ if (isset($_GET['upgraded'])) {
   <div class="container">
     <section class="pricing-hero">
       <p class="eyebrow">Ready Set Shows</p>
-      <h1 style="margin-bottom:.4rem;">The System I Use to Manage 100+ Gigs a Year</h1>
+      <h1 style="margin-bottom:.4rem;">One simple suite for working performers.</h1>
 
       <p style="font-size:.95rem; color:rgba(255,255,255,.6); margin-bottom:.8rem;">
-        by Nick Sanzeri — Live Musician (140+ gigs/year)
+        Calendar tools, song catalogs, setlists, live requests, and performer-first show utilities.
       </p>
 
       <p class="muted" style="max-width:58ch; margin:0 auto;">
-        Stop double-booking, send availability in seconds, and stay consistent on Bands In Town without extra work.
-        This is the exact system I use to keep everything organized and running smoothly.
+        Start with the free tools that help you organize your show. Upgrade when you are ready to take paid live requests,
+        collect tips, and run the full SetMaxx workflow at gigs.
       </p>
 
       <div style="margin-top:1rem; display:flex; justify-content:center; gap:.7rem; flex-wrap:wrap;">
@@ -177,23 +187,52 @@ if (isset($_GET['upgraded'])) {
       </div>
       <div class="demo-copy">
         <p class="eyebrow" style="margin-bottom:.35rem;">Watch the demo</p>
-        <h2>See how Ready Set Shows works before you try it.</h2>
+        <h2>See the workflow in action.</h2>
         <p>
-          In this walkthrough, I show how the tool helps working musicians quickly check availability,
-          turn messy calendar data into clean date lists, and prep events for Bands In Town without retyping everything by hand.
+          Watch how Ready Set Shows helps a performer move from booking prep to set planning to live audience requests.
+          A shorter overview can drop into this spot later.
         </p>
         <div class="demo-points">
-          <span>✓ Find open dates across multiple calendars</span>
-          <span>✓ Create clean outputs for clients, emails, and promo</span>
-          <span>✓ Bulk-format show dates for Bands In Town</span>
+          <span>Check availability and clean up booking communication</span>
+          <span>Build song catalogs and generate better setlists</span>
+          <span>Open QR-friendly requests, tips, and song suggestions at shows</span>
         </div>
       </div>
+    </section>
+
+    <section class="suite-included" aria-label="Ready Set Shows modules">
+      <article class="suite-tile">
+        <p class="eyebrow">Calendar</p>
+        <h3>Booking prep</h3>
+        <p>Check shared availability, print useful date views, and export clean show data.</p>
+      </article>
+      <article class="suite-tile">
+        <p class="eyebrow">SetMaxx</p>
+        <h3>Set planning</h3>
+        <p>Manage songs, generate setlists, and prepare crowd-friendly live request sessions.</p>
+      </article>
+      <article class="suite-tile">
+        <p class="eyebrow">Finance</p>
+        <h3>Gig tracking</h3>
+        <p>Roadmap tools for deposits, balances, totals, averages, and tip reporting.</p>
+      </article>
+      <article class="suite-tile">
+        <p class="eyebrow">Publish</p>
+        <h3>Promo support</h3>
+        <p>Roadmap tools for announcements, captions, newsletters, and event copy.</p>
+      </article>
     </section>
 
     <?php if ($flash): ?>
       <div class="pricing-alert"><?= e($flash) ?></div>
     <?php endif; ?>
     <div class="pricing-error" id="checkoutErr"></div>
+
+    <section class="pricing-section-heading">
+      <p class="eyebrow">Pricing</p>
+      <h2>Keep the planning tools free. Upgrade when the audience joins in.</h2>
+      <p class="muted">That gives performers a useful home base first, then makes the paid plan about live value at the gig.</p>
+    </section>
 
     <section class="pricing-grid">
       <article class="pricing-card">
@@ -202,11 +241,12 @@ if (isset($_GET['upgraded'])) {
           <div class="price">$0</div>
           <div class="price-unit">forever</div>
         </div>
-        <p class="muted">Perfect if you're just getting started or want to test how the tools fit into your workflow.</p>
+        <p class="muted">A useful home base for performers who want to get organized before adding live request features.</p>
         <ul>
-          <li>Check availability across your calendar</li>
-          <li>Preview your schedule in a clean, readable format</li>
-          <li>Get a feel for how the system works before upgrading</li>
+          <li>Basic calendar availability tools</li>
+          <li>Song catalog management</li>
+          <li>Setlist creation and planning</li>
+          <li>Public song list basics without paid request checkout</li>
         </ul>
         <?php if (!$user): ?>
           <a class="btn btn-primary" href="<?= e($registerUrl) ?>">Create Free Account</a>
@@ -221,12 +261,12 @@ if (isset($_GET['upgraded'])) {
           <div class="price">$0</div>
           <div class="price-unit">for 30 days</div>
         </div>
-        <p class="muted">Unlock everything and see how much time you actually save when the limits are gone.</p>
+        <p class="muted">Try the full live workflow before committing.</p>
         <ul>
-          <li>Unlimited calendars — see your full schedule in one place</li>
-          <li>Export clean availability for email, text, or print</li>
-          <li>Bands In Town-ready CSV for quick uploads</li>
-          <li>Run real gigs through the system with no limits</li>
+          <li>Unlimited calendar tools and exports</li>
+          <li>Live request sessions with a stable QR link</li>
+          <li>Paid requests, tips, and song suggestions</li>
+          <li>Stripe Connect onboarding for performer payouts</li>
         </ul>
 
         <?php if (!$user): ?>
@@ -244,7 +284,7 @@ if (isset($_GET['upgraded'])) {
           </form>
         <?php endif; ?>
 
-        <div class="small-pricing-note">No risk — if it doesn't make your life easier, don't keep it.</div>
+        <div class="small-pricing-note">No risk. Try it at a rehearsal, a livestream, or a real gig.</div>
       </article>
 
       <article class="pricing-card">
@@ -253,13 +293,13 @@ if (isset($_GET['upgraded'])) {
           <div class="price">$5</div>
           <div class="price-unit">/ month</div>
         </div>
-        <p class="muted">For working musicians who are booking regularly and don't want to waste time juggling calendars, emails, and availability.</p>
+        <p class="muted">For performers who want the full Ready Set Shows workflow on stage and behind the scenes.</p>
         <ul>
-          <li>Unlimited calendars — no more juggling sources.  </li>
-          <li>Instant availability output for clear communication</li>
-          <li>Get list of shows for email, promo, book-keeping etc.</li>
-          <li>Bands In Town CSV export to stay consistent everywhere, and dramatically cut workload, and manual input errors</li>
-          <li>Respond to booking requests faster and more professionally, and with higher confidence</li>
+          <li>Everything in Free</li>
+          <li>Unlimited calendar output and Bandsintown-ready exports</li>
+          <li>SetMaxx live request sessions with QR sharing</li>
+          <li>Tips, paid song requests, and performer payout routing</li>
+          <li>Future finance and publishing tools as they roll out</li>
         </ul>
 
         <?php if (!$user): ?>
@@ -278,10 +318,16 @@ if (isset($_GET['upgraded'])) {
           <?php if ($access['state'] === 'trial'): ?>
             Your free trial is active, but you can still go straight to the monthly subscription checkout now.
           <?php else: ?>
-            If you're playing regularly, this pays for itself quickly.
+            Built to stay affordable even if you only use it for a few shows a month.
           <?php endif; ?>
         </div>
       </article>
+    </section>
+
+    <section class="pricing-note-panel">
+      <strong>About request fees:</strong>
+      paid song requests and tips can include a platform fee while the remaining amount routes to the performer account.
+      Free requests, song suggestions, song catalog management, and setlist planning are designed to keep the tool useful even before a performer turns on paid live requests.
     </section>
   </div>
 </main>

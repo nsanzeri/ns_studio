@@ -5,7 +5,12 @@ $libraryUrl = $user
 ? base_url('member/library.php')
 : base_url('member/login.php');
 
-$homeUrl = base_url('index.php');
+$requestHost = strtolower((string)($_SERVER['HTTP_HOST'] ?? ''));
+$requestHost = preg_replace('/:\d+$/', '', $requestHost);
+$isReadySetShowsHost = in_array($requestHost, ['readysetshows.com', 'www.readysetshows.com'], true);
+$homeUrl = function_exists('rss_public_root_url')
+    ? rtrim(rss_public_root_url(), '/') . '/index.php'
+    : preg_replace('#/studio$#', '', base_url('')) . '/index.php';
 ?>
 
 <footer class="site-footer tools-site-footer">
@@ -20,7 +25,9 @@ $homeUrl = base_url('index.php');
                 <li><a href="<?= htmlspecialchars($homeUrl, ENT_QUOTES, 'UTF-8') ?>">Main Site</a></li>
             </ul>
             <p>© <span id="year"></span> Ready Set Shows</p>
-            <p class="footer-location">Built by Nick Sanzeri</p>
+            <?php if (!$isReadySetShowsHost): ?>
+                <p class="footer-location">Built by Nick Sanzeri</p>
+            <?php endif; ?>
         </div>
     </div>
 </footer>

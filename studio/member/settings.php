@@ -112,17 +112,26 @@ $hasActiveStripeSubscription = (bool)$subscription;
 $periodEnd = !empty($subscription['current_period_end']) ? strtotime((string)$subscription['current_period_end']) : false;
 $cancelScheduled = !empty($subscription['canceled_at']);
 $subscriptionLabel = $subscription['plan_name'] ?? 'Ready Set Shows Pro';
+$requestHost = strtolower((string)($_SERVER['HTTP_HOST'] ?? ''));
+$requestHost = preg_replace('/:\d+$/', '', $requestHost);
+$isReadySetShowsHost = in_array($requestHost, ['readysetshows.com', 'www.readysetshows.com'], true);
 ?>
 <!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Settings • Nick Sanzeri Studio</title>
+  <title><?= $isReadySetShowsHost ? 'Account Settings | Ready Set Shows' : 'Settings • Nick Sanzeri Studio' ?></title>
   <link rel="stylesheet" href="<?= e(base_url('../assets/css/style.css')) ?>">
 </head>
 <body>
-<?php include __DIR__ . '/../../includes/header.php'; ?>
+<?php
+if ($isReadySetShowsHost) {
+  include __DIR__ . '/../../includes/tools_header.php';
+} else {
+  include __DIR__ . '/../../includes/header.php';
+}
+?>
 <main class="container" style="padding:3rem 0; max-width:760px;">
  <h2 class="form-title">Account Settings</h2>
   <p class="muted">Manage your password, subscription, and account.</p>
@@ -199,7 +208,13 @@ $subscriptionLabel = $subscription['plan_name'] ?? 'Ready Set Shows Pro';
     <?php endif; ?>
   </section>
 </main>
-<?php include __DIR__ . '/../../includes/footer.php'; ?>
+<?php
+if ($isReadySetShowsHost) {
+  include __DIR__ . '/../../includes/tools_footer_lite.php';
+} else {
+  include __DIR__ . '/../../includes/footer.php';
+}
+?>
 
 <?php if ($hasActiveStripeSubscription): ?>
 <script>

@@ -1,3 +1,13 @@
+<?php
+$requestHost = strtolower((string)($_SERVER['HTTP_HOST'] ?? ''));
+$requestHost = preg_replace('/:\d+$/', '', $requestHost);
+$isReadySetShowsHost = in_array($requestHost, ['readysetshows.com', 'www.readysetshows.com'], true);
+
+if ($isReadySetShowsHost || isset($_GET['rss_preview'])) {
+    require __DIR__ . '/includes/readysetshows_index.php';
+    exit;
+}
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>

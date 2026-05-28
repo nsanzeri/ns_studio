@@ -8,6 +8,11 @@ if (Auth::isLoggedIn()) {
 $email_prefill = isset($_GET['email']) ? trim((string)$_GET['email']) : '';
 $err = null;
 $googleClientId = env('GOOGLE_CLIENT_ID', '');
+$requestHost = strtolower((string)($_SERVER['HTTP_HOST'] ?? ''));
+$requestHost = preg_replace('/:\d+$/', '', $requestHost);
+$isReadySetShowsHost = in_array($requestHost, ['readysetshows.com', 'www.readysetshows.com'], true);
+$loginUrl = base_url('member/login.php');
+$trialUrl = base_url('member/pricing.php');
 
 if (is_post()) {
 	if (!csrf_verify($_POST['_csrf'] ?? null)) {
@@ -51,16 +56,22 @@ if (is_post()) {
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Create Studio Login • Nick Sanzeri</title>
+  <title><?= $isReadySetShowsHost ? 'Create Account | Ready Set Shows' : 'Create Studio Login • Nick Sanzeri' ?></title>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;700&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="<?= e(base_url('../assets/css/style.css')) ?>">
 </head>
 <body>
-<?php include __DIR__ . '/../../includes/header.php'; ?>
+<?php
+if ($isReadySetShowsHost) {
+  include __DIR__ . '/../../includes/tools_header_lite.php';
+} else {
+  include __DIR__ . '/../../includes/header.php';
+}
+?>
 <main class="container" style="padding:3rem 0; max-width:720px;">
   <h1>Create your account</h1>
-  <p class="muted">Use the same email address you used at checkout and your past purchases will show up automatically.</p>
+  <p class="muted"><?= $isReadySetShowsHost ? 'Create your Ready Set Shows account to use the tool suite and manage your plan.' : 'Use the same email address you used at checkout and your past purchases will show up automatically.' ?></p>
 
   <?php if ($err): ?>
     <div class="alert" style="margin:1rem 0;"><?= e($err) ?></div>
@@ -94,6 +105,12 @@ if (is_post()) {
     <a class="text-link" href="<?= e(base_url('member/login.php')) ?>">Already have an account? Log in</a>
   </div>
 </main>
-<?php include __DIR__ . '/../../includes/footer.php'; ?>
+<?php
+if ($isReadySetShowsHost) {
+  include __DIR__ . '/../../includes/tools_footer_lite.php';
+} else {
+  include __DIR__ . '/../../includes/footer.php';
+}
+?>
 </body>
 </html>

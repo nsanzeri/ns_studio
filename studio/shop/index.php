@@ -6,6 +6,11 @@ require_once __DIR__ . '/../_private/config/stripe.php';
 $products = product_file_map();
 $user = Auth::currentUser($pdo);
 $toolsAccess = $user ? rss_tools_access_badge($pdo) : ['state' => 'free', 'label' => 'Free plan'];
+$requestHost = strtolower((string)($_SERVER['HTTP_HOST'] ?? ''));
+$requestHost = preg_replace('/:\d+$/', '', $requestHost);
+$isReadySetShowsHost = in_array($requestHost, ['readysetshows.com', 'www.readysetshows.com'], true);
+$loginUrl = rss_studio_root_url() . '/member/login.php';
+$trialUrl = rss_tool_trial_url();
 ?>
 <!doctype html>
 <html lang="en">
@@ -232,7 +237,13 @@ $toolsAccess = $user ? rss_tools_access_badge($pdo) : ['state' => 'free', 'label
   </style>
 </head>
 <body>
-<?php include __DIR__ . '/../../includes/header.php'; ?>
+<?php
+if ($isReadySetShowsHost) {
+  include __DIR__ . '/../../includes/tools_header_lite.php';
+} else {
+  include __DIR__ . '/../../includes/header.php';
+}
+?>
 
 <main>
   <section class="rss-store-hero">
@@ -241,7 +252,7 @@ $toolsAccess = $user ? rss_tools_access_badge($pdo) : ['state' => 'free', 'label
         <div class="rss-store-kicker"><i class="fa-solid fa-music"></i> Ready Set Shows</div>
         <h1>The gigging musician’s command center.</h1>
         <p>
-          Ready Set Shows is the field-tested toolkit Nick built from years of running real shows: availability checks, calendar formatting,
+          Ready Set Shows is a field-tested toolkit built from years of running real shows: availability checks, calendar formatting,
           Bandsintown prep, smarter setlists, crowd requests, and more tools for working musicians.
         </p>
         <div class="rss-store-actions">
@@ -360,6 +371,7 @@ $toolsAccess = $user ? rss_tools_access_badge($pdo) : ['state' => 'free', 'label
         </div>
       </details>
 
+      <?php if (!$isReadySetShowsHost): ?>
       <article class="rss-other-products">
         <div>
           <p class="eyebrow">Also available</p>
@@ -380,9 +392,16 @@ $toolsAccess = $user ? rss_tools_access_badge($pdo) : ['state' => 'free', 'label
           <img src="<?= e(base_url('../assets/img/BackingTrackBlueprint.png')) ?>" alt="Backing Track Blueprint cover">
         </a>
       </article>
+      <?php endif; ?>
     </div>
   </section>
 </main>
-<?php include __DIR__ . '/../../includes/footer.php'; ?>
+<?php
+if ($isReadySetShowsHost) {
+  include __DIR__ . '/../../includes/tools_footer_lite.php';
+} else {
+  include __DIR__ . '/../../includes/footer.php';
+}
+?>
 </body>
 </html>

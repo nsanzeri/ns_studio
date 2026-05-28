@@ -147,7 +147,7 @@ function setmaxx_public_price_options(int $minimumDollars, int $stepDollars, int
 }
 
 function setmaxx_public_tip_fee_percent(): int {
-    return max(0, min(100, (int)env('SETMAXX_TIP_PLATFORM_FEE_PERCENT', 10)));
+    return 0;
 }
 
 function setmaxx_public_direct_platform_tip_user_ids(): array {
@@ -334,7 +334,6 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
                                 $errors[] = 'Tips are not ready for this performer yet.';
                             } else {
                                 $checkoutPayload['payment_intent_data'] = [
-                                    'application_fee_amount' => (int)floor($amountCents * (setmaxx_public_tip_fee_percent() / 100)),
                                     'transfer_data' => ['destination' => (string)$connectAccount['stripe_account_id']],
                                 ];
                             }
@@ -426,7 +425,6 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
                             $errors[] = 'Paid requests are not ready for this performer yet.';
                         } else {
                             $checkoutPayload['payment_intent_data'] = [
-                                'application_fee_amount' => (int)floor($amountCents * (setmaxx_public_tip_fee_percent() / 100)),
                                 'transfer_data' => [
                                     'destination' => (string)$connectAccount['stripe_account_id'],
                                 ],

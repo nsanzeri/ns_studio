@@ -137,7 +137,7 @@ setmaxx_page_head('Set Maxx | Payments');
       <p class="setmaxx-help" style="font-size:1rem; margin:0;">Connect Stripe once, then paid song requests can be routed to the performer account for each show.</p>
     </div>
     <div class="setmaxx-card">
-      <h2 style="margin-top:0;">Tip split</h2>
+      <h2 style="margin-top:0;">Tip routing</h2>
       <?php if ($isDirectPlatformUser): ?>
         <div class="setmaxx-row">
           <div>
@@ -149,8 +149,8 @@ setmaxx_page_head('Set Maxx | Payments');
       <?php else: ?>
         <div class="setmaxx-row">
           <div>
-            <strong><?= (int)$feePercent ?>% platform fee</strong>
-            <div class="setmaxx-meta">The remainder is sent to the connected performer Stripe account.</div>
+            <strong>No Ready Set Shows platform fee</strong>
+            <div class="setmaxx-meta">Tips and paid requests are routed to the connected performer Stripe account.</div>
           </div>
           <span class="setmaxx-pill"><?= $connectReady ? 'Connected' : 'Connect required' ?></span>
         </div>
@@ -184,7 +184,7 @@ setmaxx_page_head('Set Maxx | Payments');
           <div class="setmaxx-row" style="display:grid; gap:.55rem;">
             <strong><?= e($total['label']) ?></strong>
             <div class="setmaxx-meta">Gross <span style="float:right; color:#fff; font-weight:700;"><?= e(setmaxx_money((int)$total['gross_cents'])) ?></span></div>
-            <div class="setmaxx-meta">Platform fees <span style="float:right; color:#fff; font-weight:700;"><?= e(setmaxx_money((int)$total['fee_cents'])) ?></span></div>
+            <div class="setmaxx-meta">Ready Set Shows fees <span style="float:right; color:#fff; font-weight:700;"><?= e(setmaxx_money((int)$total['fee_cents'])) ?></span></div>
             <div class="setmaxx-meta">Performer payouts <span style="float:right; color:#fff; font-weight:700;"><?= e(setmaxx_money((int)$total['payout_cents'])) ?></span></div>
           </div>
         <?php endforeach; ?>
@@ -236,7 +236,7 @@ setmaxx_page_head('Set Maxx | Payments');
           <div class="setmaxx-row" style="display:grid; gap:.55rem;">
             <strong><?= e($total['label']) ?></strong>
             <div class="setmaxx-meta">Gross <span style="float:right; color:#fff; font-weight:700;"><?= e(setmaxx_money((int)$total['gross_cents'])) ?></span></div>
-            <div class="setmaxx-meta">Platform fees <span style="float:right; color:#fff; font-weight:700;"><?= e(setmaxx_money((int)$total['fee_cents'])) ?></span></div>
+            <div class="setmaxx-meta">Ready Set Shows fees <span style="float:right; color:#fff; font-weight:700;"><?= e(setmaxx_money((int)$total['fee_cents'])) ?></span></div>
             <div class="setmaxx-meta">Performer payouts <span style="float:right; color:#fff; font-weight:700;"><?= e(setmaxx_money((int)$total['payout_cents'])) ?></span></div>
           </div>
         <?php endforeach; ?>

@@ -410,7 +410,7 @@ if (!$isProUser) {
     </div>
     <?php if (!$isProUser): ?>
       <div class="upgrade-banner">
-        <strong>Founder Pricing:</strong> Upgrade to Pro for $5/month to unlock premium exports, multiple calendars, and 5% off shop purchases.
+        <strong>Founder Pricing:</strong> Upgrade to Pro for $10/month to unlock premium exports, multiple calendars, and 5% off shop purchases.
         <a href="<?= e($upgradeUrl) ?>">Upgrade now</a>
       </div>
     <?php endif; ?>
@@ -615,7 +615,7 @@ if (!$isProUser) {
       <li><strong>5% off all shop purchases</strong></li>
     </ul>
     <div style="display:flex; gap:.75rem; flex-wrap:wrap;">
-      <a class="btn btn-primary" href="<?= e($upgradeUrl) ?>">Upgrade to Pro — $5/mo</a>
+      <a class="btn btn-primary" href="<?= e($upgradeUrl) ?>">Upgrade to Pro — $10/mo</a>
       <button type="button" class="btn btn-secondary" onclick="closeUpgradeModal()">Keep Exploring</button>
     </div>
     <p class="small-note" style="margin-top:1rem;">Founder pricing is available now for early users.</p>

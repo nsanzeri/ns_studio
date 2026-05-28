@@ -346,7 +346,7 @@ require_once __DIR__ . '/../_private/config/stripe.php';
 		  </div>
 		
 		  <p class="tools-note">
-		    Built for working musicians. Founder pricing starts at just $5/month.
+		    Built for working musicians. Founder pricing starts at just $10/month.
 		  </p>
 		</div>
         <div class="tools-preview" aria-label="Calendar tools preview">

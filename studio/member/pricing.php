@@ -290,7 +290,7 @@ if (isset($_GET['upgraded'])) {
       <article class="pricing-card">
         <div class="pricing-badge">Pro</div>
         <div class="price-line">
-          <div class="price">$5</div>
+          <div class="price">$10</div>
           <div class="price-unit">/ month</div>
         </div>
         <p class="muted">For performers who want the full Ready Set Shows workflow on stage and behind the scenes.</p>
@@ -318,16 +318,16 @@ if (isset($_GET['upgraded'])) {
           <?php if ($access['state'] === 'trial'): ?>
             Your free trial is active, but you can still go straight to the monthly subscription checkout now.
           <?php else: ?>
-            Built to stay affordable even if you only use it for a few shows a month.
+            Built to stay affordable while keeping tips and paid requests artist-friendly.
           <?php endif; ?>
         </div>
       </article>
     </section>
 
     <section class="pricing-note-panel">
-      <strong>About request fees:</strong>
-      paid song requests and tips can include a platform fee while the remaining amount routes to the performer account.
-      Free requests, song suggestions, song catalog management, and setlist planning are designed to keep the tool useful even before a performer turns on paid live requests.
+      <strong>About tips and paid requests:</strong>
+      Ready Set Shows does not take a platform fee from SetMaxx tips or paid song requests.
+      Stripe processing fees may still apply, and the remaining funds route to the performer's connected Stripe account.
     </section>
   </div>
 </main>

@@ -106,7 +106,7 @@ function setmaxx_lyrics_url(string $title, ?string $artist = null): string {
 }
 
 function setmaxx_tip_platform_fee_percent(): int {
-    return max(0, min(100, (int)env('SETMAXX_TIP_PLATFORM_FEE_PERCENT', 10)));
+    return 0;
 }
 
 function setmaxx_direct_platform_tip_user_ids(): array {

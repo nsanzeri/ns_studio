@@ -1,6 +1,18 @@
 <?php
 require __DIR__ . '/../_private/_core/bootstrap.php';
 
+function rss_google_redirect_uri(): string
+{
+	$host = strtolower((string)($_SERVER['HTTP_HOST'] ?? ''));
+	$host = preg_replace('/:\d+$/', '', $host);
+
+	if (in_array($host, ['readysetshows.com', 'www.readysetshows.com'], true)) {
+		return 'https://readysetshows.com/studio/member/google_callback.php';
+	}
+
+	return (string)env('GOOGLE_REDIRECT_URI');
+}
+
 if (!isset($_GET['state']) || !hash_equals((string)($_SESSION['google_oauth_state'] ?? ''), (string)$_GET['state'])) {
 	http_response_code(400);
 	echo 'Invalid Google login state.';
@@ -11,7 +23,7 @@ unset($_SESSION['google_oauth_state']);
 $client = new Google_Client();
 $client->setClientId(env('GOOGLE_CLIENT_ID'));
 $client->setClientSecret(env('GOOGLE_CLIENT_SECRET'));
-$client->setRedirectUri(env('GOOGLE_REDIRECT_URI'));
+$client->setRedirectUri(rss_google_redirect_uri());
 
 $token = $client->fetchAccessTokenWithAuthCode((string)($_GET['code'] ?? ''));
 if (!empty($token['error'])) {

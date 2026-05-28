@@ -2,7 +2,7 @@
 -- Run this once after deploying the PHP drop-ins.
 
 INSERT INTO subscription_plans (slug, name, price_monthly_cents, shop_discount_percent, is_active)
-VALUES ('rss-pro', 'Ready Set Shows Pro', 500, 5.00, 1)
+VALUES ('rss-pro', 'Ready Set Shows Pro', 1000, 5.00, 1)
 ON DUPLICATE KEY UPDATE
   name = VALUES(name),
   price_monthly_cents = VALUES(price_monthly_cents),

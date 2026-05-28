@@ -3,7 +3,20 @@ require __DIR__ . '/../_private/_core/bootstrap.php';
 //echo "NEW VERSION"; exit;
 $clientId = env('GOOGLE_CLIENT_ID');
 $clientSecret = env('GOOGLE_CLIENT_SECRET');
-$redirectUri = env('GOOGLE_REDIRECT_URI');
+
+function rss_google_redirect_uri(): string
+{
+    $host = strtolower((string)($_SERVER['HTTP_HOST'] ?? ''));
+    $host = preg_replace('/:\d+$/', '', $host);
+
+    if (in_array($host, ['readysetshows.com', 'www.readysetshows.com'], true)) {
+        return 'https://readysetshows.com/studio/member/google_callback.php';
+    }
+
+    return (string)env('GOOGLE_REDIRECT_URI');
+}
+
+$redirectUri = rss_google_redirect_uri();
 
 if (!$clientId || !$clientSecret || !$redirectUri) {
     http_response_code(500);

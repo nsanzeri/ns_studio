@@ -18,6 +18,14 @@ if (!function_exists('nav_active')) {
 		return $condition ? 'active' : '';
 	}
 }
+
+$suiteModules = [
+	['label' => 'Calendar', 'href' => $studioBase . '/tools/index.php', 'active' => str_contains($currentPath, '/tools/'), 'soon' => false],
+	['label' => 'SetMaxx', 'href' => $studioBase . '/setmaxx/index.php', 'active' => str_contains($currentPath, '/setmaxx/'), 'soon' => false],
+	['label' => 'Finance', 'href' => $studioBase . '/shop/#business-tracking', 'active' => false, 'soon' => true],
+	['label' => 'Publishing', 'href' => $studioBase . '/shop/#publishing-tools', 'active' => false, 'soon' => true],
+];
+$showCalendarSubnav = str_contains($currentPath, '/tools/');
 ?>
 
 <header class="site-header tools-site-header">
@@ -26,7 +34,7 @@ if (!function_exists('nav_active')) {
             <span class="brand-mark">RS</span>
             <span class="brand-text">
                 <span class="brand-name">Ready Set Shows</span>
-                <span class="brand-tagline">Your calendars · Your availability · Your control</span>
+                <span class="brand-tagline">Calendar &middot; SetMaxx &middot; Finance &middot; Publishing</span>
             </span>
         </a>
 
@@ -41,7 +49,24 @@ if (!function_exists('nav_active')) {
             <span></span><span></span><span></span>
         </button>
 
-        <nav class="tools-desktop-nav" aria-label="Tools navigation">
+        <nav class="rss-suite-nav" aria-label="Ready Set Shows modules">
+            <?php foreach ($suiteModules as $module): ?>
+                <a href="<?= htmlspecialchars($module['href']) ?>" class="<?= nav_active($module['active']) ?>">
+                    <?= htmlspecialchars($module['label']) ?>
+                    <?php if ($module['soon']): ?><span>Soon</span><?php endif; ?>
+                </a>
+            <?php endforeach; ?>
+        </nav>
+        <div class="tools-header-actions">
+            <?php rss_render_account_menu('tools'); ?>
+        </div>
+    </div>
+
+    <?php if ($showCalendarSubnav): ?>
+    <div class="tools-subheader">
+      <div class="container tools-subheader-inner">
+        <span class="tools-subheader-label">Calendar</span>
+        <nav class="tools-desktop-nav" aria-label="Calendar tools navigation">
             <ul>
                 <li><a href="<?= htmlspecialchars($studioBase . '/tools/index.php') ?>" class="<?= nav_active($currentPage === 'index.php' && str_contains($currentPath, '/tools/')) ?>">Availability</a></li>
                 <li><a href="<?= htmlspecialchars($studioBase . '/tools/pretty-print.php') ?>" class="<?= nav_active($currentPage === 'pretty-print.php') ?>">Print</a></li>
@@ -49,20 +74,28 @@ if (!function_exists('nav_active')) {
                 <li><a href="<?= htmlspecialchars($studioBase . '/tools/calendars.php') ?>" class="<?= nav_active($currentPage === 'calendars.php') ?>">Calendars</a></li>
             </ul>
         </nav>
-        <div class="tools-header-actions">
-            <?php rss_render_account_menu('tools'); ?>
-        </div>
+      </div>
     </div>
+    <?php endif; ?>
 
     <nav class="tools-mobile-nav" id="toolsMobileNav" aria-label="Mobile tools navigation" hidden>
         <div class="tools-mobile-nav-inner">
-            <a href="<?= htmlspecialchars($studioBase . '/tools/index.php') ?>" class="<?= nav_active($currentPage === 'index.php' && str_contains($currentPath, '/tools/')) ?>">Availability</a>
-            <a href="<?= htmlspecialchars($studioBase . '/tools/pretty-print.php') ?>" class="<?= nav_active($currentPage === 'pretty-print.php') ?>">Print</a>
-            <a href="<?= htmlspecialchars($studioBase . '/tools/bandsintown.php') ?>" class="<?= nav_active($currentPage === 'bandsintown.php') ?>">Export</a>
-            <a href="<?= htmlspecialchars($studioBase . '/tools/calendars.php') ?>" class="<?= nav_active($currentPage === 'calendars.php') ?>">Calendars</a>
+            <div class="tools-mobile-section">Ready Set Shows</div>
+            <?php foreach ($suiteModules as $module): ?>
+                <a href="<?= htmlspecialchars($module['href']) ?>" class="<?= nav_active($module['active']) ?>">
+                    <?= htmlspecialchars($module['label']) ?><?= $module['soon'] ? ' (Soon)' : '' ?>
+                </a>
+            <?php endforeach; ?>
+            <?php if ($showCalendarSubnav): ?>
+                <div class="tools-mobile-section">Calendar</div>
+                <a href="<?= htmlspecialchars($studioBase . '/tools/index.php') ?>" class="<?= nav_active($currentPage === 'index.php' && str_contains($currentPath, '/tools/')) ?>">Availability</a>
+                <a href="<?= htmlspecialchars($studioBase . '/tools/pretty-print.php') ?>" class="<?= nav_active($currentPage === 'pretty-print.php') ?>">Print</a>
+                <a href="<?= htmlspecialchars($studioBase . '/tools/bandsintown.php') ?>" class="<?= nav_active($currentPage === 'bandsintown.php') ?>">Export</a>
+                <a href="<?= htmlspecialchars($studioBase . '/tools/calendars.php') ?>" class="<?= nav_active($currentPage === 'calendars.php') ?>">Calendars</a>
+            <?php endif; ?>
 
             <div class="tools-mobile-extra">
-                <a href="<?= htmlspecialchars($siteBase . '/index.php') ?>">← Back to Main Site</a>
+                <a href="<?= htmlspecialchars($siteBase . '/index.php') ?>">Back to Main Site</a>
             </div>
         </div>
     </nav>
@@ -90,7 +123,7 @@ if (!function_exists('nav_active')) {
   }
 
   .tools-header-inner {
-    min-height: 84px;
+    min-height: 76px;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -109,6 +142,61 @@ if (!function_exists('nav_active')) {
 
   .tools-brand .brand-tagline {
     opacity: .82;
+  }
+
+  .rss-suite-nav {
+    display:flex;
+    align-items:center;
+    gap:.45rem;
+    margin-left:auto;
+  }
+
+  .rss-suite-nav a {
+    display:inline-flex;
+    align-items:center;
+    gap:.45rem;
+    border-radius:999px;
+    padding:.72rem 1rem;
+    text-decoration:none;
+    color:rgba(255,255,255,.86);
+    font-weight:600;
+  }
+
+  .rss-suite-nav a.active,
+  .rss-suite-nav a:hover {
+    background:rgba(212,175,55,.16);
+    color:#f4d57a;
+  }
+
+  .rss-suite-nav span {
+    padding:.14rem .42rem;
+    border-radius:999px;
+    background:rgba(212,175,55,.16);
+    color:#f4d57a;
+    font-size:.68rem;
+    text-transform:uppercase;
+    letter-spacing:.04em;
+  }
+
+  .tools-subheader {
+    border-top:1px solid rgba(255,255,255,.055);
+    border-bottom:1px solid rgba(255,255,255,.08);
+    background:rgba(255,255,255,.025);
+  }
+
+  .tools-subheader-inner {
+    min-height:52px;
+    display:flex;
+    align-items:center;
+    gap:1rem;
+  }
+
+  .tools-subheader-label {
+    color:#f4d57a;
+    font-weight:700;
+    letter-spacing:.04em;
+    text-transform:uppercase;
+    font-size:.82rem;
   }
 
   .tools-desktop-nav ul {
@@ -168,7 +256,9 @@ if (!function_exists('nav_active')) {
       min-height: 76px;
     }
 
-    .tools-desktop-nav {
+    .tools-desktop-nav,
+    .rss-suite-nav,
+    .tools-subheader {
       display: none !important;
     }
 
@@ -221,6 +311,16 @@ if (!function_exists('nav_active')) {
     .tools-mobile-nav a:hover {
       background: rgba(212,175,55,.14);
       color: #f4d57a;
+    }
+
+    .tools-mobile-section {
+      margin:.35rem 0 .25rem;
+      padding:.65rem 1rem .35rem;
+      color:#f4d57a;
+      font-size:.78rem;
+      font-weight:700;
+      letter-spacing:.08em;
+      text-transform:uppercase;
     }
   }
 </style>

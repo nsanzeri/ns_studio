@@ -13,9 +13,11 @@ $songs = [];
 $lockedSongIds = [];
 $availableLetters = [];
 $songCount = 0;
-$publicProfile = ['website_url' => '', 'review_url' => '', 'logo_path' => '', 'minimum_tip_dollars' => 10, 'price_step_dollars' => 1];
+$publicProfile = ['website_url' => '', 'review_url' => '', 'logo_path' => '', 'venmo_handle' => '', 'minimum_tip_dollars' => 10, 'price_step_dollars' => 1];
 $sessionMinimumDollars = 10;
 $priceStepDollars = 1;
+$venmoHandle = '';
+$venmoAvailable = false;
 
 function setmaxx_public_absolute_url(string $path): string {
     if (preg_match('#^https?://#i', $path)) return $path;
@@ -72,6 +74,7 @@ function setmaxx_public_ensure_profile_table(PDO $pdo): void {
           `website_url` varchar(255) DEFAULT NULL,
           `review_url` varchar(255) DEFAULT NULL,
           `logo_path` varchar(255) DEFAULT NULL,
+          `venmo_handle` varchar(80) DEFAULT NULL,
           `minimum_tip_dollars` tinyint(3) unsigned NOT NULL DEFAULT 10,
           `price_step_dollars` tinyint(3) unsigned NOT NULL DEFAULT 1,
           `created_at` datetime NOT NULL DEFAULT current_timestamp(),
@@ -91,11 +94,34 @@ function setmaxx_public_profile_column_exists(PDO $pdo, string $columnName): boo
 
 function setmaxx_public_ensure_profile_pricing_columns(PDO $pdo): void {
     setmaxx_public_ensure_profile_table($pdo);
+    if (!setmaxx_public_profile_column_exists($pdo, 'venmo_handle')) {
+        $pdo->exec("ALTER TABLE setmaxx_public_profiles ADD COLUMN venmo_handle varchar(80) DEFAULT NULL AFTER logo_path");
+    }
     if (!setmaxx_public_profile_column_exists($pdo, 'minimum_tip_dollars')) {
         $pdo->exec("ALTER TABLE setmaxx_public_profiles ADD COLUMN minimum_tip_dollars tinyint(3) unsigned NOT NULL DEFAULT 10 AFTER logo_path");
     }
     if (!setmaxx_public_profile_column_exists($pdo, 'price_step_dollars')) {
         $pdo->exec("ALTER TABLE setmaxx_public_profiles ADD COLUMN price_step_dollars tinyint(3) unsigned NOT NULL DEFAULT 1 AFTER minimum_tip_dollars");
+    }
+}
+
+function setmaxx_public_column_exists(PDO $pdo, string $tableName, string $columnName): bool {
+    $stmt = $pdo->prepare("SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = ? AND column_name = ? LIMIT 1");
+    $stmt->execute([$tableName, $columnName]);
+    return (bool)$stmt->fetchColumn();
+}
+
+function setmaxx_public_ensure_venmo_columns(PDO $pdo): void {
+    setmaxx_public_ensure_profile_pricing_columns($pdo);
+    if (!setmaxx_public_column_exists($pdo, 'setmaxx_gig_sessions', 'venmo_enabled')) {
+        $pdo->exec("ALTER TABLE setmaxx_gig_sessions ADD COLUMN venmo_enabled tinyint(1) NOT NULL DEFAULT 0 AFTER status");
+    }
+    if (!setmaxx_public_column_exists($pdo, 'setmaxx_requests', 'payment_method')) {
+        $pdo->exec("ALTER TABLE setmaxx_requests ADD COLUMN payment_method varchar(24) NOT NULL DEFAULT 'stripe' AFTER status");
+    }
+    setmaxx_public_ensure_general_tips_table($pdo);
+    if (!setmaxx_public_column_exists($pdo, 'setmaxx_general_tips', 'payment_method')) {
+        $pdo->exec("ALTER TABLE setmaxx_general_tips ADD COLUMN payment_method varchar(24) NOT NULL DEFAULT 'stripe' AFTER status");
     }
 }
 
@@ -110,6 +136,7 @@ function setmaxx_public_ensure_general_tips_table(PDO $pdo): void {
           `tip_note` varchar(255) DEFAULT NULL,
           `amount_cents` int(10) unsigned NOT NULL DEFAULT 0,
           `status` enum('paid','refunded') NOT NULL DEFAULT 'paid',
+          `payment_method` varchar(24) NOT NULL DEFAULT 'stripe',
           `stripe_payment_intent_id` varchar(255) DEFAULT NULL,
           `created_at` datetime NOT NULL DEFAULT current_timestamp(),
           PRIMARY KEY (`id`),
@@ -124,9 +151,19 @@ function setmaxx_public_ensure_general_tips_table(PDO $pdo): void {
 
 function setmaxx_public_profile(PDO $pdo, int $userId): array {
     setmaxx_public_ensure_profile_pricing_columns($pdo);
-    $stmt = $pdo->prepare("SELECT website_url, review_url, logo_path, minimum_tip_dollars, price_step_dollars FROM setmaxx_public_profiles WHERE user_id = ? LIMIT 1");
+    $stmt = $pdo->prepare("SELECT website_url, review_url, logo_path, venmo_handle, minimum_tip_dollars, price_step_dollars FROM setmaxx_public_profiles WHERE user_id = ? LIMIT 1");
     $stmt->execute([$userId]);
-    return $stmt->fetch(PDO::FETCH_ASSOC) ?: ['website_url' => '', 'review_url' => '', 'logo_path' => '', 'minimum_tip_dollars' => 10, 'price_step_dollars' => 1];
+    return $stmt->fetch(PDO::FETCH_ASSOC) ?: ['website_url' => '', 'review_url' => '', 'logo_path' => '', 'venmo_handle' => '', 'minimum_tip_dollars' => 10, 'price_step_dollars' => 1];
+}
+
+function setmaxx_public_venmo_url(string $handle, int $amountDollars, string $note): string {
+    $handle = ltrim(trim($handle), '@');
+    $query = http_build_query([
+        'txn' => 'pay',
+        'amount' => number_format($amountDollars, 2, '.', ''),
+        'note' => mb_substr($note, 0, 120),
+    ]);
+    return 'https://venmo.com/' . rawurlencode($handle) . '?' . $query;
 }
 
 function setmaxx_public_price_options(int $minimumDollars, int $stepDollars, int $maxDollars = 100): array {
@@ -172,10 +209,13 @@ function setmaxx_public_create_performer_checkout_session(array $checkoutPayload
 }
 
 $tablesReady = setmaxx_public_tables_ready($pdo);
+if ($tablesReady) {
+    setmaxx_public_ensure_venmo_columns($pdo);
+}
 
 if ($tablesReady && $token !== '') {
     $stmt = $pdo->prepare(
-        "SELECT gs.id, gs.user_id, gs.title, gs.venue_name, gs.status, gs.starts_at, u.display_name
+        "SELECT gs.id, gs.user_id, gs.title, gs.venue_name, gs.status, gs.venmo_enabled, gs.starts_at, u.display_name
          FROM setmaxx_gig_sessions gs
          JOIN users u ON u.id = gs.user_id
          WHERE gs.public_token = ?
@@ -191,7 +231,7 @@ if ($tablesReady && $token !== '') {
 
 if ($tablesReady && $linkToken !== '' && setmaxx_public_table_exists($pdo, 'setmaxx_public_links')) {
     $linkStmt = $pdo->prepare(
-        "SELECT gs.id, gs.user_id, gs.title, gs.venue_name, gs.status, gs.starts_at, u.display_name,
+        "SELECT gs.id, gs.user_id, gs.title, gs.venue_name, gs.status, gs.venmo_enabled, gs.starts_at, u.display_name,
                 spl.user_id AS public_user_id, u.display_name AS public_display_name
          FROM setmaxx_public_links spl
          JOIN users u ON u.id = spl.user_id
@@ -228,11 +268,13 @@ if ($tablesReady && $publicUserId > 0) {
     try {
         $publicProfile = setmaxx_public_profile($pdo, $publicUserId);
     } catch (Throwable $e) {
-        $publicProfile = ['website_url' => '', 'review_url' => '', 'logo_path' => '', 'minimum_tip_dollars' => 10, 'price_step_dollars' => 1];
+        $publicProfile = ['website_url' => '', 'review_url' => '', 'logo_path' => '', 'venmo_handle' => '', 'minimum_tip_dollars' => 10, 'price_step_dollars' => 1];
     }
     $sessionMinimumDollars = max(0, min(100, (int)($publicProfile['minimum_tip_dollars'] ?? 10)));
     $priceStepDollars = (int)($publicProfile['price_step_dollars'] ?? 1);
     if (!in_array($priceStepDollars, [1, 5, 10], true)) $priceStepDollars = 1;
+    $venmoHandle = ltrim(trim((string)($publicProfile['venmo_handle'] ?? '')), '@');
+    $venmoAvailable = $session && !empty($session['venmo_enabled']) && $venmoHandle !== '';
 }
 
 if ($session && $tablesReady) {
@@ -300,12 +342,32 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
             $tipDollars = (int)($_POST['tip_amount_dollars'] ?? 0);
             $tipperName = trim((string)($_POST['tipper_name'] ?? ''));
             $tipNote = trim((string)($_POST['tip_note'] ?? ''));
+            $paymentMethod = (string)($_POST['payment_method'] ?? 'stripe');
             $tipMinimumDollars = max(5, $sessionMinimumDollars);
             if ($tipDollars < $tipMinimumDollars || $tipDollars > 100) {
                 $errors[] = 'Choose a tip amount from $' . $tipMinimumDollars . ' to $100.';
+            } elseif ($paymentMethod === 'venmo' && !$venmoAvailable) {
+                $errors[] = 'Venmo is not available for this session.';
             } else {
                 try {
                     setmaxx_public_ensure_general_tips_table($pdo);
+                    if ($paymentMethod === 'venmo') {
+                        setmaxx_public_ensure_venmo_columns($pdo);
+                        $insertTip = $pdo->prepare(
+                            "INSERT INTO setmaxx_general_tips (gig_session_id, user_id, tipper_name, tip_note, amount_cents, status, payment_method)
+                             VALUES (?, ?, ?, ?, ?, 'paid', 'venmo')"
+                        );
+                        $insertTip->execute([
+                            $session ? (int)$session['id'] : null,
+                            $publicUserId,
+                            $tipperName !== '' ? mb_substr($tipperName, 0, 190) : null,
+                            $tipNote !== '' ? mb_substr($tipNote, 0, 255) : null,
+                            $tipDollars * 100,
+                        ]);
+                        $note = 'SetMaxx tip' . ($tipperName !== '' ? ' from ' . $tipperName : '');
+                        header('Location: ' . setmaxx_public_venmo_url($venmoHandle, $tipDollars, $note));
+                        exit;
+                    }
                     require_once __DIR__ . '/../_private/config/stripe.php';
 
                     $performerUserId = $publicUserId;
@@ -369,6 +431,7 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
         $requesterName = trim((string)($_POST['requester_name'] ?? ''));
         $requestNote = trim((string)($_POST['request_note'] ?? ''));
         $requestAmountDollars = (int)($_POST['request_amount_dollars'] ?? 0);
+        $paymentMethod = (string)($_POST['payment_method'] ?? 'stripe');
 
         $songStmt = $pdo->prepare(
             "SELECT id, title, artist, tip_amount_cents
@@ -393,6 +456,31 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
             $errors[] = 'That song is not available for this request page.';
         } elseif ($requestAmountDollars > 0 && in_array($songId, $lockedSongIds, true)) {
             $errors[] = 'That song has already been requested for this gig.';
+        } elseif ($requestAmountDollars > 0 && $paymentMethod === 'venmo') {
+            if (!$venmoAvailable) {
+                $errors[] = 'Venmo is not available for this session.';
+            } else {
+                try {
+                    setmaxx_public_ensure_venmo_columns($pdo);
+                    $insert = $pdo->prepare(
+                        "INSERT INTO setmaxx_requests (gig_session_id, song_id, requester_name, request_note, amount_cents, status, payment_method, active_lock)
+                         VALUES (?, ?, ?, ?, ?, 'pending', 'venmo', 1)"
+                    );
+                    $insert->execute([
+                        (int)$session['id'],
+                        $songId,
+                        $requesterName !== '' ? $requesterName : null,
+                        $requestNote !== '' ? $requestNote : null,
+                        $requestAmountDollars * 100,
+                    ]);
+                    $songLabel = trim((string)$song['title']);
+                    $note = 'SetMaxx request: ' . $songLabel;
+                    header('Location: ' . setmaxx_public_venmo_url($venmoHandle, $requestAmountDollars, $note));
+                    exit;
+                } catch (Throwable $e) {
+                    $errors[] = 'That song has already been requested for this gig.';
+                }
+            }
         } elseif ($requestAmountDollars > 0) {
             try {
                 require_once __DIR__ . '/../_private/config/stripe.php';
@@ -454,8 +542,8 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
         } else {
             try {
                 $insert = $pdo->prepare(
-                    "INSERT INTO setmaxx_requests (gig_session_id, song_id, requester_name, request_note, amount_cents, status, active_lock)
-                     VALUES (?, ?, ?, ?, ?, 'pending', NULL)"
+                    "INSERT INTO setmaxx_requests (gig_session_id, song_id, requester_name, request_note, amount_cents, status, payment_method, active_lock)
+                     VALUES (?, ?, ?, ?, ?, 'pending', 'free', NULL)"
                 );
                 $insert->execute([
                     (int)$session['id'],
@@ -520,6 +608,8 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
     .suggestion-card { margin-top:1rem; padding:1rem; border-radius:18px; background:rgba(255,255,255,.035); border:1px solid rgba(255,255,255,.07); }
     .suggestion-form { display:grid; grid-template-columns:minmax(160px, 1fr) minmax(140px, .9fr) minmax(120px, .8fr) minmax(180px, 1.2fr) auto; gap:.55rem; align-items:center; }
     .tip-form { display:grid; grid-template-columns:110px minmax(130px, 1fr) minmax(180px, 1.3fr) auto; gap:.55rem; align-items:center; }
+    .payment-buttons { display:flex; gap:.45rem; flex-wrap:wrap; }
+    .payment-buttons .btn { white-space:nowrap; }
     .alert { border-radius:16px; padding:.95rem 1rem; margin-bottom:1rem; }
     .alert-success { background:rgba(51,176,102,.16); border:1px solid rgba(51,176,102,.28); }
     .alert-error { background:rgba(199,64,64,.16); border:1px solid rgba(199,64,64,.28); }
@@ -572,7 +662,10 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
             </select>
             <input class="request-input" name="tipper_name" placeholder="Your name">
             <input class="request-input" name="tip_note" placeholder="Optional note">
-            <button class="btn btn-primary request-submit" type="submit">Tip</button>
+            <div class="payment-buttons">
+              <button class="btn btn-primary request-submit" type="submit" name="payment_method" value="stripe">Tip with card</button>
+              <?php if ($venmoAvailable): ?><button class="btn btn-outline request-submit" type="submit" name="payment_method" value="venmo">Tip with Venmo</button><?php endif; ?>
+            </div>
           </form>
         </div>
 
@@ -629,7 +722,10 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
           </select>
           <input class="request-input" name="tipper_name" placeholder="Your name">
           <input class="request-input" name="tip_note" placeholder="Optional note">
-          <button class="btn btn-primary request-submit" type="submit">Tip</button>
+          <div class="payment-buttons">
+            <button class="btn btn-primary request-submit" type="submit" name="payment_method" value="stripe">Tip with card</button>
+            <?php if ($venmoAvailable): ?><button class="btn btn-outline request-submit" type="submit" name="payment_method" value="venmo">Tip with Venmo</button><?php endif; ?>
+          </div>
         </form>
       </div>
 
@@ -698,7 +794,10 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
                   </select>
                   <input class="request-input" name="requester_name" placeholder="Your name">
                   <input class="request-input" name="request_note" placeholder="Optional note">
-                  <button class="btn btn-primary request-submit" type="submit">Request</button>
+                  <div class="payment-buttons">
+                    <button class="btn btn-primary request-submit" type="submit" name="payment_method" value="stripe">Request with card</button>
+                    <?php if ($venmoAvailable): ?><button class="btn btn-outline request-submit" type="submit" name="payment_method" value="venmo">Request with Venmo</button><?php endif; ?>
+                  </div>
                 </form>
               <?php endif; ?>
             </div>

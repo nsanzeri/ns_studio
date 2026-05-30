@@ -24,19 +24,20 @@ if ($tablesReady) {
         $stmt = $pdo->prepare("SELECT COUNT(*) FROM setmaxx_requests WHERE gig_session_id = ? AND status IN ('pending','queued')");
         $stmt->execute([(int)$liveSession['id']]);
         $pendingCount = (int)$stmt->fetchColumn();
-    }
 
-    $recentStmt = $pdo->prepare(
-        "SELECT r.id, r.requester_name, r.amount_cents, r.status, r.created_at, s.title, s.artist, gs.title AS session_title
-         FROM setmaxx_requests r
-         JOIN setmaxx_gig_sessions gs ON gs.id = r.gig_session_id
-         JOIN setmaxx_songs s ON s.id = r.song_id
-         WHERE gs.user_id = ?
-         ORDER BY r.created_at DESC
+        $recentStmt = $pdo->prepare(
+            "SELECT r.id, r.requester_name, r.amount_cents, r.status, r.created_at, s.title, s.artist, gs.title AS session_title
+             FROM setmaxx_requests r
+             JOIN setmaxx_gig_sessions gs ON gs.id = r.gig_session_id
+             JOIN setmaxx_songs s ON s.id = r.song_id
+             WHERE gs.user_id = ?
+               AND r.gig_session_id = ?
+             ORDER BY r.created_at DESC
          LIMIT 6"
-    );
-    $recentStmt->execute([$userId]);
-    $recentRequests = $recentStmt->fetchAll(PDO::FETCH_ASSOC);
+        );
+        $recentStmt->execute([$userId, (int)$liveSession['id']]);
+        $recentRequests = $recentStmt->fetchAll(PDO::FETCH_ASSOC);
+    }
 }
 
 setmaxx_page_head('Set Maxx | Dashboard');
@@ -119,10 +120,10 @@ setmaxx_page_head('Set Maxx | Dashboard');
         <?php endif; ?>
       </div>
       <div class="setmaxx-card">
-        <h2 style="margin-top:0;">Recent requests</h2>
+        <h2 style="margin-top:0;">Live session activity</h2>
         <div class="setmaxx-list">
           <?php if (!$recentRequests): ?>
-            <div class="setmaxx-row"><div class="setmaxx-meta">No requests yet.</div></div>
+            <div class="setmaxx-row"><div class="setmaxx-meta"><?= $liveSession ? 'No requests yet for the live session.' : 'No live session right now.' ?></div></div>
           <?php else: ?>
             <?php foreach ($recentRequests as $request): ?>
               <div class="setmaxx-row">

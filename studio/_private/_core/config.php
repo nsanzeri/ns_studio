@@ -7,6 +7,7 @@ return [
 		'app' => [
 				'base_url'     => env('BASE_URL', ''),
 				'session_name' => env('SESSION_NAME', 'ns_studio'),
+				'session_lifetime_seconds' => (int) env('SESSION_LIFETIME_SECONDS', 43200),
 				'env'          => env('APP_ENV', 'production'),
 		],
 		

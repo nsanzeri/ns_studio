@@ -23,6 +23,21 @@ function setmaxx_requests_ensure_suggestions_table(PDO $pdo): void {
     ");
 }
 
+function setmaxx_requests_column_exists(PDO $pdo, string $tableName, string $columnName): bool {
+    $stmt = $pdo->prepare("SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = ? AND column_name = ? LIMIT 1");
+    $stmt->execute([$tableName, $columnName]);
+    return (bool)$stmt->fetchColumn();
+}
+
+function setmaxx_requests_ensure_payment_method_columns(PDO $pdo): void {
+    if (setmaxx_table_exists($pdo, 'setmaxx_requests') && !setmaxx_requests_column_exists($pdo, 'setmaxx_requests', 'payment_method')) {
+        $pdo->exec("ALTER TABLE setmaxx_requests ADD COLUMN payment_method varchar(24) NOT NULL DEFAULT 'stripe' AFTER status");
+    }
+    if (setmaxx_table_exists($pdo, 'setmaxx_general_tips') && !setmaxx_requests_column_exists($pdo, 'setmaxx_general_tips', 'payment_method')) {
+        $pdo->exec("ALTER TABLE setmaxx_general_tips ADD COLUMN payment_method varchar(24) NOT NULL DEFAULT 'stripe' AFTER status");
+    }
+}
+
 if ($tablesReady && is_post()) {
     if (!csrf_verify($_POST['_csrf'] ?? null)) {
         $errors[] = 'Your session expired. Refresh the page and try again.';
@@ -44,7 +59,6 @@ if ($tablesReady && is_post()) {
 
 $liveSession = null;
 $requests = [];
-$recentRequests = [];
 $suggestions = [];
 $generalTips = [];
 $suggestionsReady = false;
@@ -52,6 +66,7 @@ $generalTipsReady = false;
 if ($tablesReady) {
     try {
         setmaxx_requests_ensure_suggestions_table($pdo);
+        setmaxx_requests_ensure_payment_method_columns($pdo);
         $suggestionsReady = true;
     } catch (Throwable $e) {
         $errors[] = 'Song suggestions could not be loaded right now.';
@@ -68,6 +83,7 @@ if ($tablesReady) {
                   `tip_note` varchar(255) DEFAULT NULL,
                   `amount_cents` int(10) unsigned NOT NULL DEFAULT 0,
                   `status` enum('paid','refunded') NOT NULL DEFAULT 'paid',
+                  `payment_method` varchar(24) NOT NULL DEFAULT 'stripe',
                   `stripe_payment_intent_id` varchar(255) DEFAULT NULL,
                   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
                   PRIMARY KEY (`id`),
@@ -90,24 +106,20 @@ if ($tablesReady) {
     $sessionsStmt->execute([$userId]);
     $liveSession = $sessionsStmt->fetch(PDO::FETCH_ASSOC) ?: null;
     if ($liveSession) {
-        $reqStmt = $pdo->prepare("SELECT r.id, r.requester_name, r.request_note, r.amount_cents, r.status, r.created_at, s.title, s.artist FROM setmaxx_requests r JOIN setmaxx_songs s ON s.id = r.song_id WHERE r.gig_session_id = ? ORDER BY FIELD(r.status, 'pending', 'queued', 'played', 'declined', 'canceled'), r.amount_cents DESC, r.created_at DESC");
+        $reqStmt = $pdo->prepare("SELECT r.id, r.requester_name, r.request_note, r.amount_cents, r.status, r.payment_method, r.created_at, s.title, s.artist FROM setmaxx_requests r JOIN setmaxx_songs s ON s.id = r.song_id WHERE r.gig_session_id = ? ORDER BY FIELD(r.status, 'pending', 'queued', 'played', 'declined', 'canceled'), r.amount_cents DESC, r.created_at DESC");
         $reqStmt->execute([(int)$liveSession['id']]);
         $requests = $reqStmt->fetchAll(PDO::FETCH_ASSOC);
 
         if ($generalTipsReady) {
-            $tipsStmt = $pdo->prepare("SELECT tipper_name, tip_note, amount_cents, created_at FROM setmaxx_general_tips WHERE gig_session_id = ? AND status = 'paid' ORDER BY created_at DESC LIMIT 10");
+            $tipsStmt = $pdo->prepare("SELECT tipper_name, tip_note, amount_cents, payment_method, created_at FROM setmaxx_general_tips WHERE gig_session_id = ? AND status = 'paid' ORDER BY created_at DESC LIMIT 10");
             $tipsStmt->execute([(int)$liveSession['id']]);
             $generalTips = $tipsStmt->fetchAll(PDO::FETCH_ASSOC);
         }
     } elseif ($generalTipsReady) {
-        $tipsStmt = $pdo->prepare("SELECT tipper_name, tip_note, amount_cents, created_at FROM setmaxx_general_tips WHERE user_id = ? AND status = 'paid' ORDER BY created_at DESC LIMIT 10");
+        $tipsStmt = $pdo->prepare("SELECT tipper_name, tip_note, amount_cents, payment_method, created_at FROM setmaxx_general_tips WHERE user_id = ? AND status = 'paid' ORDER BY created_at DESC LIMIT 10");
         $tipsStmt->execute([$userId]);
         $generalTips = $tipsStmt->fetchAll(PDO::FETCH_ASSOC);
     }
-    $recentStmt = $pdo->prepare("SELECT r.id, r.requester_name, r.amount_cents, r.status, r.created_at, s.title, s.artist, gs.title AS session_title FROM setmaxx_requests r JOIN setmaxx_gig_sessions gs ON gs.id = r.gig_session_id JOIN setmaxx_songs s ON s.id = r.song_id WHERE gs.user_id = ? ORDER BY r.created_at DESC LIMIT 12");
-    $recentStmt->execute([$userId]);
-    $recentRequests = $recentStmt->fetchAll(PDO::FETCH_ASSOC);
-
     if ($suggestionsReady) {
         $suggestStmt = $pdo->prepare(
             "SELECT ss.suggested_title, ss.suggested_artist, ss.requester_name, ss.suggestion_note, ss.created_at, gs.title AS session_title
@@ -147,12 +159,13 @@ setmaxx_page_head('Set Maxx | Request Dashboard');
           <?php else: foreach ($requests as $request): ?>
             <div class="setmaxx-row">
               <div style="min-width:0; flex:1;">
-                <div style="display:flex; gap:.55rem; align-items:center; flex-wrap:wrap;"><div style="font-weight:600;"><?= e($request['title']) ?></div><span class="setmaxx-status <?= e((string)$request['status']) ?>"><?= e((string)$request['status']) ?></span></div>
+                <div style="display:flex; gap:.55rem; align-items:center; flex-wrap:wrap;"><div style="font-weight:600;"><?= e($request['title']) ?></div><span class="setmaxx-status <?= e((string)$request['status']) ?>"><?= e((string)$request['status']) ?></span><?php if (($request['payment_method'] ?? '') === 'venmo'): ?><span class="setmaxx-pill">Venmo recorded</span><?php endif; ?></div>
                 <div class="setmaxx-meta"><?= e((string)($request['artist'] ?: 'Artist not set')) ?> &middot; from <?= e((string)($request['requester_name'] ?: 'Anonymous')) ?></div>
                 <?php if (!empty($request['request_note'])): ?><div class="setmaxx-help" style="margin-top:.35rem;">"<?= e((string)$request['request_note']) ?>"</div><?php endif; ?>
               </div>
               <div>
                 <div class="setmaxx-request-amount"><?= e(setmaxx_money((int)$request['amount_cents'])) ?></div>
+                <?php if (($request['payment_method'] ?? '') === 'stripe'): ?><div class="setmaxx-meta">Stripe</div><?php endif; ?>
                 <div class="setmaxx-actions" style="justify-content:flex-end; margin-top:.45rem;">
                   <?php foreach (['queued' => 'Queue', 'played' => 'Played', 'declined' => 'Decline'] as $statusValue => $label): ?>
                     <?php if ($request['status'] !== $statusValue): ?>
@@ -177,26 +190,7 @@ setmaxx_page_head('Set Maxx | Request Dashboard');
               <div style="font-weight:600;"><?= e((string)($tip['tipper_name'] ?: 'Anonymous')) ?></div>
               <?php if (!empty($tip['tip_note'])): ?><div class="setmaxx-help" style="margin-top:.35rem;">"<?= e((string)$tip['tip_note']) ?>"</div><?php endif; ?>
             </div>
-            <div class="setmaxx-request-amount"><?= e(setmaxx_money((int)$tip['amount_cents'])) ?></div>
-          </div>
-        <?php endforeach; endif; ?>
-      </div>
-    </div>
-    <div class="setmaxx-card">
-      <h2 style="margin-top:0;">Recent requests</h2>
-      <div class="setmaxx-list">
-        <?php if (!$recentRequests): ?>
-          <div class="setmaxx-row"><div class="setmaxx-meta">No requests yet.</div></div>
-        <?php else: foreach ($recentRequests as $request): ?>
-          <div class="setmaxx-row">
-            <div>
-              <div style="display:flex; gap:.5rem; align-items:center; flex-wrap:wrap;">
-                <div style="font-weight:600;"><?= e($request['title']) ?></div>
-                <a class="setmaxx-mini-link" href="<?= e(setmaxx_lyrics_url((string)$request['title'], (string)$request['artist'])) ?>" target="_blank" rel="noopener">Lyrics</a>
-              </div>
-              <div class="setmaxx-meta"><?= e($request['session_title']) ?> &middot; <?= e((string)($request['requester_name'] ?: 'Anonymous')) ?></div>
-            </div>
-            <div><div class="setmaxx-request-amount"><?= e(setmaxx_money((int)$request['amount_cents'])) ?></div><div class="setmaxx-status <?= e((string)$request['status']) ?>"><?= e((string)$request['status']) ?></div></div>
+            <div><div class="setmaxx-request-amount"><?= e(setmaxx_money((int)$tip['amount_cents'])) ?></div><div class="setmaxx-meta"><?= (($tip['payment_method'] ?? '') === 'venmo') ? 'Venmo recorded' : 'Stripe' ?></div></div>
           </div>
         <?php endforeach; endif; ?>
       </div>

@@ -10,6 +10,7 @@ function setmaxx_ensure_public_profile_table(PDO $pdo): void {
 		  `website_url` varchar(255) DEFAULT NULL,
 		  `review_url` varchar(255) DEFAULT NULL,
 		  `logo_path` varchar(255) DEFAULT NULL,
+		  `venmo_handle` varchar(80) DEFAULT NULL,
 		  `minimum_tip_dollars` tinyint(3) unsigned NOT NULL DEFAULT 10,
 		  `price_step_dollars` tinyint(3) unsigned NOT NULL DEFAULT 1,
 		  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
@@ -29,12 +30,33 @@ function setmaxx_profile_column_exists(PDO $pdo, string $columnName): bool {
 
 function setmaxx_ensure_public_profile_pricing_columns(PDO $pdo): void {
 	setmaxx_ensure_public_profile_table($pdo);
+	if (!setmaxx_profile_column_exists($pdo, 'venmo_handle')) {
+		$pdo->exec("ALTER TABLE setmaxx_public_profiles ADD COLUMN venmo_handle varchar(80) DEFAULT NULL AFTER logo_path");
+	}
 	if (!setmaxx_profile_column_exists($pdo, 'minimum_tip_dollars')) {
 		$pdo->exec("ALTER TABLE setmaxx_public_profiles ADD COLUMN minimum_tip_dollars tinyint(3) unsigned NOT NULL DEFAULT 10 AFTER logo_path");
 	}
 	if (!setmaxx_profile_column_exists($pdo, 'price_step_dollars')) {
 		$pdo->exec("ALTER TABLE setmaxx_public_profiles ADD COLUMN price_step_dollars tinyint(3) unsigned NOT NULL DEFAULT 1 AFTER minimum_tip_dollars");
 	}
+}
+
+function setmaxx_session_column_exists(PDO $pdo, string $columnName): bool {
+	$stmt = $pdo->prepare("SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'setmaxx_gig_sessions' AND column_name = ? LIMIT 1");
+	$stmt->execute([$columnName]);
+	return (bool)$stmt->fetchColumn();
+}
+
+function setmaxx_ensure_session_venmo_column(PDO $pdo): void {
+	if (!setmaxx_session_column_exists($pdo, 'venmo_enabled')) {
+		$pdo->exec("ALTER TABLE setmaxx_gig_sessions ADD COLUMN venmo_enabled tinyint(1) NOT NULL DEFAULT 0 AFTER status");
+	}
+}
+
+function setmaxx_clean_venmo_handle($value): ?string {
+	$handle = ltrim(trim((string)$value), '@');
+	if ($handle === '') return null;
+	return preg_match('/^[A-Za-z0-9_.-]{3,80}$/', $handle) ? $handle : null;
 }
 
 function setmaxx_clean_public_url($value): ?string {
@@ -48,9 +70,9 @@ function setmaxx_clean_public_url($value): ?string {
 
 function setmaxx_public_profile(PDO $pdo, int $userId): array {
 	setmaxx_ensure_public_profile_pricing_columns($pdo);
-	$stmt = $pdo->prepare("SELECT website_url, review_url, logo_path, minimum_tip_dollars, price_step_dollars FROM setmaxx_public_profiles WHERE user_id = ? LIMIT 1");
+	$stmt = $pdo->prepare("SELECT website_url, review_url, logo_path, venmo_handle, minimum_tip_dollars, price_step_dollars FROM setmaxx_public_profiles WHERE user_id = ? LIMIT 1");
 	$stmt->execute([$userId]);
-	return $stmt->fetch(PDO::FETCH_ASSOC) ?: ['website_url' => '', 'review_url' => '', 'logo_path' => '', 'minimum_tip_dollars' => 10, 'price_step_dollars' => 1];
+	return $stmt->fetch(PDO::FETCH_ASSOC) ?: ['website_url' => '', 'review_url' => '', 'logo_path' => '', 'venmo_handle' => '', 'minimum_tip_dollars' => 10, 'price_step_dollars' => 1];
 }
 
 $stablePublicUrl = '';
@@ -58,6 +80,7 @@ $stableQrUrl = '';
 $publicProfile = ['website_url' => '', 'review_url' => '', 'logo_path' => ''];
 if ($tablesReady) {
 	try {
+		setmaxx_ensure_session_venmo_column($pdo);
 		setmaxx_enforce_single_live_session($pdo, $userId);
 		$stableToken = setmaxx_public_link_token($pdo, $userId);
 		$stablePublicUrl = setmaxx_absolute_url($stableSessionLinkBase . rawurlencode($stableToken));
@@ -80,6 +103,7 @@ if ($tablesReady && is_post()) {
 				$title = trim((string)($_POST['session_title'] ?? ''));
 				$venue = trim((string)($_POST['venue_name'] ?? ''));
 				$goLive = isset($_POST['go_live']) ? 1 : 0;
+				$venmoEnabled = isset($_POST['venmo_enabled']) ? 1 : 0;
 				if ($title === '') throw new RuntimeException('Session title is required.');
 				$baseSlug = strtolower(trim(preg_replace('/[^a-z0-9]+/i', '-', $title), '-')) ?: 'gig';
 				$sessionSlug = $baseSlug . '-' . substr(bin2hex(random_bytes(4)), 0, 8);
@@ -91,8 +115,8 @@ if ($tablesReady && is_post()) {
 				if ($goLive) {
 					$pdo->prepare("UPDATE setmaxx_gig_sessions SET status = 'closed', ends_at = NOW() WHERE user_id = ? AND status = 'live'")->execute([$userId]);
 				}
-				$stmt = $pdo->prepare("INSERT INTO setmaxx_gig_sessions (user_id, title, venue_name, session_slug, public_token, status, starts_at) VALUES (?, ?, ?, ?, ?, ?, ?)");
-				$stmt->execute([$userId, $title, $venue !== '' ? $venue : null, $sessionSlug, $publicToken, $status, $goLive ? date('Y-m-d H:i:s') : null]);
+				$stmt = $pdo->prepare("INSERT INTO setmaxx_gig_sessions (user_id, title, venue_name, session_slug, public_token, status, venmo_enabled, starts_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+				$stmt->execute([$userId, $title, $venue !== '' ? $venue : null, $sessionSlug, $publicToken, $status, $venmoEnabled, $goLive ? date('Y-m-d H:i:s') : null]);
 				$pdo->commit();
 				setmaxx_enforce_single_live_session($pdo, $userId);
 				$messages[] = $goLive ? 'New live session created.' : 'Session created in draft mode.';
@@ -101,6 +125,7 @@ if ($tablesReady && is_post()) {
 				setmaxx_ensure_public_profile_pricing_columns($pdo);
 				$websiteUrl = setmaxx_clean_public_url($_POST['website_url'] ?? '');
 				$reviewUrl = setmaxx_clean_public_url($_POST['review_url'] ?? '');
+				$venmoHandle = setmaxx_clean_venmo_handle($_POST['venmo_handle'] ?? '');
 				$minimumTipDollars = max(0, min(100, (int)($_POST['minimum_tip_dollars'] ?? 10)));
 				$priceStepDollars = (int)($_POST['price_step_dollars'] ?? 1);
 				if (!in_array($priceStepDollars, [1, 5, 10], true)) $priceStepDollars = 1;
@@ -108,6 +133,7 @@ if ($tablesReady && is_post()) {
 				
 				if (trim((string)($_POST['website_url'] ?? '')) !== '' && $websiteUrl === null) throw new RuntimeException('Website link is not valid.');
 				if (trim((string)($_POST['review_url'] ?? '')) !== '' && $reviewUrl === null) throw new RuntimeException('Review link is not valid.');
+				if (trim((string)($_POST['venmo_handle'] ?? '')) !== '' && $venmoHandle === null) throw new RuntimeException('Venmo handle can use letters, numbers, dots, underscores, or hyphens.');
 				
 				if (!empty($_FILES['logo_file']['tmp_name']) && is_uploaded_file($_FILES['logo_file']['tmp_name'])) {
 					$tmpPath = (string)$_FILES['logo_file']['tmp_name'];
@@ -130,10 +156,10 @@ if ($tablesReady && is_post()) {
 				}
 				
 				$pdo->prepare(
-					"INSERT INTO setmaxx_public_profiles (user_id, website_url, review_url, logo_path, minimum_tip_dollars, price_step_dollars)
-					 VALUES (?, ?, ?, ?, ?, ?)
-					 ON DUPLICATE KEY UPDATE website_url = VALUES(website_url), review_url = VALUES(review_url), logo_path = VALUES(logo_path), minimum_tip_dollars = VALUES(minimum_tip_dollars), price_step_dollars = VALUES(price_step_dollars)"
-				)->execute([$userId, $websiteUrl, $reviewUrl, $logoPath !== '' ? $logoPath : null, $minimumTipDollars, $priceStepDollars]);
+					"INSERT INTO setmaxx_public_profiles (user_id, website_url, review_url, logo_path, venmo_handle, minimum_tip_dollars, price_step_dollars)
+					 VALUES (?, ?, ?, ?, ?, ?, ?)
+					 ON DUPLICATE KEY UPDATE website_url = VALUES(website_url), review_url = VALUES(review_url), logo_path = VALUES(logo_path), venmo_handle = VALUES(venmo_handle), minimum_tip_dollars = VALUES(minimum_tip_dollars), price_step_dollars = VALUES(price_step_dollars)"
+				)->execute([$userId, $websiteUrl, $reviewUrl, $logoPath !== '' ? $logoPath : null, $venmoHandle, $minimumTipDollars, $priceStepDollars]);
 				$publicProfile = setmaxx_public_profile($pdo, $userId);
 				$messages[] = 'Public page settings saved.';
 			}
@@ -154,6 +180,14 @@ if ($tablesReady && is_post()) {
 				}
 				$pdo->commit();
 				setmaxx_enforce_single_live_session($pdo, $userId);
+			}
+			if ($action === 'session_venmo') {
+				$sessionId = (int)($_POST['session_id'] ?? 0);
+				$venmoEnabled = isset($_POST['venmo_enabled']) ? 1 : 0;
+				if ($sessionId <= 0) throw new RuntimeException('Invalid session update.');
+				setmaxx_ensure_session_venmo_column($pdo);
+				$pdo->prepare("UPDATE setmaxx_gig_sessions SET venmo_enabled = ? WHERE id = ? AND user_id = ?")->execute([$venmoEnabled, $sessionId, $userId]);
+				$messages[] = $venmoEnabled ? 'Venmo is on for that session.' : 'Venmo is off for that session.';
 			}
 			if ($action === 'delete_session') {
 				$sessionId = (int)($_POST['session_id'] ?? 0);
@@ -185,7 +219,8 @@ if ($tablesReady && is_post()) {
 $sessions = [];
 if ($tablesReady) {
 	setmaxx_enforce_single_live_session($pdo, $userId);
-	$sessionsStmt = $pdo->prepare("SELECT id, title, venue_name, session_slug, public_token, status, starts_at, ends_at, created_at FROM setmaxx_gig_sessions WHERE user_id = ? ORDER BY FIELD(status, 'live', 'draft', 'closed'), created_at DESC LIMIT 20");
+	setmaxx_ensure_session_venmo_column($pdo);
+	$sessionsStmt = $pdo->prepare("SELECT id, title, venue_name, session_slug, public_token, status, venmo_enabled, starts_at, ends_at, created_at FROM setmaxx_gig_sessions WHERE user_id = ? ORDER BY FIELD(status, 'live', 'draft', 'closed'), created_at DESC LIMIT 20");
 	$sessionsStmt->execute([$userId]);
 	$sessions = $sessionsStmt->fetchAll(PDO::FETCH_ASSOC);
 }
@@ -210,6 +245,7 @@ setmaxx_page_head('Set Maxx | Gig Sessions');
           <div class="setmaxx-field"><label for="venue_name">Venue</label><input class="setmaxx-input" id="venue_name" name="venue_name" placeholder="Moretti's Rosemont"></div>
         </div>
         <label style="display:flex; gap:.6rem; align-items:center;"><input type="checkbox" name="go_live" value="1" checked><span class="setmaxx-help">Make this the live request page now</span></label>
+        <label style="display:flex; gap:.6rem; align-items:center;"><input type="checkbox" name="venmo_enabled" value="1" <?= !empty($publicProfile['venmo_handle']) ? 'checked' : '' ?>><span class="setmaxx-help">Show Venmo on this session<?= empty($publicProfile['venmo_handle']) ? ' after you add a handle below' : '' ?></span></label>
         <div class="setmaxx-actions"><button class="btn btn-primary" type="submit" <?= $isProUser ? '' : 'disabled' ?>>Create session</button></div>
       </form>
     </div>
@@ -233,6 +269,10 @@ setmaxx_page_head('Set Maxx | Gig Sessions');
       <div class="setmaxx-form-grid">
         <div class="setmaxx-field"><label for="website_url">Performer website</label><input class="setmaxx-input" id="website_url" name="website_url" placeholder="https://your-site.com" value="<?= e((string)($publicProfile['website_url'] ?? '')) ?>"></div>
         <div class="setmaxx-field"><label for="review_url">Review link</label><input class="setmaxx-input" id="review_url" name="review_url" placeholder="Google review page" value="<?= e((string)($publicProfile['review_url'] ?? '')) ?>"></div>
+      </div>
+      <div class="setmaxx-form-grid">
+        <div class="setmaxx-field"><label for="venmo_handle">Venmo handle</label><input class="setmaxx-input" id="venmo_handle" name="venmo_handle" placeholder="@your-venmo" value="<?= e((string)($publicProfile['venmo_handle'] ?? '')) ?>"></div>
+        <div class="setmaxx-field"><label>Venmo tracking</label><div class="setmaxx-help">When Venmo is turned on for a session, Set Maxx records those amounts separately as Venmo recorded.</div></div>
       </div>
       <div class="setmaxx-form-grid">
         <div class="setmaxx-field">
@@ -272,11 +312,23 @@ setmaxx_page_head('Set Maxx | Gig Sessions');
           <div style="min-width:0; flex:1;">
             <div style="display:flex; gap:.6rem; align-items:center; flex-wrap:wrap;"><div style="font-weight:600;"><?= e($session['title']) ?></div><?= setmaxx_status_pill((string)$session['status']) ?></div>
             <div class="setmaxx-meta"><?= e((string)($session['venue_name'] ?: 'Venue not set')) ?></div>
+            <div class="setmaxx-meta">Venmo: <?= !empty($session['venmo_enabled']) ? 'On' : 'Off' ?></div>
             <?php if (($session['status'] ?? '') === 'live' && $stablePublicUrl): ?>
               <div class="setmaxx-link-box" style="margin-top:.7rem;"><strong>Live public page</strong><code><?= e($stablePublicUrl) ?></code><a class="btn btn-outline" href="<?= e($stablePublicUrl) ?>" target="_blank" rel="noopener">Open</a></div>
+            <?php else: ?>
+              <div style="margin-top:.7rem;"><a class="btn btn-outline" href="<?= e(base_url('/setmaxx/session.php?id=' . (int)$session['id'])) ?>">Open history</a></div>
             <?php endif; ?>
           </div>
           <div class="setmaxx-actions">
+            <form method="post" action="">
+              <input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>">
+              <input type="hidden" name="action" value="session_venmo">
+              <input type="hidden" name="session_id" value="<?= (int)$session['id'] ?>">
+              <label class="setmaxx-help" style="display:flex; gap:.45rem; align-items:center;">
+                <input type="checkbox" name="venmo_enabled" value="1" <?= !empty($session['venmo_enabled']) ? 'checked' : '' ?> onchange="this.form.submit()" <?= $isProUser ? '' : 'disabled' ?>>
+                Venmo
+              </label>
+            </form>
             <?php if (($session['status'] ?? '') !== 'live'): ?>
               <form method="post" action=""><input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>"><input type="hidden" name="action" value="session_status"><input type="hidden" name="session_id" value="<?= (int)$session['id'] ?>"><input type="hidden" name="new_status" value="live"><button class="btn btn-outline" type="submit" <?= $isProUser ? '' : 'disabled' ?>>Go live</button></form>
             <?php else: ?>

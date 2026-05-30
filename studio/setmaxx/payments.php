@@ -56,47 +56,77 @@ if ($stripeReady) {
 
 $connectReady = setmaxx_connect_ready($connectAccount);
 $paymentTotals = [
-    'tonight' => ['label' => 'Tonight', 'gross_cents' => 0],
-    'last_30' => ['label' => 'Last 30 days', 'gross_cents' => 0],
-    'all_time' => ['label' => 'All time', 'gross_cents' => 0],
+    'tonight' => ['label' => 'Tonight', 'stripe_cents' => 0, 'venmo_cents' => 0],
+    'last_30' => ['label' => 'Last 30 days', 'stripe_cents' => 0, 'venmo_cents' => 0],
+    'all_time' => ['label' => 'All time', 'stripe_cents' => 0, 'venmo_cents' => 0],
 ];
+
+function setmaxx_payments_column_exists(PDO $pdo, string $tableName, string $columnName): bool {
+    $stmt = $pdo->prepare("SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = ? AND column_name = ? LIMIT 1");
+    $stmt->execute([$tableName, $columnName]);
+    return (bool)$stmt->fetchColumn();
+}
+
+function setmaxx_payments_ensure_payment_method_columns(PDO $pdo): void {
+    if (setmaxx_table_exists($pdo, 'setmaxx_requests') && !setmaxx_payments_column_exists($pdo, 'setmaxx_requests', 'payment_method')) {
+        $pdo->exec("ALTER TABLE setmaxx_requests ADD COLUMN payment_method varchar(24) NOT NULL DEFAULT 'stripe' AFTER status");
+    }
+    if (setmaxx_table_exists($pdo, 'setmaxx_general_tips') && !setmaxx_payments_column_exists($pdo, 'setmaxx_general_tips', 'payment_method')) {
+        $pdo->exec("ALTER TABLE setmaxx_general_tips ADD COLUMN payment_method varchar(24) NOT NULL DEFAULT 'stripe' AFTER status");
+    }
+}
 
 if ($tablesReady) {
     try {
+        setmaxx_payments_ensure_payment_method_columns($pdo);
         $totalsStmt = $pdo->prepare(
             "SELECT
-                COALESCE(SUM(CASE WHEN DATE(r.created_at) = CURDATE() THEN r.amount_cents ELSE 0 END), 0) AS tonight_cents,
-                COALESCE(SUM(CASE WHEN r.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY) THEN r.amount_cents ELSE 0 END), 0) AS last_30_cents,
-                COALESCE(SUM(r.amount_cents), 0) AS all_time_cents
+                COALESCE(SUM(CASE WHEN DATE(r.created_at) = CURDATE() AND r.payment_method = 'stripe' THEN r.amount_cents ELSE 0 END), 0) AS tonight_stripe_cents,
+                COALESCE(SUM(CASE WHEN DATE(r.created_at) = CURDATE() AND r.payment_method = 'venmo' THEN r.amount_cents ELSE 0 END), 0) AS tonight_venmo_cents,
+                COALESCE(SUM(CASE WHEN r.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY) AND r.payment_method = 'stripe' THEN r.amount_cents ELSE 0 END), 0) AS last_30_stripe_cents,
+                COALESCE(SUM(CASE WHEN r.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY) AND r.payment_method = 'venmo' THEN r.amount_cents ELSE 0 END), 0) AS last_30_venmo_cents,
+                COALESCE(SUM(CASE WHEN r.payment_method = 'stripe' THEN r.amount_cents ELSE 0 END), 0) AS all_time_stripe_cents,
+                COALESCE(SUM(CASE WHEN r.payment_method = 'venmo' THEN r.amount_cents ELSE 0 END), 0) AS all_time_venmo_cents
              FROM setmaxx_requests r
              JOIN setmaxx_gig_sessions gs ON gs.id = r.gig_session_id
              WHERE gs.user_id = ?
                AND r.amount_cents > 0
                AND r.status <> 'canceled'
-               AND r.stripe_payment_intent_id IS NOT NULL
-               AND r.stripe_payment_intent_id <> ''"
+               AND (
+                    (r.payment_method = 'stripe' AND r.stripe_payment_intent_id IS NOT NULL AND r.stripe_payment_intent_id <> '')
+                    OR r.payment_method = 'venmo'
+               )"
         );
         $totalsStmt->execute([$userId]);
         $totalsRow = $totalsStmt->fetch(PDO::FETCH_ASSOC) ?: [];
-        $paymentTotals['tonight']['gross_cents'] = (int)($totalsRow['tonight_cents'] ?? 0);
-        $paymentTotals['last_30']['gross_cents'] = (int)($totalsRow['last_30_cents'] ?? 0);
-        $paymentTotals['all_time']['gross_cents'] = (int)($totalsRow['all_time_cents'] ?? 0);
+        $paymentTotals['tonight']['stripe_cents'] = (int)($totalsRow['tonight_stripe_cents'] ?? 0);
+        $paymentTotals['tonight']['venmo_cents'] = (int)($totalsRow['tonight_venmo_cents'] ?? 0);
+        $paymentTotals['last_30']['stripe_cents'] = (int)($totalsRow['last_30_stripe_cents'] ?? 0);
+        $paymentTotals['last_30']['venmo_cents'] = (int)($totalsRow['last_30_venmo_cents'] ?? 0);
+        $paymentTotals['all_time']['stripe_cents'] = (int)($totalsRow['all_time_stripe_cents'] ?? 0);
+        $paymentTotals['all_time']['venmo_cents'] = (int)($totalsRow['all_time_venmo_cents'] ?? 0);
 
         if (setmaxx_table_exists($pdo, 'setmaxx_general_tips')) {
             $tipsTotalsStmt = $pdo->prepare(
                 "SELECT
-                    COALESCE(SUM(CASE WHEN DATE(created_at) = CURDATE() THEN amount_cents ELSE 0 END), 0) AS tonight_cents,
-                    COALESCE(SUM(CASE WHEN created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY) THEN amount_cents ELSE 0 END), 0) AS last_30_cents,
-                    COALESCE(SUM(amount_cents), 0) AS all_time_cents
+                    COALESCE(SUM(CASE WHEN DATE(created_at) = CURDATE() AND payment_method = 'stripe' THEN amount_cents ELSE 0 END), 0) AS tonight_stripe_cents,
+                    COALESCE(SUM(CASE WHEN DATE(created_at) = CURDATE() AND payment_method = 'venmo' THEN amount_cents ELSE 0 END), 0) AS tonight_venmo_cents,
+                    COALESCE(SUM(CASE WHEN created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY) AND payment_method = 'stripe' THEN amount_cents ELSE 0 END), 0) AS last_30_stripe_cents,
+                    COALESCE(SUM(CASE WHEN created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY) AND payment_method = 'venmo' THEN amount_cents ELSE 0 END), 0) AS last_30_venmo_cents,
+                    COALESCE(SUM(CASE WHEN payment_method = 'stripe' THEN amount_cents ELSE 0 END), 0) AS all_time_stripe_cents,
+                    COALESCE(SUM(CASE WHEN payment_method = 'venmo' THEN amount_cents ELSE 0 END), 0) AS all_time_venmo_cents
                  FROM setmaxx_general_tips
                  WHERE user_id = ?
                    AND status = 'paid'"
             );
             $tipsTotalsStmt->execute([$userId]);
             $tipsTotalsRow = $tipsTotalsStmt->fetch(PDO::FETCH_ASSOC) ?: [];
-            $paymentTotals['tonight']['gross_cents'] += (int)($tipsTotalsRow['tonight_cents'] ?? 0);
-            $paymentTotals['last_30']['gross_cents'] += (int)($tipsTotalsRow['last_30_cents'] ?? 0);
-            $paymentTotals['all_time']['gross_cents'] += (int)($tipsTotalsRow['all_time_cents'] ?? 0);
+            $paymentTotals['tonight']['stripe_cents'] += (int)($tipsTotalsRow['tonight_stripe_cents'] ?? 0);
+            $paymentTotals['tonight']['venmo_cents'] += (int)($tipsTotalsRow['tonight_venmo_cents'] ?? 0);
+            $paymentTotals['last_30']['stripe_cents'] += (int)($tipsTotalsRow['last_30_stripe_cents'] ?? 0);
+            $paymentTotals['last_30']['venmo_cents'] += (int)($tipsTotalsRow['last_30_venmo_cents'] ?? 0);
+            $paymentTotals['all_time']['stripe_cents'] += (int)($tipsTotalsRow['all_time_stripe_cents'] ?? 0);
+            $paymentTotals['all_time']['venmo_cents'] += (int)($tipsTotalsRow['all_time_venmo_cents'] ?? 0);
         }
     } catch (Throwable $e) {
         $errors[] = 'Payment totals could not be loaded right now.';
@@ -126,7 +156,7 @@ setmaxx_page_head('Set Maxx | Payments');
     <div class="setmaxx-card">
       <div class="setmaxx-pill">Payments</div>
       <h1 style="margin:.8rem 0 .45rem;">Tips and Payouts</h1>
-      <p class="setmaxx-help" style="font-size:1rem; margin:0;">Connect Stripe once, then paid song requests and tips can be charged directly through the performer account for each show.</p>
+      <p class="setmaxx-help" style="font-size:1rem; margin:0;">Connect Stripe for verified card payments, or turn on Venmo per session to record direct Venmo requests and tips.</p>
     </div>
     <div class="setmaxx-card">
       <h2 style="margin-top:0;">Tip routing</h2>
@@ -142,7 +172,7 @@ setmaxx_page_head('Set Maxx | Payments');
         <div class="setmaxx-row">
           <div>
             <strong>You keep the money</strong>
-            <div class="setmaxx-meta">Tips and paid requests go straight to your connected Stripe account. Stripe sends the payout to you after its normal processing fee.</div>
+            <div class="setmaxx-meta">Stripe payments go straight to your connected Stripe account. Venmo amounts are tracked separately when you send guests to your Venmo.</div>
           </div>
           <span class="setmaxx-pill"><?= $connectReady ? 'Connected' : 'Connect required' ?></span>
         </div>
@@ -175,7 +205,9 @@ setmaxx_page_head('Set Maxx | Payments');
         <?php foreach ($paymentTotals as $total): ?>
           <div class="setmaxx-row" style="display:grid; gap:.55rem;">
             <strong><?= e($total['label']) ?></strong>
-            <div class="setmaxx-meta">Collected <span style="float:right; color:#fff; font-weight:700;"><?= e(setmaxx_money((int)$total['gross_cents'])) ?></span></div>
+            <div class="setmaxx-meta">Stripe collected <span style="float:right; color:#fff; font-weight:700;"><?= e(setmaxx_money((int)$total['stripe_cents'])) ?></span></div>
+            <div class="setmaxx-meta">Venmo recorded <span style="float:right; color:#fff; font-weight:700;"><?= e(setmaxx_money((int)$total['venmo_cents'])) ?></span></div>
+            <div class="setmaxx-meta">Total tracked <span style="float:right; color:#fff; font-weight:700;"><?= e(setmaxx_money((int)$total['stripe_cents'] + (int)$total['venmo_cents'])) ?></span></div>
             <div class="setmaxx-meta">Stripe sends your payout after its normal processing fee.</div>
           </div>
         <?php endforeach; ?>
@@ -226,7 +258,9 @@ setmaxx_page_head('Set Maxx | Payments');
         <?php foreach ($paymentTotals as $total): ?>
           <div class="setmaxx-row" style="display:grid; gap:.55rem;">
             <strong><?= e($total['label']) ?></strong>
-            <div class="setmaxx-meta">Collected <span style="float:right; color:#fff; font-weight:700;"><?= e(setmaxx_money((int)$total['gross_cents'])) ?></span></div>
+            <div class="setmaxx-meta">Stripe collected <span style="float:right; color:#fff; font-weight:700;"><?= e(setmaxx_money((int)$total['stripe_cents'])) ?></span></div>
+            <div class="setmaxx-meta">Venmo recorded <span style="float:right; color:#fff; font-weight:700;"><?= e(setmaxx_money((int)$total['venmo_cents'])) ?></span></div>
+            <div class="setmaxx-meta">Total tracked <span style="float:right; color:#fff; font-weight:700;"><?= e(setmaxx_money((int)$total['stripe_cents'] + (int)$total['venmo_cents'])) ?></span></div>
             <div class="setmaxx-meta">Stripe sends your payout after its normal processing fee.</div>
           </div>
         <?php endforeach; ?>

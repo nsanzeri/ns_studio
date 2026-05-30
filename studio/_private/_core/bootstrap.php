@@ -163,10 +163,12 @@ set_error_handler(function (int $severity, string $message, string $file, int $l
 			|| (($_SERVER['SERVER_PORT'] ?? '') == '443');
 			
 			session_name($config['app']['session_name']);
+			$sessionLifetime = max(3600, (int)($config['app']['session_lifetime_seconds'] ?? 43200));
+			ini_set('session.gc_maxlifetime', (string)$sessionLifetime);
 			
 			// Must be set before session_start()
 			session_set_cookie_params([
-					'lifetime' => 0,
+					'lifetime' => $sessionLifetime,
 					'path'     => '/',
 					'domain'   => '',
 					'secure'   => $cookieSecure,

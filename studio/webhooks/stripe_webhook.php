@@ -589,6 +589,7 @@ if (!function_exists('ensure_setmaxx_general_tips_table')) {
               `tip_note` varchar(255) DEFAULT NULL,
               `amount_cents` int(10) unsigned NOT NULL DEFAULT 0,
               `status` enum('paid','refunded') NOT NULL DEFAULT 'paid',
+              `payment_method` varchar(24) NOT NULL DEFAULT 'stripe',
               `stripe_payment_intent_id` varchar(255) DEFAULT NULL,
               `created_at` datetime NOT NULL DEFAULT current_timestamp(),
               PRIMARY KEY (`id`),

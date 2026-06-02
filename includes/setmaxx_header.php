@@ -8,6 +8,12 @@ $studioBase = $siteBase . '/studio';
 
 require_once __DIR__ . '/rss_header_widgets.php';
 
+$trialStatus = null;
+$headerPdo = (isset($pdo) && $pdo instanceof PDO) ? $pdo : ($GLOBALS['pdo'] ?? null);
+if ($headerPdo instanceof PDO && function_exists('rss_get_current_user_trial_status')) {
+    $trialStatus = rss_get_current_user_trial_status($headerPdo);
+}
+
 if (!function_exists('nav_active')) {
     function nav_active(bool $condition): string
     {
@@ -94,6 +100,15 @@ $suiteModules = [
         </div>
     </nav>
 </header>
+
+<?php if ($trialStatus): ?>
+<div class="trial-countdown-banner">
+    <div class="container trial-countdown-banner__inner">
+        <span><strong>Free trial:</strong> your access ends in <?= (int)$trialStatus['days_remaining'] ?> day<?= ((int)$trialStatus['days_remaining'] === 1 ? '' : 's') ?>.</span>
+        <span class="trial-countdown-banner__meta">Ends <?= htmlspecialchars($trialStatus['expires_on'], ENT_QUOTES, 'UTF-8') ?></span>
+    </div>
+</div>
+<?php endif; ?>
 
 <?php rss_render_header_widget_script('setmaxx'); ?>
 

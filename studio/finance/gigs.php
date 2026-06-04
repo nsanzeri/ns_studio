@@ -38,8 +38,8 @@ if ($financeReady && is_post()) {
                 $ownGig = $pdo->prepare("SELECT id FROM finance_gigs WHERE id = ? AND user_id = ? LIMIT 1");
                 $update = $pdo->prepare("
                     UPDATE finance_gigs
-                    SET title = ?, venue_name = ?, location = ?, starts_at = ?, guarantee_cents = ?, tips_cents = ?,
-                        is_taxable = ?, advertising_cents = ?, miles = ?, notes = ?
+                    SET title = ?, starts_at = ?, guarantee_cents = ?, tips_cents = ?,
+                        is_taxable = ?, miles = ?, notes = ?
                     WHERE id = ? AND user_id = ?
                 ");
                 $deletePayouts = $pdo->prepare("
@@ -49,8 +49,8 @@ if ($financeReady && is_post()) {
                     WHERE p.gig_id = ? AND g.user_id = ?
                 ");
                 $insertPayout = $pdo->prepare("
-                    INSERT INTO finance_gig_payouts (gig_id, member_id, amount_cents, notes)
-                    VALUES (?, ?, ?, ?)
+                    INSERT INTO finance_gig_payouts (gig_id, member_id, payout_type, amount_cents, notes)
+                    VALUES (?, ?, ?, ?, ?)
                     ON DUPLICATE KEY UPDATE amount_cents = VALUES(amount_cents), notes = VALUES(notes)
                 ");
                 $saved = 0;
@@ -66,13 +66,10 @@ if ($financeReady && is_post()) {
                     $dt = new DateTime($startsAt);
                     $update->execute([
                         $title,
-                        finance_clean_text($row['venue_name'] ?? '', 190),
-                        finance_clean_text($row['location'] ?? ''),
                         $dt->format('Y-m-d H:i:s'),
                         finance_parse_money($row['guarantee'] ?? ''),
                         finance_parse_money($row['tips'] ?? ''),
                         !empty($row['is_taxable']) ? 1 : 0,
-                        finance_parse_money($row['advertising'] ?? ''),
                         max(0, (float)($row['miles'] ?? 0)),
                         finance_clean_text($row['notes'] ?? '', 2000),
                         $gigId,
@@ -91,6 +88,7 @@ if ($financeReady && is_post()) {
                             $insertPayout->execute([
                                 $gigId,
                                 $memberId,
+                                finance_normalize_payout_type($payoutRow['payout_type'] ?? ''),
                                 $amountCents,
                                 finance_clean_text($payoutRow['notes'] ?? '', 255),
                             ]);
@@ -135,8 +133,8 @@ if ($financeReady && is_post()) {
                         $calendarId,
                         $key,
                         finance_clean_text($event['summary'] ?? 'Gig') ?? 'Gig',
-                        finance_clean_text($event['location'] ?? '', 190),
-                        finance_clean_text($event['location'] ?? ''),
+                        null,
+                        null,
                         finance_date_for_sql((string)$event['start']),
                         finance_date_for_sql((string)$event['end']),
                     ]);
@@ -191,12 +189,12 @@ if ($financeReady) {
         $gigIds = array_map(fn($gig) => (int)$gig['id'], $gigs);
         $placeholders = implode(',', array_fill(0, count($gigIds), '?'));
         $payoutStmt = $pdo->prepare("
-            SELECT p.gig_id, p.amount_cents, p.notes, m.name AS member_name
+            SELECT p.gig_id, p.payout_type, p.amount_cents, p.notes, m.name AS member_name
             FROM finance_gig_payouts p
             JOIN finance_members m ON m.id = p.member_id
             JOIN finance_gigs g ON g.id = p.gig_id
             WHERE g.user_id = ? AND p.gig_id IN ({$placeholders})
-            ORDER BY m.name ASC
+            ORDER BY FIELD(p.payout_type, 'band_member', 'sound', 'lights', 'advertising', 'insurance', 'travel', 'other'), m.name ASC
         ");
         $payoutStmt->execute(array_merge([$userId], $gigIds));
         foreach ($payoutStmt->fetchAll(PDO::FETCH_ASSOC) as $payout) {
@@ -246,15 +244,14 @@ finance_page_head('Finance | Gig Ledger');
           <input type="hidden" name="start" value="<?= e($startDate) ?>">
           <input type="hidden" name="end" value="<?= e($endDate) ?>">
           <div class="finance-table-wrap">
-            <table class="finance-table" style="min-width:760px;">
-              <thead><tr><th></th><th>Date</th><th>Event</th><th>Location</th></tr></thead>
+            <table class="finance-table" style="min-width:640px;">
+              <thead><tr><th></th><th>Date</th><th>Event</th></tr></thead>
               <tbody>
                 <?php foreach ($previewEvents as $event): $key = finance_event_key($calendarId, $event); ?>
                   <tr>
                     <td><input type="checkbox" name="selected_events[]" value="<?= e($key) ?>" checked></td>
                     <td><?= e((new DateTime((string)$event['start']))->format('M j, Y g:i A')) ?></td>
                     <td><?= e((string)$event['summary']) ?></td>
-                    <td><?= e((string)$event['location']) ?></td>
                   </tr>
                 <?php endforeach; ?>
               </tbody>
@@ -283,42 +280,52 @@ finance_page_head('Finance | Gig Ledger');
       <?php else: ?>
         <div class="finance-table-wrap">
           <table class="finance-table">
-            <thead><tr><th></th><th>Date</th><th>Title</th><th>Venue</th><th>Guarantee</th><th>Tips</th><th>Taxable</th><th>Ads</th><th>Miles</th><th>Payouts</th><th>Net</th><th>Notes</th></tr></thead>
+            <thead><tr><th></th><th>Date</th><th>Event title</th><th>Guarantee</th><th>Tips</th><th>Taxable</th><th>Miles</th><th>Money out</th><th>Net</th><th>Notes</th></tr></thead>
             <tbody>
-              <?php foreach ($gigs as $gig): $gigId = (int)$gig['id']; $gigPayouts = $payoutsByGig[$gigId] ?? []; $payoutTotal = (int)($gig['payout_cents'] ?? 0); $net = (int)$gig['guarantee_cents'] + (int)$gig['tips_cents'] - (int)$gig['advertising_cents'] - $payoutTotal; ?>
+              <?php foreach ($gigs as $gig): $gigId = (int)$gig['id']; $gigPayouts = $payoutsByGig[$gigId] ?? []; $payoutTotal = (int)($gig['payout_cents'] ?? 0); $net = (int)$gig['guarantee_cents'] + (int)$gig['tips_cents'] - $payoutTotal; ?>
                 <tr>
                   <td><input type="checkbox" name="selected_gig_ids[]" value="<?= $gigId ?>"></td>
                   <td><input class="finance-input" type="datetime-local" name="gigs[<?= $gigId ?>][starts_at]" value="<?= e((new DateTime((string)$gig['starts_at']))->format('Y-m-d\TH:i')) ?>"></td>
                   <td><input class="finance-input" name="gigs[<?= $gigId ?>][title]" value="<?= e($gig['title']) ?>"></td>
-                  <td>
-                    <input class="finance-input" name="gigs[<?= $gigId ?>][venue_name]" value="<?= e((string)$gig['venue_name']) ?>" placeholder="Venue">
-                    <input class="finance-input" name="gigs[<?= $gigId ?>][location]" value="<?= e((string)$gig['location']) ?>" placeholder="Location" style="margin-top:.35rem;">
-                  </td>
                   <td><input class="finance-input" name="gigs[<?= $gigId ?>][guarantee]" value="<?= e(number_format((int)$gig['guarantee_cents'] / 100, 2, '.', '')) ?>"></td>
                   <td><input class="finance-input" name="gigs[<?= $gigId ?>][tips]" value="<?= e(number_format((int)$gig['tips_cents'] / 100, 2, '.', '')) ?>"></td>
                   <td class="finance-check-cell"><input class="finance-check" type="checkbox" name="gigs[<?= $gigId ?>][is_taxable]" value="1" <?= !empty($gig['is_taxable']) ? 'checked' : '' ?>></td>
-                  <td><input class="finance-input" name="gigs[<?= $gigId ?>][advertising]" value="<?= e(number_format((int)$gig['advertising_cents'] / 100, 2, '.', '')) ?>"></td>
                   <td><input class="finance-input" name="gigs[<?= $gigId ?>][miles]" value="<?= e((string)$gig['miles']) ?>"></td>
-                  <td class="finance-payouts-cell">
-                    <details class="finance-payouts">
-                      <summary><?= (int)($gig['payout_count'] ?? 0) ?> people &middot; <?= finance_money($payoutTotal) ?></summary>
-                      <?php $payoutIndex = 0; ?>
-                      <?php foreach ($gigPayouts as $payout): ?>
-                        <div class="finance-payout-row">
-                          <input class="finance-input" name="payouts[<?= $gigId ?>][<?= $payoutIndex ?>][member_name]" value="<?= e((string)$payout['member_name']) ?>" placeholder="Member">
-                          <input class="finance-input" name="payouts[<?= $gigId ?>][<?= $payoutIndex ?>][amount]" value="<?= e(number_format((int)$payout['amount_cents'] / 100, 2, '.', '')) ?>" placeholder="Amount">
-                          <input class="finance-input" name="payouts[<?= $gigId ?>][<?= $payoutIndex ?>][notes]" value="<?= e((string)$payout['notes']) ?>" placeholder="Notes" style="grid-column:1 / -1;">
+                  <td class="finance-moneyout-cell">
+                    <button class="finance-moneyout-button" type="button" data-finance-open-dialog="financeMoneyOut<?= $gigId ?>">
+                      <?= (int)($gig['payout_count'] ?? 0) ?> rows &middot; <?= finance_money($payoutTotal) ?>
+                    </button>
+                    <dialog class="finance-dialog" id="financeMoneyOut<?= $gigId ?>">
+                      <div class="finance-dialog-inner">
+                        <div class="finance-dialog-head">
+                          <div>
+                            <h3 class="finance-dialog-title">Money out</h3>
+                            <div class="finance-muted"><?= e($gig['title']) ?></div>
+                          </div>
+                          <button class="finance-dialog-close" type="button" data-finance-close-dialog aria-label="Close">&times;</button>
                         </div>
-                        <?php $payoutIndex++; ?>
-                      <?php endforeach; ?>
-                      <?php for ($blank = 0; $blank < 2; $blank++, $payoutIndex++): ?>
-                        <div class="finance-payout-row">
-                          <input class="finance-input" name="payouts[<?= $gigId ?>][<?= $payoutIndex ?>][member_name]" placeholder="Member">
-                          <input class="finance-input" name="payouts[<?= $gigId ?>][<?= $payoutIndex ?>][amount]" placeholder="Amount">
-                          <input class="finance-input" name="payouts[<?= $gigId ?>][<?= $payoutIndex ?>][notes]" placeholder="Notes" style="grid-column:1 / -1;">
+                        <div class="finance-payouts" data-finance-payout-list data-gig-id="<?= $gigId ?>" data-next-index="<?= count($gigPayouts) ?>">
+                          <?php $payoutIndex = 0; ?>
+                          <?php foreach ($gigPayouts as $payout): ?>
+                            <div class="finance-payout-row">
+                              <select class="finance-select" name="payouts[<?= $gigId ?>][<?= $payoutIndex ?>][payout_type]">
+                                <?php foreach (finance_payout_types() as $typeValue => $typeLabel): ?>
+                                  <option value="<?= e($typeValue) ?>" <?= (string)$payout['payout_type'] === $typeValue ? 'selected' : '' ?>><?= e($typeLabel) ?></option>
+                                <?php endforeach; ?>
+                              </select>
+                              <input class="finance-input" name="payouts[<?= $gigId ?>][<?= $payoutIndex ?>][member_name]" value="<?= e((string)$payout['member_name']) ?>" placeholder="Name">
+                              <input class="finance-input" name="payouts[<?= $gigId ?>][<?= $payoutIndex ?>][amount]" value="<?= e(number_format((int)$payout['amount_cents'] / 100, 2, '.', '')) ?>" placeholder="Amount">
+                              <input class="finance-input finance-payout-notes" name="payouts[<?= $gigId ?>][<?= $payoutIndex ?>][notes]" value="<?= e((string)$payout['notes']) ?>" placeholder="Notes">
+                            </div>
+                            <?php $payoutIndex++; ?>
+                          <?php endforeach; ?>
                         </div>
-                      <?php endfor; ?>
-                    </details>
+                        <div style="display:flex; gap:.75rem; justify-content:space-between; flex-wrap:wrap;">
+                          <button class="btn btn-outline" type="button" data-finance-add-payout>Add row</button>
+                          <button class="btn btn-primary" type="button" data-finance-close-dialog>Done</button>
+                        </div>
+                      </div>
+                    </dialog>
                   </td>
                   <td><?= finance_money($net) ?></td>
                   <td><textarea class="finance-textarea" name="gigs[<?= $gigId ?>][notes]"><?= e((string)$gig['notes']) ?></textarea></td>
@@ -329,6 +336,55 @@ finance_page_head('Finance | Gig Ledger');
         </div>
       <?php endif; ?>
     </form>
+    <template id="financePayoutRowTemplate">
+      <div class="finance-payout-row">
+        <select class="finance-select" data-name-template="payouts[__GIG_ID__][__INDEX__][payout_type]">
+          <?php foreach (finance_payout_types() as $typeValue => $typeLabel): ?>
+            <option value="<?= e($typeValue) ?>"><?= e($typeLabel) ?></option>
+          <?php endforeach; ?>
+        </select>
+        <input class="finance-input" data-name-template="payouts[__GIG_ID__][__INDEX__][member_name]" placeholder="Name">
+        <input class="finance-input" data-name-template="payouts[__GIG_ID__][__INDEX__][amount]" placeholder="Amount">
+        <input class="finance-input finance-payout-notes" data-name-template="payouts[__GIG_ID__][__INDEX__][notes]" placeholder="Notes">
+      </div>
+    </template>
+    <script>
+      document.addEventListener('click', function (event) {
+        var openButton = event.target.closest('[data-finance-open-dialog]');
+        if (openButton) {
+          var dialog = document.getElementById(openButton.getAttribute('data-finance-open-dialog'));
+          if (dialog && typeof dialog.showModal === 'function') dialog.showModal();
+          return;
+        }
+
+        var closeButton = event.target.closest('[data-finance-close-dialog]');
+        if (closeButton) {
+          var openDialog = closeButton.closest('dialog');
+          if (openDialog) openDialog.close();
+          return;
+        }
+
+        var addButton = event.target.closest('[data-finance-add-payout]');
+        if (addButton) {
+          var dialog = addButton.closest('dialog');
+          var list = dialog ? dialog.querySelector('[data-finance-payout-list]') : null;
+          var template = document.getElementById('financePayoutRowTemplate');
+          if (!list || !template) return;
+
+          var gigId = list.getAttribute('data-gig-id');
+          var index = parseInt(list.getAttribute('data-next-index') || '0', 10);
+          var clone = template.content.cloneNode(true);
+          clone.querySelectorAll('[data-name-template]').forEach(function (field) {
+            field.name = field.getAttribute('data-name-template')
+              .replace('__GIG_ID__', gigId)
+              .replace('__INDEX__', String(index));
+            field.removeAttribute('data-name-template');
+          });
+          list.appendChild(clone);
+          list.setAttribute('data-next-index', String(index + 1));
+        }
+      });
+    </script>
   <?php endif; ?>
 </main>
 <?php finance_page_foot(); ?>

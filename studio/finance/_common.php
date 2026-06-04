@@ -32,11 +32,23 @@ function finance_table_exists(PDO $pdo, string $tableName): bool {
     return $cache[$key] = (bool)$stmt->fetchColumn();
 }
 
+function finance_column_exists(PDO $pdo, string $tableName, string $columnName): bool {
+    static $cache = [];
+    $key = strtolower(trim($tableName)) . '.' . strtolower(trim($columnName));
+    if ($key === '.') return false;
+    if (array_key_exists($key, $cache)) return $cache[$key];
+    $stmt = $pdo->prepare("SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = ? AND column_name = ? LIMIT 1");
+    $stmt->execute([$tableName, $columnName]);
+    return $cache[$key] = (bool)$stmt->fetchColumn();
+}
+
 function finance_tables_ready(PDO $pdo): bool {
     return finance_table_exists($pdo, 'finance_gigs')
         && finance_table_exists($pdo, 'finance_members')
         && finance_table_exists($pdo, 'finance_gig_payouts')
-        && finance_table_exists($pdo, 'calendars');
+        && finance_table_exists($pdo, 'calendars')
+        && finance_column_exists($pdo, 'finance_gigs', 'is_taxable')
+        && finance_column_exists($pdo, 'finance_gig_payouts', 'payout_type');
 }
 
 function finance_money(int $cents): string {
@@ -73,6 +85,23 @@ function finance_member_id_for_name(PDO $pdo, int $userId, string $name): int {
     $insert = $pdo->prepare("INSERT INTO finance_members (user_id, name) VALUES (?, ?)");
     $insert->execute([$userId, $name]);
     return (int)$pdo->lastInsertId();
+}
+
+function finance_payout_types(): array {
+    return [
+        'band_member' => 'Band member',
+        'advertising' => 'Advertising',
+        'sound' => 'Sound',
+        'lights' => 'Lights',
+        'insurance' => 'Insurance',
+        'travel' => 'Travel',
+        'other' => 'Other',
+    ];
+}
+
+function finance_normalize_payout_type($value): string {
+    $value = (string)$value;
+    return array_key_exists($value, finance_payout_types()) ? $value : 'band_member';
 }
 
 function finance_event_key(int $calendarId, array $event): string {
@@ -284,18 +313,26 @@ function finance_page_head(string $title): void { ?>
     .finance-input, .finance-select, .finance-textarea { width:100%; padding:.72rem .8rem; border-radius:12px; border:1px solid rgba(255,255,255,.1); background:rgba(255,255,255,.05); color:#fff; font:inherit; }
     .finance-select option { background:#151323; color:#fff; }
     .finance-table-wrap { overflow:auto; border:1px solid rgba(255,255,255,.08); border-radius:16px; margin-top:1rem; }
-    .finance-table { width:100%; border-collapse:collapse; min-width:1180px; }
+    .finance-table { width:100%; border-collapse:collapse; min-width:980px; }
     .finance-table th, .finance-table td { padding:.75rem; border-bottom:1px solid rgba(255,255,255,.07); text-align:left; vertical-align:top; }
     .finance-table th { color:#f4d35e; font-size:.78rem; letter-spacing:.08em; text-transform:uppercase; }
     .finance-table input, .finance-table textarea { min-width:92px; }
     .finance-table textarea { min-width:160px; min-height:42px; resize:vertical; }
     .finance-check-cell { text-align:center; }
     .finance-check { min-width:0 !important; width:18px; height:18px; accent-color:#d4af37; }
-    .finance-payouts-cell { min-width:260px; }
-    .finance-payouts { display:grid; gap:.55rem; }
-    .finance-payouts summary { cursor:pointer; color:#ffe28a; font-weight:600; }
-    .finance-payout-row { display:grid; grid-template-columns:1fr 92px; gap:.45rem; align-items:center; }
+    .finance-moneyout-cell { min-width:180px; }
+    .finance-moneyout-button { display:inline-flex; align-items:center; gap:.45rem; border:1px solid rgba(212,175,55,.35); border-radius:999px; padding:.48rem .8rem; background:rgba(212,175,55,.12); color:#ffe28a; cursor:pointer; font:inherit; font-weight:600; }
+    .finance-dialog { width:min(760px, calc(100vw - 2rem)); border:1px solid rgba(255,255,255,.12); border-radius:18px; padding:0; background:#151323; color:#fff; box-shadow:0 24px 70px rgba(0,0,0,.55); }
+    .finance-dialog::backdrop { background:rgba(0,0,0,.62); backdrop-filter:blur(4px); }
+    .finance-dialog-inner { padding:1.15rem; display:grid; gap:1rem; }
+    .finance-dialog-head { display:flex; align-items:flex-start; justify-content:space-between; gap:1rem; }
+    .finance-dialog-title { margin:0; font-size:1.15rem; }
+    .finance-dialog-close { border:1px solid rgba(255,255,255,.14); border-radius:999px; width:36px; height:36px; background:rgba(255,255,255,.05); color:#fff; cursor:pointer; }
+    .finance-payouts { display:grid; gap:.65rem; }
+    .finance-payout-row { display:grid; grid-template-columns:1.1fr 1.1fr .8fr; gap:.45rem; align-items:center; }
     .finance-payout-row input { min-width:0 !important; }
+    .finance-payout-row select { min-width:0 !important; }
+    .finance-payout-row .finance-payout-notes { grid-column:1 / -1; }
     .finance-stat strong { display:block; font-size:1.55rem; color:#fff; }
     .finance-muted { color:rgba(255,255,255,.72); }
     .finance-pill { display:inline-flex; align-items:center; gap:.4rem; padding:.28rem .75rem; border-radius:999px; font-size:.84rem; font-weight:600; background: rgba(212,175,55,.16); color:#ffe28a; }
@@ -323,7 +360,7 @@ function finance_flash(array $messages, array $errors): void {
 function finance_install_notice(): void { ?>
   <div class="finance-card">
     <h2 style="margin-top:0;">Finance setup required</h2>
-    <p class="finance-muted">Run <code>migrations/013_finance_gigs.sql</code> and <code>migrations/014_finance_payouts_refactor.sql</code>, then refresh this page.</p>
+    <p class="finance-muted">Run <code>migrations/013_finance_gigs.sql</code>, <code>migrations/014_finance_payouts_refactor.sql</code>, and <code>migrations/015_finance_expense_types.sql</code>, then refresh this page.</p>
   </div>
 <?php }
 

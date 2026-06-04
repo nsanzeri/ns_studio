@@ -12,6 +12,7 @@ $summary = [
 ];
 $monthlyRows = [];
 $previousMonthlyRows = [];
+$memberRows = [];
 
 if ($financeReady) {
     $summarySql = "
@@ -19,7 +20,7 @@ if ($financeReady) {
           COUNT(*) AS gigs,
           COALESCE(SUM(g.guarantee_cents + g.tips_cents), 0) AS gross_cents,
           COALESCE(SUM(g.tips_cents), 0) AS tips_cents,
-          COALESCE(SUM(g.guarantee_cents + g.tips_cents - g.advertising_cents - COALESCE(p.payout_cents, 0)), 0) AS net_cents
+          COALESCE(SUM(g.guarantee_cents + g.tips_cents - COALESCE(p.payout_cents, 0)), 0) AS net_cents
         FROM finance_gigs g
         LEFT JOIN (
           SELECT gig_id, SUM(amount_cents) AS payout_cents
@@ -29,9 +30,9 @@ if ($financeReady) {
         WHERE g.user_id = ?
     ";
     $ranges = [
-        'week' => ["starts_at >= DATE_SUB(CURDATE(), INTERVAL WEEKDAY(CURDATE()) DAY) AND starts_at < DATE_ADD(DATE_SUB(CURDATE(), INTERVAL WEEKDAY(CURDATE()) DAY), INTERVAL 7 DAY)"],
-        'month' => ["YEAR(starts_at) = YEAR(CURDATE()) AND MONTH(starts_at) = MONTH(CURDATE())"],
-        'year' => ["YEAR(starts_at) = ?"],
+        'week' => ["g.starts_at >= DATE_SUB(CURDATE(), INTERVAL WEEKDAY(CURDATE()) DAY) AND g.starts_at < DATE_ADD(DATE_SUB(CURDATE(), INTERVAL WEEKDAY(CURDATE()) DAY), INTERVAL 7 DAY)"],
+        'month' => ["YEAR(g.starts_at) = YEAR(CURDATE()) AND MONTH(g.starts_at) = MONTH(CURDATE())"],
+        'year' => ["YEAR(g.starts_at) = ?"],
     ];
     foreach ($ranges as $key => $parts) {
         $stmt = $pdo->prepare($summarySql . ' AND ' . $parts[0]);
@@ -45,7 +46,7 @@ if ($financeReady) {
                COUNT(*) AS gigs,
                COALESCE(SUM(g.guarantee_cents + g.tips_cents), 0) AS gross_cents,
                COALESCE(SUM(g.tips_cents), 0) AS tips_cents,
-               COALESCE(SUM(g.guarantee_cents + g.tips_cents - g.advertising_cents - COALESCE(p.payout_cents, 0)), 0) AS net_cents
+               COALESCE(SUM(g.guarantee_cents + g.tips_cents - COALESCE(p.payout_cents, 0)), 0) AS net_cents
         FROM finance_gigs g
         LEFT JOIN (
           SELECT gig_id, SUM(amount_cents) AS payout_cents
@@ -61,6 +62,22 @@ if ($financeReady) {
     $monthlyRows = $stmt->fetchAll(PDO::FETCH_ASSOC);
     $stmt->execute([$userId, $previousYear]);
     $previousMonthlyRows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $memberStmt = $pdo->prepare("
+        SELECT m.name,
+               COUNT(DISTINCT p.gig_id) AS gigs,
+               COALESCE(SUM(p.amount_cents), 0) AS payout_cents
+        FROM finance_gig_payouts p
+        JOIN finance_members m ON m.id = p.member_id
+        JOIN finance_gigs g ON g.id = p.gig_id
+        WHERE g.user_id = ?
+          AND YEAR(g.starts_at) = ?
+          AND p.payout_type = 'band_member'
+        GROUP BY m.id, m.name
+        ORDER BY payout_cents DESC, m.name ASC
+    ");
+    $memberStmt->execute([$userId, $year]);
+    $memberRows = $memberStmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
 $previousByMonth = [];
@@ -139,10 +156,32 @@ finance_page_head('Finance | Ready Set Shows');
       </div>
     </section>
 
+    <section class="finance-card" style="margin-top:1rem;">
+      <h2 style="margin-top:0;">Band member tax rollup</h2>
+      <?php if (!$memberRows): ?>
+        <p class="finance-muted">No band-member payouts for <?= (int)$year ?> yet.</p>
+      <?php else: ?>
+        <div class="finance-table-wrap">
+          <table class="finance-table" style="min-width:560px;">
+            <thead><tr><th>Member</th><th>Gigs</th><th>Total paid</th></tr></thead>
+            <tbody>
+              <?php foreach ($memberRows as $row): ?>
+                <tr>
+                  <td><?= e((string)$row['name']) ?></td>
+                  <td><?= (int)$row['gigs'] ?></td>
+                  <td><?= finance_money((int)$row['payout_cents']) ?></td>
+                </tr>
+              <?php endforeach; ?>
+            </tbody>
+          </table>
+        </div>
+      <?php endif; ?>
+    </section>
+
     <div class="finance-card" style="margin-top:1rem;">
       <div class="finance-stack">
         <h2 style="margin:0;">Gig ledger</h2>
-        <p class="finance-muted" style="margin:0;">Import upcoming or past calendar events, then fill in pay, tips, taxable status, mileage, ad costs, and member payouts.</p>
+        <p class="finance-muted" style="margin:0;">Import upcoming or past calendar events, then fill in pay, tips, taxable status, mileage, and money-out rows.</p>
         <div><a class="btn btn-primary" href="<?= e(base_url('/finance/gigs.php')) ?>">Open gig ledger</a></div>
       </div>
     </div>

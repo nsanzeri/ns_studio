@@ -592,10 +592,19 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
     .catalog-empty.visible { display:block; }
     .public-grid { display:grid; gap:.45rem; margin-top:.85rem; }
     .song-card { padding:.6rem .7rem; border-radius:14px; background: rgba(255,255,255,.035); border:1px solid rgba(255,255,255,.07); }
-    .song-card.locked { opacity:.6; }
+    details.song-card { padding:0; overflow:hidden; }
+    .song-card.locked { padding:0; opacity:.6; }
     .song-meta { color: rgba(255,255,255,.72); font-size:.92rem; }
     .song-title { font-weight:600; line-height:1.2; }
     .song-row { display:grid; grid-template-columns:minmax(220px, 1.1fr) minmax(430px, 1.7fr); gap:.75rem; align-items:center; }
+    .song-summary, .action-summary { display:flex; align-items:center; justify-content:space-between; gap:.8rem; cursor:pointer; list-style:none; }
+    .song-summary { padding:.72rem .8rem; }
+    .song-summary > span:first-child { display:grid; gap:.12rem; min-width:0; }
+    .song-summary::-webkit-details-marker, .action-summary::-webkit-details-marker { display:none; }
+    .song-card[open] .song-summary, .action-card[open] .action-summary { border-bottom:1px solid rgba(255,255,255,.08); }
+    .song-chevron, .action-chevron { flex:0 0 auto; color:rgba(255,255,255,.62); font-size:1.15rem; transition:transform .18s ease; }
+    .song-card[open] .song-chevron, .action-card[open] .action-chevron { transform:rotate(180deg); }
+    .song-request-panel { padding:.75rem .8rem .85rem; }
     .request-form { display:grid; grid-template-columns:105px minmax(120px, 1fr) minmax(150px, 1.2fr) auto; gap:.5rem; align-items:center; }
     .request-input, .request-select { width:100%; padding:.52rem .62rem; border-radius:10px; border:1px solid rgba(255,255,255,.1); background:rgba(255,255,255,.05); color:#fff; font:inherit; font-size:.9rem; }
     .request-select option { background:#151323; color:#fff; }
@@ -606,6 +615,11 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
     .public-quick-links { display:flex; gap:.5rem; flex-wrap:wrap; margin-top:.75rem; }
     .public-mini-button { display:inline-flex; align-items:center; min-height:34px; padding:.4rem .75rem; border-radius:999px; border:1px solid rgba(255,255,255,.14); color:#fff; text-decoration:none; font-size:.86rem; background:rgba(255,255,255,.04); }
     .suggestion-card { margin-top:1rem; padding:1rem; border-radius:18px; background:rgba(255,255,255,.035); border:1px solid rgba(255,255,255,.07); }
+    .action-card { margin-top:1rem; border-radius:18px; background:rgba(255,255,255,.035); border:1px solid rgba(255,255,255,.07); overflow:hidden; }
+    .action-summary { padding:1rem; font-weight:600; }
+    .action-summary-text { display:grid; gap:.12rem; }
+    .action-summary-hint { color:rgba(255,255,255,.62); font-size:.86rem; font-weight:400; }
+    .action-panel { padding:1rem; }
     .suggestion-form { display:grid; grid-template-columns:minmax(160px, 1fr) minmax(140px, .9fr) minmax(120px, .8fr) minmax(180px, 1.2fr) auto; gap:.55rem; align-items:center; }
     .tip-form { display:grid; grid-template-columns:110px minmax(130px, 1fr) minmax(180px, 1.3fr) auto; gap:.55rem; align-items:center; }
     .payment-buttons { display:flex; gap:.45rem; flex-wrap:wrap; }
@@ -650,37 +664,53 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
           </div>
         </div>
 
-        <div class="suggestion-card">
-          <div style="font-weight:600; margin-bottom:.55rem;">Tip the performer</div>
-          <form method="post" class="tip-form" action="">
-            <input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>">
-            <input type="hidden" name="action" value="general_tip">
-            <select class="request-select" name="tip_amount_dollars" aria-label="Tip amount">
-              <?php foreach (setmaxx_public_price_options(max(5, $sessionMinimumDollars), $priceStepDollars) as $tipAmount): ?>
-                <option value="<?= $tipAmount ?>">$<?= $tipAmount ?></option>
-              <?php endforeach; ?>
-            </select>
-            <input class="request-input" name="tipper_name" placeholder="Your name">
-            <input class="request-input" name="tip_note" placeholder="Optional note">
-            <div class="payment-buttons">
-              <button class="btn btn-primary request-submit" type="submit" name="payment_method" value="stripe">Tip with card</button>
-              <?php if ($venmoAvailable): ?><button class="btn btn-outline request-submit" type="submit" name="payment_method" value="venmo">Tip with Venmo</button><?php endif; ?>
-            </div>
-          </form>
-        </div>
+        <details class="action-card">
+          <summary class="action-summary">
+            <span class="action-summary-text">
+              <span>Tip the performer</span>
+              <span class="action-summary-hint">Open to choose an amount and payment method.</span>
+            </span>
+            <span class="action-chevron" aria-hidden="true">&darr;</span>
+          </summary>
+          <div class="action-panel">
+            <form method="post" class="tip-form" action="">
+              <input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>">
+              <input type="hidden" name="action" value="general_tip">
+              <select class="request-select" name="tip_amount_dollars" aria-label="Tip amount">
+                <?php foreach (setmaxx_public_price_options(max(5, $sessionMinimumDollars), $priceStepDollars) as $tipAmount): ?>
+                  <option value="<?= $tipAmount ?>">$<?= $tipAmount ?></option>
+                <?php endforeach; ?>
+              </select>
+              <input class="request-input" name="tipper_name" placeholder="Your name">
+              <input class="request-input" name="tip_note" placeholder="Optional note">
+              <div class="payment-buttons">
+                <button class="btn btn-primary request-submit" type="submit" name="payment_method" value="stripe">Tip with card</button>
+                <?php if ($venmoAvailable): ?><button class="btn btn-outline request-submit" type="submit" name="payment_method" value="venmo">Tip with Venmo</button><?php endif; ?>
+              </div>
+            </form>
+          </div>
+        </details>
 
-        <div class="suggestion-card">
-          <div style="font-weight:600; margin-bottom:.55rem;">Don't see your song? Let me know here for future shows.</div>
-          <form method="post" class="suggestion-form" action="">
-            <input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>">
-            <input type="hidden" name="action" value="suggest_song">
-            <input class="request-input" name="suggested_title" placeholder="Song title" required>
-            <input class="request-input" name="suggested_artist" placeholder="Artist">
-            <input class="request-input" name="suggestion_name" placeholder="Your name">
-            <input class="request-input" name="suggestion_note" placeholder="Optional note">
-            <button class="btn btn-outline request-submit" type="submit">Suggest</button>
-          </form>
-        </div>
+        <details class="action-card">
+          <summary class="action-summary">
+            <span class="action-summary-text">
+              <span>Suggest a song for future shows</span>
+              <span class="action-summary-hint">Open if you do not see the song you want.</span>
+            </span>
+            <span class="action-chevron" aria-hidden="true">&darr;</span>
+          </summary>
+          <div class="action-panel">
+            <form method="post" class="suggestion-form" action="">
+              <input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>">
+              <input type="hidden" name="action" value="suggest_song">
+              <input class="request-input" name="suggested_title" placeholder="Song title" required>
+              <input class="request-input" name="suggested_artist" placeholder="Artist">
+              <input class="request-input" name="suggestion_name" placeholder="Your name">
+              <input class="request-input" name="suggestion_note" placeholder="Optional note">
+              <button class="btn btn-outline request-submit" type="submit">Suggest</button>
+            </form>
+          </div>
+        </details>
       <?php else: ?>
         <h1 style="margin-top:0;">Request page not found.</h1>
         <p class="song-meta">This Set Maxx link is not active right now.</p>
@@ -710,37 +740,53 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
         Choose $0 for a free request, or choose a paid request from $<?= (int)max(10, $sessionMinimumDollars) ?> to $100. Requests are still subject to performer discretion.
       </div>
 
-      <div class="suggestion-card">
-        <div style="font-weight:600; margin-bottom:.55rem;">Tip the performer</div>
-        <form method="post" class="tip-form" action="">
-          <input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>">
-          <input type="hidden" name="action" value="general_tip">
-          <select class="request-select" name="tip_amount_dollars" aria-label="Tip amount">
-            <?php foreach (setmaxx_public_price_options(max(5, $sessionMinimumDollars), $priceStepDollars) as $tipAmount): ?>
-              <option value="<?= $tipAmount ?>">$<?= $tipAmount ?></option>
-            <?php endforeach; ?>
-          </select>
-          <input class="request-input" name="tipper_name" placeholder="Your name">
-          <input class="request-input" name="tip_note" placeholder="Optional note">
-          <div class="payment-buttons">
-            <button class="btn btn-primary request-submit" type="submit" name="payment_method" value="stripe">Tip with card</button>
-            <?php if ($venmoAvailable): ?><button class="btn btn-outline request-submit" type="submit" name="payment_method" value="venmo">Tip with Venmo</button><?php endif; ?>
-          </div>
-        </form>
-      </div>
+      <details class="action-card">
+        <summary class="action-summary">
+          <span class="action-summary-text">
+            <span>Tip the performer</span>
+            <span class="action-summary-hint">Open to choose an amount and payment method.</span>
+          </span>
+          <span class="action-chevron" aria-hidden="true">&darr;</span>
+        </summary>
+        <div class="action-panel">
+          <form method="post" class="tip-form" action="">
+            <input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>">
+            <input type="hidden" name="action" value="general_tip">
+            <select class="request-select" name="tip_amount_dollars" aria-label="Tip amount">
+              <?php foreach (setmaxx_public_price_options(max(5, $sessionMinimumDollars), $priceStepDollars) as $tipAmount): ?>
+                <option value="<?= $tipAmount ?>">$<?= $tipAmount ?></option>
+              <?php endforeach; ?>
+            </select>
+            <input class="request-input" name="tipper_name" placeholder="Your name">
+            <input class="request-input" name="tip_note" placeholder="Optional note">
+            <div class="payment-buttons">
+              <button class="btn btn-primary request-submit" type="submit" name="payment_method" value="stripe">Tip with card</button>
+              <?php if ($venmoAvailable): ?><button class="btn btn-outline request-submit" type="submit" name="payment_method" value="venmo">Tip with Venmo</button><?php endif; ?>
+            </div>
+          </form>
+        </div>
+      </details>
 
-      <div class="suggestion-card">
-        <div style="font-weight:600; margin-bottom:.55rem;">Don't see your song? Let me know here for future shows.</div>
-        <form method="post" class="suggestion-form" action="">
-          <input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>">
-          <input type="hidden" name="action" value="suggest_song">
-          <input class="request-input" name="suggested_title" placeholder="Song title" required>
-          <input class="request-input" name="suggested_artist" placeholder="Artist">
-          <input class="request-input" name="suggestion_name" placeholder="Your name">
-          <input class="request-input" name="suggestion_note" placeholder="Optional note">
-          <button class="btn btn-outline request-submit" type="submit">Suggest</button>
-        </form>
-      </div>
+      <details class="action-card">
+        <summary class="action-summary">
+          <span class="action-summary-text">
+            <span>Suggest a song for future shows</span>
+            <span class="action-summary-hint">Open if you do not see the song you want.</span>
+          </span>
+          <span class="action-chevron" aria-hidden="true">&darr;</span>
+        </summary>
+        <div class="action-panel">
+          <form method="post" class="suggestion-form" action="">
+            <input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>">
+            <input type="hidden" name="action" value="suggest_song">
+            <input class="request-input" name="suggested_title" placeholder="Song title" required>
+            <input class="request-input" name="suggested_artist" placeholder="Artist">
+            <input class="request-input" name="suggestion_name" placeholder="Your name">
+            <input class="request-input" name="suggestion_note" placeholder="Optional note">
+            <button class="btn btn-outline request-submit" type="submit">Suggest</button>
+          </form>
+        </div>
+      </details>
 
       <?php if ($songs): ?>
         <div class="alpha-menu" aria-label="Song alphabet filter">
@@ -770,16 +816,26 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
             $artistLetter = preg_match('/[A-Z]/', $artistFirst) ? $artistFirst : '#';
             $minimumDollars = max(0, min(100, max((int)ceil(((int)$song['tip_amount_cents']) / 100), $sessionMinimumDollars)));
           ?>
-          <div class="song-card <?= $locked ? 'locked' : '' ?>" data-letter="<?= e($letter) ?>" data-title-letter="<?= e($letter) ?>" data-artist-letter="<?= e($artistLetter) ?>" data-title="<?= e(strtolower((string)$song['title'])) ?>" data-artist="<?= e(strtolower($artistSort)) ?>">
-            <div class="song-row">
-              <div>
-                <div class="song-title"><?= e($song['title']) ?></div>
-                <div class="song-meta"><?= e((string)($song['artist'] ?: 'Artist not listed')) ?></div>
+          <?php if ($locked): ?>
+            <div class="song-card locked" data-letter="<?= e($letter) ?>" data-title-letter="<?= e($letter) ?>" data-artist-letter="<?= e($artistLetter) ?>" data-title="<?= e(strtolower((string)$song['title'])) ?>" data-artist="<?= e(strtolower($artistSort)) ?>">
+              <div class="song-summary">
+                <span>
+                  <span class="song-title"><?= e($song['title']) ?></span>
+                  <span class="song-meta"><?= e((string)($song['artist'] ?: 'Artist not listed')) ?></span>
+                </span>
+                <span class="song-meta"><strong>Already requested tonight.</strong></span>
               </div>
-
-              <?php if ($locked): ?>
-                <div class="song-meta"><strong>Already requested tonight.</strong></div>
-              <?php else: ?>
+            </div>
+          <?php else: ?>
+            <details class="song-card" data-letter="<?= e($letter) ?>" data-title-letter="<?= e($letter) ?>" data-artist-letter="<?= e($artistLetter) ?>" data-title="<?= e(strtolower((string)$song['title'])) ?>" data-artist="<?= e(strtolower($artistSort)) ?>">
+              <summary class="song-summary">
+                <span>
+                  <span class="song-title"><?= e($song['title']) ?></span>
+                  <span class="song-meta"><?= e((string)($song['artist'] ?: 'Artist not listed')) ?></span>
+                </span>
+                <span class="song-chevron" aria-hidden="true">&darr;</span>
+              </summary>
+              <div class="song-request-panel">
                 <form method="post" class="request-form" action="">
                   <input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>">
                   <input type="hidden" name="action" value="request_song">
@@ -799,9 +855,9 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
                     <?php if ($venmoAvailable): ?><button class="btn btn-outline request-submit" type="submit" name="payment_method" value="venmo">Request with Venmo</button><?php endif; ?>
                   </div>
                 </form>
-              <?php endif; ?>
-            </div>
-          </div>
+              </div>
+            </details>
+          <?php endif; ?>
         <?php endforeach; endif; ?>
       </div>
       <?php if ($songs): ?>
@@ -815,6 +871,7 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
   const buttons = Array.from(document.querySelectorAll('.alpha-button'));
   const sortButtons = Array.from(document.querySelectorAll('.sort-button'));
   const cards = Array.from(document.querySelectorAll('.song-card[data-letter]'));
+  const requestDetails = cards.filter(function(card) { return card.tagName.toLowerCase() === 'details'; });
   const grid = document.querySelector('.public-grid');
   const searchInput = document.getElementById('catalogSearch');
   const emptyState = document.getElementById('catalogEmpty');
@@ -869,6 +926,7 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
       const matchesLetter = currentLetter === 'all' || cardLetter(card) === currentLetter;
       const matchesSearch = cardMatchesSearch(card);
       card.hidden = !(matchesLetter && matchesSearch);
+      if (card.hidden && card.open) card.open = false;
       if (!card.hidden) visibleCount += 1;
     });
     if (emptyState) emptyState.classList.toggle('visible', visibleCount === 0);
@@ -902,6 +960,15 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
       applyCatalogView(false);
     });
   }
+
+  requestDetails.forEach(function(detail) {
+    detail.addEventListener('toggle', function() {
+      if (!detail.open) return;
+      requestDetails.forEach(function(other) {
+        if (other !== detail) other.open = false;
+      });
+    });
+  });
 
   applyCatalogView(false);
 })();

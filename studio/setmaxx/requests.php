@@ -159,7 +159,7 @@ setmaxx_page_head('Set Maxx | Request Dashboard');
           <?php else: foreach ($requests as $request): ?>
             <div class="setmaxx-row">
               <div style="min-width:0; flex:1;">
-                <div style="display:flex; gap:.55rem; align-items:center; flex-wrap:wrap;"><div style="font-weight:600;"><?= e($request['title']) ?></div><span class="setmaxx-status <?= e((string)$request['status']) ?>"><?= e((string)$request['status']) ?></span><?php if (($request['payment_method'] ?? '') === 'venmo'): ?><span class="setmaxx-pill">Venmo recorded</span><?php endif; ?></div>
+                <div style="display:flex; gap:.55rem; align-items:center; flex-wrap:wrap;"><div style="font-weight:600;"><?= e($request['title']) ?></div><a class="setmaxx-mini-link" href="<?= e(setmaxx_lyrics_url((string)$request['title'], (string)$request['artist'])) ?>" target="_blank" rel="noopener">Lyrics</a><span class="setmaxx-status <?= e((string)$request['status']) ?>"><?= e((string)$request['status']) ?></span><?php if (($request['payment_method'] ?? '') === 'venmo'): ?><span class="setmaxx-pill">Venmo recorded</span><?php endif; ?></div>
                 <div class="setmaxx-meta"><?= e((string)($request['artist'] ?: 'Artist not set')) ?> &middot; from <?= e((string)($request['requester_name'] ?: 'Anonymous')) ?></div>
                 <?php if (!empty($request['request_note'])): ?><div class="setmaxx-help" style="margin-top:.35rem;">"<?= e((string)$request['request_note']) ?>"</div><?php endif; ?>
               </div>

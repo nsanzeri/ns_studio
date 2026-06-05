@@ -850,7 +850,7 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
                     <?php endforeach; ?>
                     <option value="0">$0 free request</option>
                   </select>
-                  <input class="request-input" name="requester_name" placeholder="Your name">
+                  <input class="request-input" name="requester_name" placeholder="First name is enough.">
                   <input class="request-input" name="request_note" placeholder="Optional note">
                   <div class="payment-buttons">
                     <button class="btn btn-primary request-submit" type="submit" name="payment_method" value="stripe">Request with card</button>
@@ -874,6 +874,8 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
   const sortButtons = Array.from(document.querySelectorAll('.sort-button'));
   const cards = Array.from(document.querySelectorAll('.song-card[data-letter]'));
   const requestDetails = cards.filter(function(card) { return card.tagName.toLowerCase() === 'details'; });
+  const requesterNameInputs = Array.from(document.querySelectorAll('input[name="requester_name"]'));
+  const rememberedNameKey = 'setmaxxRequesterName';
   const grid = document.querySelector('.public-grid');
   const searchInput = document.getElementById('catalogSearch');
   const emptyState = document.getElementById('catalogEmpty');
@@ -881,6 +883,38 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
   let currentSort = 'title';
   let currentSearch = '';
   if (!buttons.length || !cards.length) return;
+
+  function rememberedRequesterName() {
+    try {
+      return localStorage.getItem(rememberedNameKey) || '';
+    } catch (error) {
+      return '';
+    }
+  }
+
+  function rememberRequesterName(name) {
+    try {
+      if (name) localStorage.setItem(rememberedNameKey, name);
+    } catch (error) {}
+  }
+
+  function fillRequesterNames(name) {
+    if (!name) return;
+    requesterNameInputs.forEach(function(input) {
+      if (!input.value.trim()) input.value = name;
+    });
+  }
+
+  fillRequesterNames(rememberedRequesterName());
+  requesterNameInputs.forEach(function(input) {
+    input.addEventListener('input', function() {
+      const name = input.value.trim();
+      if (name) {
+        rememberRequesterName(name);
+        fillRequesterNames(name);
+      }
+    });
+  });
 
   function cardLetter(card) {
     return card.getAttribute('data-' + currentSort + '-letter') || '#';

@@ -445,12 +445,12 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
         );
         $songStmt->execute([$songId, (int)$session['id']]);
         $song = $songStmt->fetch(PDO::FETCH_ASSOC) ?: null;
-        $minimumDollars = $song ? (int)ceil(((int)$song['tip_amount_cents']) / 100) : 0;
-        $minimumDollars = max(0, min(100, max($minimumDollars, $sessionMinimumDollars)));
+        $songMinimumDollars = $song ? (int)ceil(((int)$song['tip_amount_cents']) / 100) : 0;
+        $minimumDollars = max(5, min(100, $songMinimumDollars));
 
-        if (!($requestAmountDollars === 0 || ($requestAmountDollars >= 10 && $requestAmountDollars <= 100))) {
-            $errors[] = 'Choose $0 for a free request, or a paid amount from $10 to $100.';
-        } elseif ($minimumDollars > 0 && $requestAmountDollars < $minimumDollars) {
+        if (!($requestAmountDollars === 0 || ($requestAmountDollars >= 5 && $requestAmountDollars <= 100))) {
+            $errors[] = 'Choose $5 to $100 to move your song up the list, or choose $0 for a free request.';
+        } elseif ($requestAmountDollars > 0 && $minimumDollars > 0 && $requestAmountDollars < $minimumDollars) {
             $errors[] = 'This song starts at $' . $minimumDollars . '.';
         } elseif (!$song) {
             $errors[] = 'That song is not available for this request page.';
@@ -737,7 +737,7 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
       </div>
 
       <div class="request-note song-meta">
-        Choose $0 for a free request, or choose a paid request from $<?= (int)max(10, $sessionMinimumDollars) ?> to $100. Requests are still subject to performer discretion.
+        Paid requests help move songs up the list. Choose $5 to $100, or select $0 for a free request. Requests are still subject to performer discretion.
       </div>
 
       <details class="action-card">
@@ -814,7 +814,7 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
             $artistSort = (string)($song['artist'] ?: $song['title']);
             $artistFirst = strtoupper(substr(trim($artistSort), 0, 1));
             $artistLetter = preg_match('/[A-Z]/', $artistFirst) ? $artistFirst : '#';
-            $minimumDollars = max(0, min(100, max((int)ceil(((int)$song['tip_amount_cents']) / 100), $sessionMinimumDollars)));
+            $minimumDollars = max(5, min(100, (int)ceil(((int)$song['tip_amount_cents']) / 100)));
           ?>
           <?php if ($locked): ?>
             <div class="song-card locked" data-letter="<?= e($letter) ?>" data-title-letter="<?= e($letter) ?>" data-artist-letter="<?= e($artistLetter) ?>" data-title="<?= e(strtolower((string)$song['title'])) ?>" data-artist="<?= e(strtolower($artistSort)) ?>">
@@ -841,12 +841,10 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
                   <input type="hidden" name="action" value="request_song">
                   <input type="hidden" name="song_id" value="<?= (int)$song['id'] ?>">
                   <select class="request-select" name="request_amount_dollars" aria-label="Request amount">
-                    <?php if ($minimumDollars <= 0): ?>
-                      <option value="0">$0</option>
-                    <?php endif; ?>
-                    <?php foreach (setmaxx_public_price_options(max(10, $minimumDollars), $priceStepDollars) as $amount): ?>
+                    <?php foreach (setmaxx_public_price_options($minimumDollars, $priceStepDollars) as $amount): ?>
                       <option value="<?= $amount ?>">$<?= $amount ?></option>
                     <?php endforeach; ?>
+                    <option value="0">$0 free request</option>
                   </select>
                   <input class="request-input" name="requester_name" placeholder="Your name">
                   <input class="request-input" name="request_note" placeholder="Optional note">

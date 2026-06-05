@@ -815,6 +815,10 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
             $artistFirst = strtoupper(substr(trim($artistSort), 0, 1));
             $artistLetter = preg_match('/[A-Z]/', $artistFirst) ? $artistFirst : '#';
             $minimumDollars = max(5, min(100, (int)ceil(((int)$song['tip_amount_cents']) / 100)));
+            $requestAmounts = array_values(array_filter([5, 10, 15, 20, 25, 50, 100], fn($amount) => $amount >= $minimumDollars));
+            if (!in_array($minimumDollars, $requestAmounts, true)) {
+              array_unshift($requestAmounts, $minimumDollars);
+            }
           ?>
           <?php if ($locked): ?>
             <div class="song-card locked" data-letter="<?= e($letter) ?>" data-title-letter="<?= e($letter) ?>" data-artist-letter="<?= e($artistLetter) ?>" data-title="<?= e(strtolower((string)$song['title'])) ?>" data-artist="<?= e(strtolower($artistSort)) ?>">
@@ -841,7 +845,7 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
                   <input type="hidden" name="action" value="request_song">
                   <input type="hidden" name="song_id" value="<?= (int)$song['id'] ?>">
                   <select class="request-select" name="request_amount_dollars" aria-label="Request amount">
-                    <?php foreach (setmaxx_public_price_options($minimumDollars, $priceStepDollars) as $amount): ?>
+                    <?php foreach ($requestAmounts as $amount): ?>
                       <option value="<?= $amount ?>">$<?= $amount ?></option>
                     <?php endforeach; ?>
                     <option value="0">$0 free request</option>

@@ -90,7 +90,7 @@ if (!function_exists('rss_tool_library_url')) {
 if (!function_exists('rss_tool_launch_url')) {
     function rss_tool_launch_url(): string
     {
-        return rss_studio_root_url() . '/tools/index.php';
+        return rss_studio_root_url() . '/setmaxx/index.php';
     }
 }
 

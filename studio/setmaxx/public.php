@@ -65,6 +65,28 @@ function setmaxx_public_ensure_suggestions_table(PDO $pdo): void {
     ");
 }
 
+function setmaxx_public_ensure_mailing_list_table(PDO $pdo): void {
+    if (setmaxx_public_table_exists($pdo, 'setmaxx_mailing_list_signups')) return;
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS `setmaxx_mailing_list_signups` (
+          `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+          `gig_session_id` bigint(20) unsigned DEFAULT NULL,
+          `user_id` int(10) unsigned NOT NULL,
+          `email` varchar(190) NOT NULL,
+          `first_name` varchar(100) DEFAULT NULL,
+          `source` varchar(80) NOT NULL DEFAULT 'setmaxx_public_page',
+          `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+          `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+          PRIMARY KEY (`id`),
+          UNIQUE KEY `uq_setmaxx_mailing_user_email` (`user_id`,`email`),
+          KEY `idx_setmaxx_mailing_user_created` (`user_id`,`created_at`),
+          KEY `idx_setmaxx_mailing_session` (`gig_session_id`,`created_at`),
+          CONSTRAINT `fk_setmaxx_mailing_session` FOREIGN KEY (`gig_session_id`) REFERENCES `setmaxx_gig_sessions` (`id`) ON DELETE SET NULL,
+          CONSTRAINT `fk_setmaxx_mailing_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
+    ");
+}
+
 function setmaxx_public_ensure_profile_table(PDO $pdo): void {
     if (setmaxx_public_table_exists($pdo, 'setmaxx_public_profiles')) return;
     $pdo->exec("
@@ -308,7 +330,38 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
         $errors[] = 'Please refresh the page and try again.';
     } else {
         $action = (string)($_POST['action'] ?? 'request_song');
-        if ($action === 'suggest_song') {
+        if ($action === 'join_mailing_list') {
+            $mailingEmail = strtolower(trim((string)($_POST['mailing_email'] ?? '')));
+            $mailingFirstName = trim((string)($_POST['mailing_first_name'] ?? ''));
+
+            if ($mailingEmail === '' || !filter_var($mailingEmail, FILTER_VALIDATE_EMAIL)) {
+                $errors[] = 'Add a valid email address to join the list.';
+            } else {
+                try {
+                    setmaxx_public_ensure_mailing_list_table($pdo);
+                    $mailingStmt = $pdo->prepare(
+                        "INSERT INTO setmaxx_mailing_list_signups
+                            (gig_session_id, user_id, email, first_name, source)
+                         VALUES
+                            (?, ?, ?, ?, 'setmaxx_public_page')
+                         ON DUPLICATE KEY UPDATE
+                            gig_session_id = VALUES(gig_session_id),
+                            first_name = COALESCE(VALUES(first_name), first_name),
+                            source = VALUES(source),
+                            updated_at = NOW()"
+                    );
+                    $mailingStmt->execute([
+                        $session ? (int)$session['id'] : null,
+                        $publicUserId,
+                        mb_substr($mailingEmail, 0, 190),
+                        $mailingFirstName !== '' ? mb_substr($mailingFirstName, 0, 100) : null,
+                    ]);
+                    $messages[] = 'You are on the list. Thanks for keeping in touch.';
+                } catch (Throwable $e) {
+                    $errors[] = 'The mailing list signup could not be saved right now.';
+                }
+            }
+        } elseif ($action === 'suggest_song') {
             $suggestedTitle = trim((string)($_POST['suggested_title'] ?? ''));
             $suggestedArtist = trim((string)($_POST['suggested_artist'] ?? ''));
             $suggestionName = trim((string)($_POST['suggestion_name'] ?? ''));
@@ -621,6 +674,7 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
     .action-summary-hint { color:rgba(255,255,255,.62); font-size:.86rem; font-weight:400; }
     .action-panel { padding:1rem; }
     .suggestion-form { display:grid; grid-template-columns:minmax(160px, 1fr) minmax(140px, .9fr) minmax(120px, .8fr) minmax(180px, 1.2fr) auto; gap:.55rem; align-items:center; }
+    .mailing-form { display:grid; grid-template-columns:minmax(180px, 1fr) minmax(140px, .75fr) auto; gap:.55rem; align-items:center; }
     .tip-form { display:grid; grid-template-columns:110px minmax(130px, 1fr) minmax(180px, 1.3fr) auto; gap:.55rem; align-items:center; }
     .payment-buttons { display:flex; gap:.45rem; flex-wrap:wrap; }
     .payment-buttons .btn { white-space:nowrap; }
@@ -628,7 +682,7 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
     .alert-success { background:rgba(51,176,102,.16); border:1px solid rgba(51,176,102,.28); }
     .alert-error { background:rgba(199,64,64,.16); border:1px solid rgba(199,64,64,.28); }
     @media (max-width: 900px) {
-      .song-row, .request-form, .suggestion-form, .tip-form { grid-template-columns:1fr; }
+      .song-row, .request-form, .suggestion-form, .mailing-form, .tip-form { grid-template-columns:1fr; }
       .request-submit { width:100%; }
     }
   </style>
@@ -687,6 +741,25 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
                 <button class="btn btn-primary request-submit" type="submit" name="payment_method" value="stripe">Tip with card</button>
                 <?php if ($venmoAvailable): ?><button class="btn btn-outline request-submit" type="submit" name="payment_method" value="venmo">Tip with Venmo</button><?php endif; ?>
               </div>
+            </form>
+          </div>
+        </details>
+
+        <details class="action-card">
+          <summary class="action-summary">
+            <span class="action-summary-text">
+              <span>Join the list</span>
+              <span class="action-summary-hint">Get show dates, music updates, and the occasional heads-up.</span>
+            </span>
+            <span class="action-chevron" aria-hidden="true">&darr;</span>
+          </summary>
+          <div class="action-panel">
+            <form method="post" class="mailing-form" action="">
+              <input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>">
+              <input type="hidden" name="action" value="join_mailing_list">
+              <input class="request-input" name="mailing_email" type="email" placeholder="Email address" required>
+              <input class="request-input" name="mailing_first_name" placeholder="First name">
+              <button class="btn btn-outline request-submit" type="submit">Keep me posted</button>
             </form>
           </div>
         </details>
@@ -763,6 +836,25 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
               <button class="btn btn-primary request-submit" type="submit" name="payment_method" value="stripe">Tip with card</button>
               <?php if ($venmoAvailable): ?><button class="btn btn-outline request-submit" type="submit" name="payment_method" value="venmo">Tip with Venmo</button><?php endif; ?>
             </div>
+          </form>
+        </div>
+      </details>
+
+      <details class="action-card">
+        <summary class="action-summary">
+          <span class="action-summary-text">
+            <span>Join the list</span>
+            <span class="action-summary-hint">Get show dates, music updates, and the occasional heads-up.</span>
+          </span>
+          <span class="action-chevron" aria-hidden="true">&darr;</span>
+        </summary>
+        <div class="action-panel">
+          <form method="post" class="mailing-form" action="">
+            <input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>">
+            <input type="hidden" name="action" value="join_mailing_list">
+            <input class="request-input" name="mailing_email" type="email" placeholder="Email address" required>
+            <input class="request-input" name="mailing_first_name" placeholder="First name">
+            <button class="btn btn-outline request-submit" type="submit">Keep me posted</button>
           </form>
         </div>
       </details>

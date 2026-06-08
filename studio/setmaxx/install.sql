@@ -129,6 +129,23 @@ CREATE TABLE IF NOT EXISTS `setmaxx_song_suggestions` (
   CONSTRAINT `fk_setmaxx_suggestions_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+CREATE TABLE IF NOT EXISTS `setmaxx_mailing_list_signups` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `gig_session_id` bigint(20) unsigned DEFAULT NULL,
+  `user_id` int(10) unsigned NOT NULL,
+  `email` varchar(190) NOT NULL,
+  `first_name` varchar(100) DEFAULT NULL,
+  `source` varchar(80) NOT NULL DEFAULT 'setmaxx_public_page',
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_setmaxx_mailing_user_email` (`user_id`,`email`),
+  KEY `idx_setmaxx_mailing_user_created` (`user_id`,`created_at`),
+  KEY `idx_setmaxx_mailing_session` (`gig_session_id`,`created_at`),
+  CONSTRAINT `fk_setmaxx_mailing_session` FOREIGN KEY (`gig_session_id`) REFERENCES `setmaxx_gig_sessions` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `fk_setmaxx_mailing_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
 CREATE TABLE IF NOT EXISTS `setmaxx_general_tips` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `gig_session_id` bigint(20) unsigned NOT NULL,

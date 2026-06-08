@@ -21,9 +21,9 @@ $shopUrl = $studioBase . '/shop/index.php';
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="<?= htmlspecialchars($assetBase . '/css/style.css', ENT_QUOTES, 'UTF-8') ?>">
-    <link rel="icon" type="image/png" sizes="32x32" href="<?= htmlspecialchars($assetBase . '/favicons/favicon-32.png', ENT_QUOTES, 'UTF-8') ?>">
-    <link rel="icon" type="image/png" sizes="16x16" href="<?= htmlspecialchars($assetBase . '/favicons/favicon-16.png', ENT_QUOTES, 'UTF-8') ?>">
-    <link rel="apple-touch-icon" sizes="180x180" href="<?= htmlspecialchars($assetBase . '/favicons/favicon-180.png', ENT_QUOTES, 'UTF-8') ?>">
+    <link rel="icon" type="image/png" sizes="32x32" href="<?= htmlspecialchars($assetBase . '/favicons/rss-favicon-32.png', ENT_QUOTES, 'UTF-8') ?>">
+    <link rel="icon" type="image/png" sizes="16x16" href="<?= htmlspecialchars($assetBase . '/favicons/rss-favicon-16.png', ENT_QUOTES, 'UTF-8') ?>">
+    <link rel="apple-touch-icon" sizes="180x180" href="<?= htmlspecialchars($assetBase . '/favicons/rss-favicon-180.png', ENT_QUOTES, 'UTF-8') ?>">
     <style>
         :root {
             --rss-bg: #080910;
@@ -710,10 +710,10 @@ $shopUrl = $studioBase . '/shop/index.php';
 
             <div class="container">
                 <div class="rss-hero-content">
-                    <div class="rss-kicker"><i class="fa-solid fa-bolt"></i> Set Maxx is the flagship app</div>
+                    <div class="rss-kicker"><i class="fa-solid fa-bolt"></i> The request button your tip jar wished it had</div>
                     <h1>Turn your setlist into a paycheck.</h1>
                     <p class="rss-hero-copy">
-                        Set Maxx helps working musicians take live song requests, collect tips, protect the flow of the show, and give the crowd a clean way to participate without taking over the room.
+                        Set Maxx helps working musicians take live song requests, collect tips, offer card and Venmo options, and give the crowd a clean way to participate without taking over the room.
                     </p>
                     <div class="rss-actions">
                         <a class="btn btn-primary" href="<?= htmlspecialchars($pricingUrl, ENT_QUOTES, 'UTF-8') ?>">
@@ -724,9 +724,9 @@ $shopUrl = $studioBase . '/shop/index.php';
                         </a>
                     </div>
                     <div class="rss-hero-note">
-                        <span>Paid requests</span>
-                        <span>QR-friendly public pages</span>
-                        <span>Setlists and song catalog</span>
+                        <span>Paid requests and tips</span>
+                        <span>Card and Venmo options</span>
+                        <span>Custom links for every session</span>
                     </div>
                 </div>
             </div>
@@ -737,11 +737,11 @@ $shopUrl = $studioBase . '/shop/index.php';
                 <div class="rss-proof-grid">
                     <div class="rss-proof-item">
                         <div class="rss-proof-value">$5+</div>
-                        <p>Default paid request path, with free requests still available when you want them.</p>
+                        <p>Default paid request path, with free requests still available when the room calls for it.</p>
                     </div>
                     <div class="rss-proof-item">
                         <div class="rss-proof-value">QR</div>
-                        <p>Launch a public page for each show so guests can request from their phones.</p>
+                        <p>Launch a custom public page for each show so guests can request, tip, and follow along from their phones.</p>
                     </div>
                     <div class="rss-proof-item">
                         <div class="rss-proof-value">Live</div>
@@ -749,7 +749,7 @@ $shopUrl = $studioBase . '/shop/index.php';
                     </div>
                     <div class="rss-proof-item">
                         <div class="rss-proof-value">Flow</div>
-                        <p>Paid requests can lock songs for the night while free requests stay flexible.</p>
+                        <p>Every session is saved, so the requests, tips, notes, and outcomes are still there after the lights come up.</p>
                     </div>
                 </div>
             </div>
@@ -772,37 +772,37 @@ $shopUrl = $studioBase . '/shop/index.php';
                     <article class="rss-feature-card">
                         <span class="rss-feature-icon"><i class="fa-solid fa-qrcode"></i></span>
                         <h3>Public request pages</h3>
-                        <p>Create a simple link or QR code for each live session, with tips, suggestions, and song search built in.</p>
+                        <p>Create a clean link or QR code for each live session, with song search, tips, suggestions, and your own show details built in.</p>
                     </article>
                     <article class="rss-feature-card">
                         <span class="rss-feature-icon"><i class="fa-solid fa-music"></i></span>
                         <h3>Song catalog control</h3>
-                        <p>Manage your active requestable songs and keep the audience choosing from material you actually want to play.</p>
+                        <p>Manage the songs you want requested, then let the crowd choose from the menu instead of yelling the specials.</p>
                     </article>
                     <article class="rss-feature-card">
                         <span class="rss-feature-icon"><i class="fa-solid fa-microphone-lines"></i></span>
                         <h3>Performer dashboard</h3>
-                        <p>See requester names, notes, amounts, payment method, status, and lyrics links when you need a quick refresh.</p>
+                        <p>See requester names, notes, amounts, payment method, status, session history, and lyrics links when you need a quick refresh.</p>
                     </article>
                     <article class="rss-feature-card">
                         <span class="rss-feature-icon"><i class="fa-solid fa-layer-group"></i></span>
-                        <h3>Setlist planning</h3>
-                        <p>Build better sets from your catalog using energy, danceability, broad genre, timing, and show context.</p>
+                        <h3>Custom sessions</h3>
+                        <p>Set up each gig with its own title, venue, Venmo setting, live status, and public link so tonight feels like tonight.</p>
                     </article>
                     <article class="rss-feature-card">
                         <span class="rss-feature-icon"><i class="fa-solid fa-lock"></i></span>
-                        <h3>Request boundaries</h3>
-                        <p>Paid requests can reserve a song for the night, while declined or canceled requests release it back into play.</p>
+                        <h3>Website and review links</h3>
+                        <p>Send happy guests back to your website, your review page, or wherever the next useful click should go.</p>
                     </article>
                     <article class="rss-feature-card">
                         <span class="rss-feature-icon"><i class="fa-brands fa-stripe"></i></span>
-                        <h3>Card and Venmo paths</h3>
-                        <p>Use Stripe checkout for card payments and optionally record Venmo payments for sessions that allow it.</p>
+                        <h3>Card, Venmo, and tips</h3>
+                        <p>Use card checkout for paid requests and tips, then turn on Venmo for sessions where that is the room's native language.</p>
                     </article>
                     <article class="rss-feature-card">
                         <span class="rss-feature-icon"><i class="fa-solid fa-lightbulb"></i></span>
                         <h3>Future song ideas</h3>
-                        <p>Let guests suggest songs you do not currently perform without cluttering the active request flow.</p>
+                        <p>Let guests suggest songs you do not currently perform without turning tonight's request queue into a homework assignment.</p>
                     </article>
                 </div>
             </div>
@@ -821,7 +821,7 @@ $shopUrl = $studioBase . '/shop/index.php';
                         </div>
                         <div class="rss-phone-card">
                             <strong>Tip the performer</strong>
-                            <span>Open to choose an amount and payment method.</span>
+                            <span>Card checkout or Venmo, depending on the session.</span>
                         </div>
                         <div class="rss-phone-card">
                             <strong>Search songs or artists</strong>
@@ -835,6 +835,10 @@ $shopUrl = $studioBase . '/shop/index.php';
                         <div class="rss-phone-card">
                             <strong>Suggest a song</strong>
                             <span>Capture future-show ideas without derailing tonight.</span>
+                        </div>
+                        <div class="rss-phone-card">
+                            <strong>Website and reviews</strong>
+                            <span>Send fans back to your site or favorite review page.</span>
                         </div>
                     </div>
                 </div>
@@ -857,21 +861,21 @@ $shopUrl = $studioBase . '/shop/index.php';
                             <span class="rss-step-number">2</span>
                             <div>
                                 <h3>Create a live session</h3>
-                                <p>Turn on requests for a specific gig, add Venmo if you use it, and share the public link.</p>
+                                <p>Customize the gig title, venue, public links, review link, and Venmo setting, then share the public page.</p>
                             </div>
                         </article>
                         <article class="rss-step">
                             <span class="rss-step-number">3</span>
                             <div>
                                 <h3>Let the room participate</h3>
-                                <p>Guests search, request, tip, or suggest songs from their phones without interrupting the stage.</p>
+                                <p>Guests search, request, tip, suggest songs, visit your site, or leave a review without interrupting the stage.</p>
                             </div>
                         </article>
                         <article class="rss-step">
                             <span class="rss-step-number">4</span>
                             <div>
                                 <h3>Run the queue</h3>
-                                <p>Mark requests queued, played, or declined, and keep a lyrics link close for quick confidence checks.</p>
+                                <p>Mark requests queued, played, or declined, keep a lyrics link close, and come back later to the saved session history.</p>
                             </div>
                         </article>
                     </div>
@@ -885,7 +889,7 @@ $shopUrl = $studioBase . '/shop/index.php';
                     <span class="rss-eyebrow">Simple and profitable</span>
                     <h2>Make requests feel like part of the show, not a side hustle.</h2>
                     <p>
-                        The goal is not to pressure the room. It is to make support obvious, keep free participation available, and give generous guests an easy way to move a song up the list.
+                        The goal is not to pressure the room. It is to make support obvious, keep free participation available, and give generous guests an easy card or Venmo path when they want a song to jump the line.
                     </p>
                     <div class="rss-actions" style="margin-top:1.2rem;">
                         <a class="btn btn-primary" href="<?= htmlspecialchars($pricingUrl, ENT_QUOTES, 'UTF-8') ?>">Start Free Trial</a>
@@ -894,7 +898,7 @@ $shopUrl = $studioBase . '/shop/index.php';
                 </div>
                 <aside class="rss-quote">
                     <strong>Play the requests that pay.</strong>
-                    <p>Use the public page to collect paid requests, standalone tips, and future song ideas while keeping your set under your control.</p>
+                    <p>Use the public page to collect paid requests, standalone tips, Venmo-recorded payments, and future song ideas while keeping your set under your control.</p>
                 </aside>
             </div>
         </section>
@@ -903,7 +907,7 @@ $shopUrl = $studioBase . '/shop/index.php';
             <div class="container">
                 <div class="rss-section-head">
                     <span class="rss-eyebrow">Ready Set Shows suite</span>
-                    <h2>Set Maxx leads. The rest supports the business.</h2>
+                    <h2>Built around the way working musicians actually gig.</h2>
                     <p>Ready Set Shows is growing around the same mission: practical tools for musicians who play real rooms and need less admin between gigs.</p>
                 </div>
                 <div class="rss-faq-grid">

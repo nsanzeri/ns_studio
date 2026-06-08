@@ -23,6 +23,9 @@ $trialUrl = rss_tool_trial_url();
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;700&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="icon" type="image/png" sizes="32x32" href="<?= e(base_url('../assets/favicons/rss-favicon-32.png')) ?>">
+  <link rel="icon" type="image/png" sizes="16x16" href="<?= e(base_url('../assets/favicons/rss-favicon-16.png')) ?>">
+  <link rel="apple-touch-icon" sizes="180x180" href="<?= e(base_url('../assets/favicons/rss-favicon-180.png')) ?>">
   <style>
     .rss-store-hero {
       padding: 4.5rem 0 3.5rem;
@@ -252,8 +255,8 @@ if ($isReadySetShowsHost) {
         <div class="rss-store-kicker"><i class="fa-solid fa-music"></i> Ready Set Shows</div>
         <h1>Turn your setlist into a paycheck.</h1>
         <p>
-          Set Maxx is the flagship Ready Set Shows app: live paid requests, QR-friendly request pages,
-          smarter setlists, song catalog control, and practical tools for working musicians.
+          Start with Set Maxx: live paid requests, QR-friendly request pages, tipping, song suggestions,
+          card and Venmo options, smarter setlists, and practical tools for working musicians.
         </p>
         <div class="rss-store-actions">
           <a class="btn btn-primary" href="<?= e(rss_studio_root_url() . '/setmaxx/index.php') ?>">Open Set Maxx</a>

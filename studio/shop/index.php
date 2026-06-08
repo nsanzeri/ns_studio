@@ -250,13 +250,13 @@ if ($isReadySetShowsHost) {
     <div class="container rss-store-hero-grid">
       <div>
         <div class="rss-store-kicker"><i class="fa-solid fa-music"></i> Ready Set Shows</div>
-        <h1>The gigging musician’s command center.</h1>
+        <h1>Turn your setlist into a paycheck.</h1>
         <p>
-          Ready Set Shows is a field-tested toolkit built from years of running real shows: availability checks, calendar formatting,
-          Bandsintown prep, smarter setlists, crowd requests, and more tools for working musicians.
+          Set Maxx is the flagship Ready Set Shows app: live paid requests, QR-friendly request pages,
+          smarter setlists, song catalog control, and practical tools for working musicians.
         </p>
         <div class="rss-store-actions">
-          <a class="btn btn-primary" href="<?= e(rss_tool_upgrade_url()) ?>">View Ready Set Shows Pro</a>
+          <a class="btn btn-primary" href="<?= e(rss_studio_root_url() . '/setmaxx/index.php') ?>">Open Set Maxx</a>
           <?php if (!$user): ?>
             <a class="btn btn-outline" href="<?= e(rss_studio_root_url() . '/member/login.php') ?>">Log In / Start Trial</a>
           <?php elseif ($toolsAccess['state'] === 'free'): ?>
@@ -269,7 +269,7 @@ if ($isReadySetShowsHost) {
       </div>
 
       <div class="rss-hero-image-card">
-        <a href="<?= e(rss_studio_root_url() . '/tools/index.php') ?>">
+        <a href="<?= e(rss_studio_root_url() . '/setmaxx/index.php') ?>">
           <img src="<?= e(base_url('../assets/img/rss-tools.png')) ?>" alt="Ready Set Shows tools preview">
         </a>
       </div>
@@ -282,11 +282,34 @@ if ($isReadySetShowsHost) {
         <div>
           <p class="eyebrow">Included with Ready Set Shows</p>
           <h2>One subscription. Multiple gig tools.</h2>
-          <p class="muted">Start with the calendar tools now, then grow into SetMaxx and the publishing/business features as they roll out.</p>
+          <p class="muted">Start with Set Maxx, then use the calendar and business tools as the suite grows around it.</p>
         </div>
       </div>
 
       <details class="rss-suite-card" open>
+        <summary>
+          <span class="rss-icon"><i class="fa-solid fa-list-check"></i></span>
+          <div>
+            <h3>Set Maxx</h3>
+            <p class="muted">Build better sets, manage your song list, and take controlled crowd requests.</p>
+          </div>
+          <i class="fa-solid fa-chevron-down rss-chevron"></i>
+        </summary>
+        <div class="rss-suite-body">
+          <ul class="rss-feature-list">
+            <li>Maintain your master song catalog</li>
+            <li>Generate sets by crowd, danceability, energy, and flow</li>
+            <li>Create gig-specific request sessions</li>
+            <li>Share a QR-friendly public request page</li>
+          </ul>
+          <div class="rss-card-actions">
+            <a class="btn btn-primary" href="<?= e(rss_tool_upgrade_url()) ?>">View Pricing</a>
+            <a class="btn btn-outline" href="<?= e(rss_studio_root_url() . '/setmaxx/index.php') ?>">Explore Set Maxx</a>
+          </div>
+        </div>
+      </details>
+
+      <details class="rss-suite-card">
         <summary>
           <span class="rss-icon"><i class="fa-regular fa-calendar-check"></i></span>
           <div>
@@ -303,30 +326,7 @@ if ($isReadySetShowsHost) {
             <li>Prepare Bandsintown bulk upload files faster</li>
           </ul>
           <div class="rss-card-actions">
-            <a class="btn btn-primary" href="<?= e(rss_tool_upgrade_url()) ?>">View Pricing</a>
-            <a class="btn btn-outline" href="<?= e(rss_studio_root_url() . '/tools/index.php') ?>">Open Calendar Tools</a>
-          </div>
-        </div>
-      </details>
-
-      <details class="rss-suite-card" id="publishing-tools">
-        <summary>
-          <span class="rss-icon"><i class="fa-solid fa-list-check"></i></span>
-          <div>
-            <h3>SetMaxx</h3>
-            <p class="muted">Build better sets, manage your song list, and take controlled crowd requests.</p>
-          </div>
-          <i class="fa-solid fa-chevron-down rss-chevron"></i>
-        </summary>
-        <div class="rss-suite-body">
-          <ul class="rss-feature-list">
-            <li>Maintain your master song catalog</li>
-            <li>Generate sets by crowd, danceability, energy, and flow</li>
-            <li>Create gig-specific request sessions</li>
-            <li>Share a QR-friendly public request page</li>
-          </ul>
-          <div class="rss-card-actions">
-            <a class="btn btn-primary" href="<?= e(rss_studio_root_url() . '/setmaxx/index.php') ?>">Explore SetMaxx</a>
+            <a class="btn btn-primary" href="<?= e(rss_studio_root_url() . '/tools/index.php') ?>">Open Calendar Tools</a>
           </div>
         </div>
       </details>

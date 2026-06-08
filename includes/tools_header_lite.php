@@ -15,11 +15,11 @@ if (isset($pdo) && function_exists('rss_get_current_user_trial_status')) {
     <div class="container tools-header-inner-lite">
 
         <!-- Brand -->
-        <a href="<?= htmlspecialchars($studioBase . '/tools/index.php') ?>" class="brand tools-brand-lite">
+        <a href="<?= htmlspecialchars($studioBase . '/setmaxx/index.php') ?>" class="brand tools-brand-lite">
             <span class="brand-mark">RS</span>
             <span class="brand-text">
                 <span class="brand-name">Ready Set Shows</span>
-                <span class="brand-tagline">Your calendars · Your availability · Your control</span>
+                <span class="brand-tagline">Live requests, setlists, and gig tools</span>
             </span>
         </a>
 

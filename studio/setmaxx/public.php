@@ -138,6 +138,9 @@ function setmaxx_public_ensure_venmo_columns(PDO $pdo): void {
     if (!setmaxx_public_column_exists($pdo, 'setmaxx_gig_sessions', 'venmo_enabled')) {
         $pdo->exec("ALTER TABLE setmaxx_gig_sessions ADD COLUMN venmo_enabled tinyint(1) NOT NULL DEFAULT 0 AFTER status");
     }
+    if (!setmaxx_public_column_exists($pdo, 'setmaxx_gig_sessions', 'minimum_request_dollars')) {
+        $pdo->exec("ALTER TABLE setmaxx_gig_sessions ADD COLUMN minimum_request_dollars tinyint(3) unsigned DEFAULT NULL AFTER venmo_enabled");
+    }
     if (!setmaxx_public_column_exists($pdo, 'setmaxx_requests', 'payment_method')) {
         $pdo->exec("ALTER TABLE setmaxx_requests ADD COLUMN payment_method varchar(24) NOT NULL DEFAULT 'stripe' AFTER status");
     }
@@ -237,7 +240,7 @@ if ($tablesReady) {
 
 if ($tablesReady && $token !== '') {
     $stmt = $pdo->prepare(
-        "SELECT gs.id, gs.user_id, gs.title, gs.venue_name, gs.status, gs.venmo_enabled, gs.starts_at, u.display_name
+        "SELECT gs.id, gs.user_id, gs.title, gs.venue_name, gs.status, gs.venmo_enabled, gs.minimum_request_dollars, gs.starts_at, u.display_name
          FROM setmaxx_gig_sessions gs
          JOIN users u ON u.id = gs.user_id
          WHERE gs.public_token = ?
@@ -253,7 +256,7 @@ if ($tablesReady && $token !== '') {
 
 if ($tablesReady && $linkToken !== '' && setmaxx_public_table_exists($pdo, 'setmaxx_public_links')) {
     $linkStmt = $pdo->prepare(
-        "SELECT gs.id, gs.user_id, gs.title, gs.venue_name, gs.status, gs.venmo_enabled, gs.starts_at, u.display_name,
+        "SELECT gs.id, gs.user_id, gs.title, gs.venue_name, gs.status, gs.venmo_enabled, gs.minimum_request_dollars, gs.starts_at, u.display_name,
                 spl.user_id AS public_user_id, u.display_name AS public_display_name
          FROM setmaxx_public_links spl
          JOIN users u ON u.id = spl.user_id
@@ -293,6 +296,9 @@ if ($tablesReady && $publicUserId > 0) {
         $publicProfile = ['website_url' => '', 'review_url' => '', 'logo_path' => '', 'venmo_handle' => '', 'minimum_tip_dollars' => 10, 'price_step_dollars' => 1];
     }
     $sessionMinimumDollars = max(0, min(100, (int)($publicProfile['minimum_tip_dollars'] ?? 10)));
+    if ($session && array_key_exists('minimum_request_dollars', $session) && $session['minimum_request_dollars'] !== null && $session['minimum_request_dollars'] !== '') {
+        $sessionMinimumDollars = max(0, min(100, (int)$session['minimum_request_dollars']));
+    }
     $priceStepDollars = (int)($publicProfile['price_step_dollars'] ?? 1);
     if (!in_array($priceStepDollars, [1, 5, 10], true)) $priceStepDollars = 1;
     $venmoHandle = ltrim(trim((string)($publicProfile['venmo_handle'] ?? '')), '@');
@@ -396,7 +402,7 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
             $tipperName = trim((string)($_POST['tipper_name'] ?? ''));
             $tipNote = trim((string)($_POST['tip_note'] ?? ''));
             $paymentMethod = (string)($_POST['payment_method'] ?? 'stripe');
-            $tipMinimumDollars = max(5, $sessionMinimumDollars);
+            $tipMinimumDollars = max(5, (int)($publicProfile['minimum_tip_dollars'] ?? 5));
             if ($tipDollars < $tipMinimumDollars || $tipDollars > 100) {
                 $errors[] = 'Choose a tip amount from $' . $tipMinimumDollars . ' to $100.';
             } elseif ($paymentMethod === 'venmo' && !$venmoAvailable) {
@@ -499,10 +505,10 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
         $songStmt->execute([$songId, (int)$session['id']]);
         $song = $songStmt->fetch(PDO::FETCH_ASSOC) ?: null;
         $songMinimumDollars = $song ? (int)ceil(((int)$song['tip_amount_cents']) / 100) : 0;
-        $minimumDollars = max(5, min(100, $songMinimumDollars));
+        $minimumDollars = max(5, min(100, max($songMinimumDollars, $sessionMinimumDollars)));
 
         if (!($requestAmountDollars === 0 || ($requestAmountDollars >= 5 && $requestAmountDollars <= 100))) {
-            $errors[] = 'Choose $5 to $100 to move your song up the list, or choose $0 for a free request.';
+            $errors[] = 'Choose $' . max(5, $sessionMinimumDollars) . ' to $100 to move your song up the list, or choose $0 for a free request.';
         } elseif ($requestAmountDollars > 0 && $minimumDollars > 0 && $requestAmountDollars < $minimumDollars) {
             $errors[] = 'This song starts at $' . $minimumDollars . '.';
         } elseif (!$song) {
@@ -731,7 +737,7 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
               <input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>">
               <input type="hidden" name="action" value="general_tip">
               <select class="request-select" name="tip_amount_dollars" aria-label="Tip amount">
-                <?php foreach (setmaxx_public_price_options(max(5, $sessionMinimumDollars), $priceStepDollars) as $tipAmount): ?>
+                <?php foreach (setmaxx_public_price_options(max(5, (int)($publicProfile['minimum_tip_dollars'] ?? 5)), $priceStepDollars) as $tipAmount): ?>
                   <option value="<?= $tipAmount ?>">$<?= $tipAmount ?></option>
                 <?php endforeach; ?>
               </select>
@@ -810,7 +816,7 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
       </div>
 
       <div class="request-note song-meta">
-        Paid requests help move songs up the list. Choose $5 to $100, or select $0 for a free request. Requests are still subject to performer discretion.
+        Paid requests help move songs up the list. Choose $<?= (int)max(5, $sessionMinimumDollars) ?> to $100, or select $0 for a free request. Requests are still subject to performer discretion.
       </div>
 
       <details class="action-card">
@@ -826,7 +832,7 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
             <input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>">
             <input type="hidden" name="action" value="general_tip">
             <select class="request-select" name="tip_amount_dollars" aria-label="Tip amount">
-              <?php foreach (setmaxx_public_price_options(max(5, $sessionMinimumDollars), $priceStepDollars) as $tipAmount): ?>
+              <?php foreach (setmaxx_public_price_options(max(5, (int)($publicProfile['minimum_tip_dollars'] ?? 5)), $priceStepDollars) as $tipAmount): ?>
                 <option value="<?= $tipAmount ?>">$<?= $tipAmount ?></option>
               <?php endforeach; ?>
             </select>
@@ -906,7 +912,7 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
             $artistSort = (string)($song['artist'] ?: $song['title']);
             $artistFirst = strtoupper(substr(trim($artistSort), 0, 1));
             $artistLetter = preg_match('/[A-Z]/', $artistFirst) ? $artistFirst : '#';
-            $minimumDollars = max(5, min(100, (int)ceil(((int)$song['tip_amount_cents']) / 100)));
+            $minimumDollars = max(5, min(100, max((int)ceil(((int)$song['tip_amount_cents']) / 100), $sessionMinimumDollars)));
             $requestAmounts = array_values(array_filter([5, 10, 15, 20, 25, 50, 100], fn($amount) => $amount >= $minimumDollars));
             if (!in_array($minimumDollars, $requestAmounts, true)) {
               array_unshift($requestAmounts, $minimumDollars);

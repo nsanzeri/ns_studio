@@ -13,7 +13,7 @@ $songs = [];
 $lockedSongIds = [];
 $availableLetters = [];
 $songCount = 0;
-$publicProfile = ['website_url' => '', 'review_url' => '', 'logo_path' => '', 'venmo_handle' => '', 'minimum_tip_dollars' => 10, 'price_step_dollars' => 1];
+$publicProfile = ['website_url' => '', 'review_url' => '', 'logo_path' => '', 'venmo_handle' => '', 'minimum_tip_dollars' => 10, 'suggested_request_dollars' => 10, 'price_step_dollars' => 1];
 $sessionMinimumDollars = 10;
 $priceStepDollars = 1;
 $venmoHandle = '';
@@ -98,6 +98,7 @@ function setmaxx_public_ensure_profile_table(PDO $pdo): void {
           `logo_path` varchar(255) DEFAULT NULL,
           `venmo_handle` varchar(80) DEFAULT NULL,
           `minimum_tip_dollars` tinyint(3) unsigned NOT NULL DEFAULT 10,
+          `suggested_request_dollars` tinyint(3) unsigned NOT NULL DEFAULT 10,
           `price_step_dollars` tinyint(3) unsigned NOT NULL DEFAULT 1,
           `created_at` datetime NOT NULL DEFAULT current_timestamp(),
           `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
@@ -122,8 +123,11 @@ function setmaxx_public_ensure_profile_pricing_columns(PDO $pdo): void {
     if (!setmaxx_public_profile_column_exists($pdo, 'minimum_tip_dollars')) {
         $pdo->exec("ALTER TABLE setmaxx_public_profiles ADD COLUMN minimum_tip_dollars tinyint(3) unsigned NOT NULL DEFAULT 10 AFTER logo_path");
     }
+    if (!setmaxx_public_profile_column_exists($pdo, 'suggested_request_dollars')) {
+        $pdo->exec("ALTER TABLE setmaxx_public_profiles ADD COLUMN suggested_request_dollars tinyint(3) unsigned NOT NULL DEFAULT 10 AFTER minimum_tip_dollars");
+    }
     if (!setmaxx_public_profile_column_exists($pdo, 'price_step_dollars')) {
-        $pdo->exec("ALTER TABLE setmaxx_public_profiles ADD COLUMN price_step_dollars tinyint(3) unsigned NOT NULL DEFAULT 1 AFTER minimum_tip_dollars");
+        $pdo->exec("ALTER TABLE setmaxx_public_profiles ADD COLUMN price_step_dollars tinyint(3) unsigned NOT NULL DEFAULT 1 AFTER suggested_request_dollars");
     }
 }
 
@@ -137,12 +141,6 @@ function setmaxx_public_ensure_venmo_columns(PDO $pdo): void {
     setmaxx_public_ensure_profile_pricing_columns($pdo);
     if (!setmaxx_public_column_exists($pdo, 'setmaxx_gig_sessions', 'venmo_enabled')) {
         $pdo->exec("ALTER TABLE setmaxx_gig_sessions ADD COLUMN venmo_enabled tinyint(1) NOT NULL DEFAULT 0 AFTER status");
-    }
-    if (!setmaxx_public_column_exists($pdo, 'setmaxx_gig_sessions', 'minimum_request_dollars')) {
-        $pdo->exec("ALTER TABLE setmaxx_gig_sessions ADD COLUMN minimum_request_dollars tinyint(3) unsigned DEFAULT NULL AFTER venmo_enabled");
-    }
-    if (!setmaxx_public_column_exists($pdo, 'setmaxx_gig_sessions', 'suggested_request_dollars')) {
-        $pdo->exec("ALTER TABLE setmaxx_gig_sessions ADD COLUMN suggested_request_dollars tinyint(3) unsigned DEFAULT NULL AFTER minimum_request_dollars");
     }
     if (!setmaxx_public_column_exists($pdo, 'setmaxx_requests', 'payment_method')) {
         $pdo->exec("ALTER TABLE setmaxx_requests ADD COLUMN payment_method varchar(24) NOT NULL DEFAULT 'stripe' AFTER status");
@@ -179,9 +177,9 @@ function setmaxx_public_ensure_general_tips_table(PDO $pdo): void {
 
 function setmaxx_public_profile(PDO $pdo, int $userId): array {
     setmaxx_public_ensure_profile_pricing_columns($pdo);
-    $stmt = $pdo->prepare("SELECT website_url, review_url, logo_path, venmo_handle, minimum_tip_dollars, price_step_dollars FROM setmaxx_public_profiles WHERE user_id = ? LIMIT 1");
+    $stmt = $pdo->prepare("SELECT website_url, review_url, logo_path, venmo_handle, minimum_tip_dollars, suggested_request_dollars, price_step_dollars FROM setmaxx_public_profiles WHERE user_id = ? LIMIT 1");
     $stmt->execute([$userId]);
-    return $stmt->fetch(PDO::FETCH_ASSOC) ?: ['website_url' => '', 'review_url' => '', 'logo_path' => '', 'venmo_handle' => '', 'minimum_tip_dollars' => 10, 'price_step_dollars' => 1];
+    return $stmt->fetch(PDO::FETCH_ASSOC) ?: ['website_url' => '', 'review_url' => '', 'logo_path' => '', 'venmo_handle' => '', 'minimum_tip_dollars' => 10, 'suggested_request_dollars' => 10, 'price_step_dollars' => 1];
 }
 
 function setmaxx_public_venmo_url(string $handle, int $amountDollars, string $note): string {
@@ -197,13 +195,14 @@ function setmaxx_public_venmo_url(string $handle, int $amountDollars, string $no
 function setmaxx_public_price_options(int $minimumDollars, int $stepDollars, int $maxDollars = 100): array {
     $minimumDollars = max(1, min($maxDollars, $minimumDollars));
     $stepDollars = in_array($stepDollars, [1, 5, 10], true) ? $stepDollars : 1;
-    $start = $minimumDollars;
-    if ($stepDollars > 1) {
-        $start = (int)(ceil($minimumDollars / $stepDollars) * $stepDollars);
-    }
+    $lowStep = max(5, $stepDollars);
+    $start = (int)(ceil($minimumDollars / $lowStep) * $lowStep);
     $options = [];
-    for ($amount = $start; $amount <= $maxDollars; $amount += $stepDollars) {
+    for ($amount = $start; $amount <= min(25, $maxDollars); $amount += $lowStep) {
         if ($amount >= $minimumDollars) $options[] = $amount;
+    }
+    foreach ([50, 75, 100] as $amount) {
+        if ($amount >= $minimumDollars && $amount <= $maxDollars) $options[] = $amount;
     }
     if (!$options || $options[0] !== $minimumDollars) {
         array_unshift($options, $minimumDollars);
@@ -243,7 +242,7 @@ if ($tablesReady) {
 
 if ($tablesReady && $token !== '') {
     $stmt = $pdo->prepare(
-        "SELECT gs.id, gs.user_id, gs.title, gs.venue_name, gs.status, gs.venmo_enabled, gs.minimum_request_dollars, gs.suggested_request_dollars, gs.starts_at, u.display_name
+        "SELECT gs.id, gs.user_id, gs.title, gs.venue_name, gs.status, gs.venmo_enabled, gs.starts_at, u.display_name
          FROM setmaxx_gig_sessions gs
          JOIN users u ON u.id = gs.user_id
          WHERE gs.public_token = ?
@@ -259,7 +258,7 @@ if ($tablesReady && $token !== '') {
 
 if ($tablesReady && $linkToken !== '' && setmaxx_public_table_exists($pdo, 'setmaxx_public_links')) {
     $linkStmt = $pdo->prepare(
-        "SELECT gs.id, gs.user_id, gs.title, gs.venue_name, gs.status, gs.venmo_enabled, gs.minimum_request_dollars, gs.suggested_request_dollars, gs.starts_at, u.display_name,
+        "SELECT gs.id, gs.user_id, gs.title, gs.venue_name, gs.status, gs.venmo_enabled, gs.starts_at, u.display_name,
                 spl.user_id AS public_user_id, u.display_name AS public_display_name
          FROM setmaxx_public_links spl
          JOIN users u ON u.id = spl.user_id
@@ -296,12 +295,10 @@ if ($tablesReady && $publicUserId > 0) {
     try {
         $publicProfile = setmaxx_public_profile($pdo, $publicUserId);
     } catch (Throwable $e) {
-        $publicProfile = ['website_url' => '', 'review_url' => '', 'logo_path' => '', 'venmo_handle' => '', 'minimum_tip_dollars' => 10, 'price_step_dollars' => 1];
+        $publicProfile = ['website_url' => '', 'review_url' => '', 'logo_path' => '', 'venmo_handle' => '', 'minimum_tip_dollars' => 10, 'suggested_request_dollars' => 10, 'price_step_dollars' => 1];
     }
     $sessionMinimumDollars = max(0, min(100, (int)($publicProfile['minimum_tip_dollars'] ?? 10)));
-    if ($session && array_key_exists('minimum_request_dollars', $session) && $session['minimum_request_dollars'] !== null && $session['minimum_request_dollars'] !== '') {
-        $sessionMinimumDollars = max(0, min(100, (int)$session['minimum_request_dollars']));
-    }
+    $suggestedRequestDollars = max(0, min(100, (int)($publicProfile['suggested_request_dollars'] ?? 10)));
     $priceStepDollars = (int)($publicProfile['price_step_dollars'] ?? 1);
     if (!in_array($priceStepDollars, [1, 5, 10], true)) $priceStepDollars = 1;
     $venmoHandle = ltrim(trim((string)($publicProfile['venmo_handle'] ?? '')), '@');
@@ -675,7 +672,9 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
     .request-select option { background:#151323; color:#fff; }
     .request-input::placeholder { color:rgba(255,255,255,.52); }
     .request-submit { padding:.54rem .85rem; white-space:nowrap; }
-    .request-note { margin-top:1rem; padding:1rem; border-radius:16px; background:rgba(140,107,255,.1); border:1px solid rgba(140,107,255,.16); }
+    .show-status-strip { display:flex; gap:.45rem; flex-wrap:wrap; align-items:center; margin-top:.85rem; color:rgba(255,255,255,.72); font-size:.82rem; line-height:1.35; }
+    .show-status-pill { display:inline-flex; align-items:center; min-height:24px; padding:.2rem .55rem; border-radius:999px; background:rgba(140,107,255,.14); border:1px solid rgba(140,107,255,.22); color:#efe7ff; font-weight:600; white-space:nowrap; }
+    .show-status-note { color:rgba(255,255,255,.62); }
     .public-logo { width:64px; height:64px; object-fit:contain; border-radius:16px; background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.1); padding:.4rem; }
     .public-quick-links { display:flex; gap:.5rem; flex-wrap:wrap; margin-top:.75rem; }
     .public-mini-button { display:inline-flex; align-items:center; min-height:34px; padding:.4rem .75rem; border-radius:999px; border:1px solid rgba(255,255,255,.14); color:#fff; text-decoration:none; font-size:.86rem; background:rgba(255,255,255,.04); }
@@ -818,11 +817,12 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
           <?php endif; ?>
           </div>
         </div>
-        <div class="song-meta" style="max-width:320px;"><?= (int)$songCount ?> active <?= $songCount === 1 ? 'song' : 'songs' ?> available. Paid requests lock the song for tonight; free requests keep it open.</div>
       </div>
 
-      <div class="request-note song-meta">
-        Paid requests help move songs up the list. Choose $<?= (int)max(5, $sessionMinimumDollars) ?> to $100<?= $sessionMinimumDollars > 0 ? '' : ', or select $0 for a free request' ?>. Requests are still subject to performer discretion.
+      <div class="show-status-strip">
+        <span class="show-status-pill"><?= (int)$songCount ?> active <?= $songCount === 1 ? 'song' : 'songs' ?></span>
+        <span>Paid requests lock songs for tonight<?= $sessionMinimumDollars > 0 ? '.' : '; free requests keep them open.' ?></span>
+        <span class="show-status-note">Choose $<?= (int)max(5, $sessionMinimumDollars) ?>-$100<?= $sessionMinimumDollars > 0 ? '' : ' or $0 free' ?>.</span>
       </div>
 
       <details class="action-card">
@@ -921,9 +921,9 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
             $songMinimumDollars = (int)ceil(((int)$song['tip_amount_cents']) / 100);
             $minimumDollars = max(5, min(100, max($songMinimumDollars, $sessionMinimumDollars)));
             $freeRequestAllowed = $songMinimumDollars <= 0 && $sessionMinimumDollars <= 0;
-            $suggestedDollars = $session && !empty($session['suggested_request_dollars']) ? (int)$session['suggested_request_dollars'] : $minimumDollars;
+            $suggestedDollars = $suggestedRequestDollars > 0 ? $suggestedRequestDollars : $minimumDollars;
             $suggestedDollars = max($minimumDollars, min(100, $suggestedDollars));
-            $requestAmounts = array_values(array_filter([5, 10, 15, 20, 25, 50, 100], fn($amount) => $amount >= $minimumDollars));
+            $requestAmounts = setmaxx_public_price_options($minimumDollars, $priceStepDollars);
             if (!in_array($suggestedDollars, $requestAmounts, true)) {
               $requestAmounts[] = $suggestedDollars;
               sort($requestAmounts, SORT_NUMERIC);

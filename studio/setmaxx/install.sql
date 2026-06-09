@@ -37,6 +37,7 @@ CREATE TABLE IF NOT EXISTS `setmaxx_gig_sessions` (
   `status` enum('draft','live','closed') NOT NULL DEFAULT 'draft',
   `venmo_enabled` tinyint(1) NOT NULL DEFAULT 0,
   `minimum_request_dollars` tinyint(3) unsigned DEFAULT NULL,
+  `suggested_request_dollars` tinyint(3) unsigned DEFAULT NULL,
   `starts_at` datetime DEFAULT NULL,
   `ends_at` datetime DEFAULT NULL,
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),

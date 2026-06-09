@@ -167,13 +167,13 @@ if ($isReadySetShowsHost) {
         </details>
 
         <details style="border:1px solid rgba(255,255,255,.08); border-radius:18px; padding:1rem; background:rgba(255,255,255,.03);">
-          <summary style="cursor:pointer; font-weight:700;">Publishing Tools <span class="muted" style="font-weight:400;">coming next</span></summary>
+          <summary style="cursor:pointer; font-weight:700;">Publishing Tools <span class="muted" style="font-weight:400;">soon</span></summary>
           <p class="muted" style="margin:.65rem 0 0;">Newsletter copy, Facebook-event prep, promo blurbs, and other gig-marketing helpers built from the calendar workflow.</p>
         </details>
 
         <details style="border:1px solid rgba(255,255,255,.08); border-radius:18px; padding:1rem; background:rgba(255,255,255,.03);">
-          <summary style="cursor:pointer; font-weight:700;">Business Tracking <span class="muted" style="font-weight:400;">future module</span></summary>
-          <p class="muted" style="margin:.65rem 0 0;">Gig fee, deposit, balance due, payment status, average gig value, and yearly totals once the core tools are solid.</p>
+          <summary style="cursor:pointer; font-weight:700;">Finance <span class="muted" style="font-weight:400;">soon</span></summary>
+          <p class="muted" style="margin:.65rem 0 0;">Gig fee, deposit, balance due, payment status, average gig value, and yearly totals once the module is ready.</p>
         </details>
       </div>
     </div>

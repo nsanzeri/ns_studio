@@ -334,11 +334,11 @@ if ($isReadySetShowsHost) {
         </div>
       </details>
 
-      <details class="rss-suite-card" id="business-tracking">
+      <details class="rss-suite-card" id="publishing-tools">
         <summary>
           <span class="rss-icon"><i class="fa-solid fa-bullhorn"></i></span>
           <div>
-            <h3>Publishing Tools</h3>
+            <h3>Publishing Tools <span class="muted" style="font-size:.78rem; font-weight:600;">Soon</span></h3>
             <p class="muted">Future tools for turning selected shows into promo copy, newsletters, and event posts.</p>
           </div>
           <i class="fa-solid fa-chevron-down rss-chevron"></i>
@@ -354,12 +354,12 @@ if ($isReadySetShowsHost) {
         </div>
       </details>
 
-      <details class="rss-suite-card">
+      <details class="rss-suite-card" id="business-tracking">
         <summary>
           <span class="rss-icon"><i class="fa-solid fa-chart-line"></i></span>
           <div>
-            <h3>Business Tracking</h3>
-            <p class="muted">Future tools for deposits, balances, yearly totals, and average gig value.</p>
+            <h3>Finance <span class="muted" style="font-size:.78rem; font-weight:600;">Soon</span></h3>
+            <p class="muted">Coming-soon tools for deposits, balances, yearly totals, and average gig value.</p>
           </div>
           <i class="fa-solid fa-chevron-down rss-chevron"></i>
         </summary>
@@ -370,7 +370,7 @@ if ($isReadySetShowsHost) {
             <li>Spot which gigs and clients are most profitable</li>
             <li>Run your music work more like a real business</li>
           </ul>
-          <p class="muted">Planned for the Ready Set Shows roadmap.</p>
+          <p class="muted">Coming soon to the Ready Set Shows roadmap.</p>
         </div>
       </details>
 

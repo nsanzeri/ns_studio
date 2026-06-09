@@ -212,12 +212,12 @@ if (isset($_GET['upgraded'])) {
         <p>Manage songs, generate setlists, and prepare crowd-friendly live request sessions.</p>
       </article>
       <article class="suite-tile">
-        <p class="eyebrow">Finance</p>
+        <p class="eyebrow">Finance · Soon</p>
         <h3>Gig tracking</h3>
-        <p>Roadmap tools for deposits, balances, totals, averages, and tip reporting.</p>
+        <p>Coming-soon tools for deposits, balances, totals, averages, and tip reporting.</p>
       </article>
       <article class="suite-tile">
-        <p class="eyebrow">Publish</p>
+        <p class="eyebrow">Publish · Soon</p>
         <h3>Promo support</h3>
         <p>Roadmap tools for announcements, captions, newsletters, and event copy.</p>
       </article>
@@ -299,7 +299,7 @@ if (isset($_GET['upgraded'])) {
           <li>Unlimited calendar output and Bandsintown-ready exports</li>
           <li>SetMaxx live request sessions with QR sharing</li>
           <li>Tips, paid song requests, and performer payout routing</li>
-          <li>Future finance and publishing tools as they roll out</li>
+          <li>Finance and publishing tools as they roll out</li>
         </ul>
 
         <?php if (!$user): ?>

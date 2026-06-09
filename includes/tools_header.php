@@ -23,7 +23,7 @@ if (!function_exists('nav_active')) {
 $suiteModules = [
 	['label' => 'Calendar', 'href' => $studioBase . '/tools/index.php', 'active' => str_contains($currentPath, '/tools/'), 'soon' => false],
 	['label' => 'SetMaxx', 'href' => $studioBase . '/setmaxx/index.php', 'active' => str_contains($currentPath, '/setmaxx/'), 'soon' => false],
-	['label' => 'Finance', 'href' => $studioBase . '/finance/index.php', 'active' => str_contains($currentPath, '/finance/'), 'soon' => false],
+	['label' => 'Finance', 'href' => $studioBase . '/shop/#business-tracking', 'active' => false, 'soon' => true],
 	['label' => 'Publishing', 'href' => $studioBase . '/shop/#publishing-tools', 'active' => false, 'soon' => true],
 ];
 $showCalendarSubnav = str_contains($currentPath, '/tools/');
@@ -35,7 +35,7 @@ $showCalendarSubnav = str_contains($currentPath, '/tools/');
             <span class="brand-mark">RS</span>
             <span class="brand-text">
                 <span class="brand-name">Ready Set Shows</span>
-                <span class="brand-tagline">Calendar &middot; SetMaxx &middot; Finance &middot; Publishing</span>
+                <span class="brand-tagline">Calendar &middot; SetMaxx &middot; Finance Soon &middot; Publishing Soon</span>
             </span>
         </a>
 

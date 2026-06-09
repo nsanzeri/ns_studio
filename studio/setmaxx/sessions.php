@@ -58,6 +58,9 @@ function setmaxx_ensure_session_pricing_columns(PDO $pdo): void {
 	if (!setmaxx_session_column_exists($pdo, 'minimum_request_dollars')) {
 		$pdo->exec("ALTER TABLE setmaxx_gig_sessions ADD COLUMN minimum_request_dollars tinyint(3) unsigned DEFAULT NULL AFTER venmo_enabled");
 	}
+	if (!setmaxx_session_column_exists($pdo, 'suggested_request_dollars')) {
+		$pdo->exec("ALTER TABLE setmaxx_gig_sessions ADD COLUMN suggested_request_dollars tinyint(3) unsigned DEFAULT NULL AFTER minimum_request_dollars");
+	}
 }
 
 function setmaxx_clean_venmo_handle($value): ?string {
@@ -112,6 +115,7 @@ if ($tablesReady && is_post()) {
 				$goLive = isset($_POST['go_live']) ? 1 : 0;
 				$venmoEnabled = isset($_POST['venmo_enabled']) ? 1 : 0;
 				$minimumRequestDollars = max(0, min(100, (int)($_POST['minimum_request_dollars'] ?? ($publicProfile['minimum_tip_dollars'] ?? 5))));
+				$suggestedRequestDollars = max(0, min(100, (int)($_POST['suggested_request_dollars'] ?? max(10, $minimumRequestDollars))));
 				if ($title === '') throw new RuntimeException('Session title is required.');
 				$baseSlug = strtolower(trim(preg_replace('/[^a-z0-9]+/i', '-', $title), '-')) ?: 'gig';
 				$sessionSlug = $baseSlug . '-' . substr(bin2hex(random_bytes(4)), 0, 8);
@@ -124,8 +128,8 @@ if ($tablesReady && is_post()) {
 					$pdo->prepare("UPDATE setmaxx_gig_sessions SET status = 'closed', ends_at = NOW() WHERE user_id = ? AND status = 'live'")->execute([$userId]);
 				}
 				setmaxx_ensure_session_pricing_columns($pdo);
-				$stmt = $pdo->prepare("INSERT INTO setmaxx_gig_sessions (user_id, title, venue_name, session_slug, public_token, status, venmo_enabled, minimum_request_dollars, starts_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
-				$stmt->execute([$userId, $title, $venue !== '' ? $venue : null, $sessionSlug, $publicToken, $status, $venmoEnabled, $minimumRequestDollars > 0 ? $minimumRequestDollars : null, $goLive ? date('Y-m-d H:i:s') : null]);
+				$stmt = $pdo->prepare("INSERT INTO setmaxx_gig_sessions (user_id, title, venue_name, session_slug, public_token, status, venmo_enabled, minimum_request_dollars, suggested_request_dollars, starts_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+				$stmt->execute([$userId, $title, $venue !== '' ? $venue : null, $sessionSlug, $publicToken, $status, $venmoEnabled, $minimumRequestDollars > 0 ? $minimumRequestDollars : null, $suggestedRequestDollars > 0 ? $suggestedRequestDollars : null, $goLive ? date('Y-m-d H:i:s') : null]);
 				$pdo->commit();
 				setmaxx_enforce_single_live_session($pdo, $userId);
 				$messages[] = $goLive ? 'New live session created.' : 'Session created in draft mode.';
@@ -201,10 +205,11 @@ if ($tablesReady && is_post()) {
 			if ($action === 'session_minimum') {
 				$sessionId = (int)($_POST['session_id'] ?? 0);
 				$minimumRequestDollars = max(0, min(100, (int)($_POST['minimum_request_dollars'] ?? 0)));
+				$suggestedRequestDollars = max(0, min(100, (int)($_POST['suggested_request_dollars'] ?? 0)));
 				if ($sessionId <= 0) throw new RuntimeException('Invalid session update.');
 				setmaxx_ensure_session_pricing_columns($pdo);
-				$pdo->prepare("UPDATE setmaxx_gig_sessions SET minimum_request_dollars = ? WHERE id = ? AND user_id = ?")->execute([$minimumRequestDollars > 0 ? $minimumRequestDollars : null, $sessionId, $userId]);
-				$messages[] = 'Session minimum updated.';
+				$pdo->prepare("UPDATE setmaxx_gig_sessions SET minimum_request_dollars = ?, suggested_request_dollars = ? WHERE id = ? AND user_id = ?")->execute([$minimumRequestDollars > 0 ? $minimumRequestDollars : null, $suggestedRequestDollars > 0 ? $suggestedRequestDollars : null, $sessionId, $userId]);
+				$messages[] = 'Session pricing updated.';
 			}
 			if ($action === 'delete_session') {
 				$sessionId = (int)($_POST['session_id'] ?? 0);
@@ -237,7 +242,7 @@ $sessions = [];
 if ($tablesReady) {
 	setmaxx_enforce_single_live_session($pdo, $userId);
 	setmaxx_ensure_session_pricing_columns($pdo);
-	$sessionsStmt = $pdo->prepare("SELECT id, title, venue_name, session_slug, public_token, status, venmo_enabled, minimum_request_dollars, starts_at, ends_at, created_at FROM setmaxx_gig_sessions WHERE user_id = ? ORDER BY FIELD(status, 'live', 'draft', 'closed'), created_at DESC LIMIT 20");
+	$sessionsStmt = $pdo->prepare("SELECT id, title, venue_name, session_slug, public_token, status, venmo_enabled, minimum_request_dollars, suggested_request_dollars, starts_at, ends_at, created_at FROM setmaxx_gig_sessions WHERE user_id = ? ORDER BY FIELD(status, 'live', 'draft', 'closed'), created_at DESC LIMIT 20");
 	$sessionsStmt->execute([$userId]);
 	$sessions = $sessionsStmt->fetchAll(PDO::FETCH_ASSOC);
 }
@@ -266,8 +271,12 @@ setmaxx_page_head('Set Maxx | Gig Sessions');
             <label for="minimum_request_dollars">Session minimum request</label>
             <input class="setmaxx-input" id="minimum_request_dollars" name="minimum_request_dollars" type="number" min="0" max="100" step="1" value="<?= e((string)max(5, (int)($publicProfile['minimum_tip_dollars'] ?? 5))) ?>">
           </div>
-          <div class="setmaxx-field"><label>Default for this gig</label><div class="setmaxx-help">Set the lowest paid request amount for this session. Song-specific minimums can still be higher.</div></div>
+          <div class="setmaxx-field">
+            <label for="suggested_request_dollars">Suggested starting price</label>
+            <input class="setmaxx-input" id="suggested_request_dollars" name="suggested_request_dollars" type="number" min="0" max="100" step="1" value="<?= e((string)max(10, (int)($publicProfile['minimum_tip_dollars'] ?? 5))) ?>">
+          </div>
         </div>
+        <div class="setmaxx-help">The minimum controls the lowest allowed paid request. The suggested price is what the dropdown selects first.</div>
         <label style="display:flex; gap:.6rem; align-items:center;"><input type="checkbox" name="go_live" value="1" checked><span class="setmaxx-help">Make this the live request page now</span></label>
         <label style="display:flex; gap:.6rem; align-items:center;"><input type="checkbox" name="venmo_enabled" value="1" <?= !empty($publicProfile['venmo_handle']) ? 'checked' : '' ?>><span class="setmaxx-help">Show Venmo on this session<?= empty($publicProfile['venmo_handle']) ? ' after you add a handle below' : '' ?></span></label>
         <div class="setmaxx-actions"><button class="btn btn-primary" type="submit" <?= $isProUser ? '' : 'disabled' ?>>Create session</button></div>
@@ -338,6 +347,7 @@ setmaxx_page_head('Set Maxx | Gig Sessions');
             <div class="setmaxx-meta"><?= e((string)($session['venue_name'] ?: 'Venue not set')) ?></div>
             <div class="setmaxx-meta">Venmo: <?= !empty($session['venmo_enabled']) ? 'On' : 'Off' ?></div>
             <div class="setmaxx-meta">Minimum request: $<?= (int)($session['minimum_request_dollars'] ?: max(5, (int)($publicProfile['minimum_tip_dollars'] ?? 5))) ?></div>
+            <div class="setmaxx-meta">Suggested start: $<?= (int)($session['suggested_request_dollars'] ?: max(10, (int)($session['minimum_request_dollars'] ?: max(5, (int)($publicProfile['minimum_tip_dollars'] ?? 5))))) ?></div>
             <?php if (($session['status'] ?? '') === 'live' && $stablePublicUrl): ?>
               <div class="setmaxx-link-box" style="margin-top:.7rem;"><strong>Live public page</strong><code><?= e($stablePublicUrl) ?></code><a class="btn btn-outline" href="<?= e($stablePublicUrl) ?>" target="_blank" rel="noopener">Open</a></div>
             <?php else: ?>
@@ -359,7 +369,8 @@ setmaxx_page_head('Set Maxx | Gig Sessions');
               <input type="hidden" name="action" value="session_minimum">
               <input type="hidden" name="session_id" value="<?= (int)$session['id'] ?>">
               <input class="setmaxx-input" name="minimum_request_dollars" type="number" min="0" max="100" step="1" value="<?= e((string)(int)($session['minimum_request_dollars'] ?: max(5, (int)($publicProfile['minimum_tip_dollars'] ?? 5)))) ?>" aria-label="Session minimum request" style="width:86px;">
-              <button class="btn btn-outline" type="submit" <?= $isProUser ? '' : 'disabled' ?>>Save min</button>
+              <input class="setmaxx-input" name="suggested_request_dollars" type="number" min="0" max="100" step="1" value="<?= e((string)(int)($session['suggested_request_dollars'] ?: max(10, (int)($session['minimum_request_dollars'] ?: max(5, (int)($publicProfile['minimum_tip_dollars'] ?? 5)))))) ?>" aria-label="Suggested starting price" style="width:86px;">
+              <button class="btn btn-outline" type="submit" <?= $isProUser ? '' : 'disabled' ?>>Save pricing</button>
             </form>
             <?php if (($session['status'] ?? '') !== 'live'): ?>
               <form method="post" action=""><input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>"><input type="hidden" name="action" value="session_status"><input type="hidden" name="session_id" value="<?= (int)$session['id'] ?>"><input type="hidden" name="new_status" value="live"><button class="btn btn-outline" type="submit" <?= $isProUser ? '' : 'disabled' ?>>Go live</button></form>

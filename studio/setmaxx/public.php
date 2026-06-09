@@ -141,6 +141,9 @@ function setmaxx_public_ensure_venmo_columns(PDO $pdo): void {
     if (!setmaxx_public_column_exists($pdo, 'setmaxx_gig_sessions', 'minimum_request_dollars')) {
         $pdo->exec("ALTER TABLE setmaxx_gig_sessions ADD COLUMN minimum_request_dollars tinyint(3) unsigned DEFAULT NULL AFTER venmo_enabled");
     }
+    if (!setmaxx_public_column_exists($pdo, 'setmaxx_gig_sessions', 'suggested_request_dollars')) {
+        $pdo->exec("ALTER TABLE setmaxx_gig_sessions ADD COLUMN suggested_request_dollars tinyint(3) unsigned DEFAULT NULL AFTER minimum_request_dollars");
+    }
     if (!setmaxx_public_column_exists($pdo, 'setmaxx_requests', 'payment_method')) {
         $pdo->exec("ALTER TABLE setmaxx_requests ADD COLUMN payment_method varchar(24) NOT NULL DEFAULT 'stripe' AFTER status");
     }
@@ -240,7 +243,7 @@ if ($tablesReady) {
 
 if ($tablesReady && $token !== '') {
     $stmt = $pdo->prepare(
-        "SELECT gs.id, gs.user_id, gs.title, gs.venue_name, gs.status, gs.venmo_enabled, gs.minimum_request_dollars, gs.starts_at, u.display_name
+        "SELECT gs.id, gs.user_id, gs.title, gs.venue_name, gs.status, gs.venmo_enabled, gs.minimum_request_dollars, gs.suggested_request_dollars, gs.starts_at, u.display_name
          FROM setmaxx_gig_sessions gs
          JOIN users u ON u.id = gs.user_id
          WHERE gs.public_token = ?
@@ -256,7 +259,7 @@ if ($tablesReady && $token !== '') {
 
 if ($tablesReady && $linkToken !== '' && setmaxx_public_table_exists($pdo, 'setmaxx_public_links')) {
     $linkStmt = $pdo->prepare(
-        "SELECT gs.id, gs.user_id, gs.title, gs.venue_name, gs.status, gs.venmo_enabled, gs.minimum_request_dollars, gs.starts_at, u.display_name,
+        "SELECT gs.id, gs.user_id, gs.title, gs.venue_name, gs.status, gs.venmo_enabled, gs.minimum_request_dollars, gs.suggested_request_dollars, gs.starts_at, u.display_name,
                 spl.user_id AS public_user_id, u.display_name AS public_display_name
          FROM setmaxx_public_links spl
          JOIN users u ON u.id = spl.user_id
@@ -506,9 +509,12 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
         $song = $songStmt->fetch(PDO::FETCH_ASSOC) ?: null;
         $songMinimumDollars = $song ? (int)ceil(((int)$song['tip_amount_cents']) / 100) : 0;
         $minimumDollars = max(5, min(100, max($songMinimumDollars, $sessionMinimumDollars)));
+        $freeRequestAllowed = $songMinimumDollars <= 0 && $sessionMinimumDollars <= 0;
 
-        if (!($requestAmountDollars === 0 || ($requestAmountDollars >= 5 && $requestAmountDollars <= 100))) {
-            $errors[] = 'Choose $' . max(5, $sessionMinimumDollars) . ' to $100 to move your song up the list, or choose $0 for a free request.';
+        if (!(($freeRequestAllowed && $requestAmountDollars === 0) || ($requestAmountDollars >= 5 && $requestAmountDollars <= 100))) {
+            $errors[] = $freeRequestAllowed
+                ? 'Choose $5 to $100 to move your song up the list, or choose $0 for a free request.'
+                : 'This song starts at $' . $minimumDollars . '.';
         } elseif ($requestAmountDollars > 0 && $minimumDollars > 0 && $requestAmountDollars < $minimumDollars) {
             $errors[] = 'This song starts at $' . $minimumDollars . '.';
         } elseif (!$song) {
@@ -816,7 +822,7 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
       </div>
 
       <div class="request-note song-meta">
-        Paid requests help move songs up the list. Choose $<?= (int)max(5, $sessionMinimumDollars) ?> to $100, or select $0 for a free request. Requests are still subject to performer discretion.
+        Paid requests help move songs up the list. Choose $<?= (int)max(5, $sessionMinimumDollars) ?> to $100<?= $sessionMinimumDollars > 0 ? '' : ', or select $0 for a free request' ?>. Requests are still subject to performer discretion.
       </div>
 
       <details class="action-card">
@@ -912,8 +918,16 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
             $artistSort = (string)($song['artist'] ?: $song['title']);
             $artistFirst = strtoupper(substr(trim($artistSort), 0, 1));
             $artistLetter = preg_match('/[A-Z]/', $artistFirst) ? $artistFirst : '#';
-            $minimumDollars = max(5, min(100, max((int)ceil(((int)$song['tip_amount_cents']) / 100), $sessionMinimumDollars)));
+            $songMinimumDollars = (int)ceil(((int)$song['tip_amount_cents']) / 100);
+            $minimumDollars = max(5, min(100, max($songMinimumDollars, $sessionMinimumDollars)));
+            $freeRequestAllowed = $songMinimumDollars <= 0 && $sessionMinimumDollars <= 0;
+            $suggestedDollars = $session && !empty($session['suggested_request_dollars']) ? (int)$session['suggested_request_dollars'] : $minimumDollars;
+            $suggestedDollars = max($minimumDollars, min(100, $suggestedDollars));
             $requestAmounts = array_values(array_filter([5, 10, 15, 20, 25, 50, 100], fn($amount) => $amount >= $minimumDollars));
+            if (!in_array($suggestedDollars, $requestAmounts, true)) {
+              $requestAmounts[] = $suggestedDollars;
+              sort($requestAmounts, SORT_NUMERIC);
+            }
             if (!in_array($minimumDollars, $requestAmounts, true)) {
               array_unshift($requestAmounts, $minimumDollars);
             }
@@ -944,9 +958,11 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
                   <input type="hidden" name="song_id" value="<?= (int)$song['id'] ?>">
                   <select class="request-select" name="request_amount_dollars" aria-label="Request amount">
                     <?php foreach ($requestAmounts as $amount): ?>
-                      <option value="<?= $amount ?>">$<?= $amount ?></option>
+                      <option value="<?= $amount ?>" <?= $amount === $suggestedDollars ? 'selected' : '' ?>>$<?= $amount ?></option>
                     <?php endforeach; ?>
-                    <option value="0">$0 free request</option>
+                    <?php if ($freeRequestAllowed): ?>
+                      <option value="0">$0 free request</option>
+                    <?php endif; ?>
                   </select>
                   <input class="request-input" name="requester_name" placeholder="First name is enough.">
                   <input class="request-input" name="request_note" placeholder="Optional note">

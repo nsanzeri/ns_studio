@@ -6,6 +6,7 @@
                     <li><a href="<?= htmlspecialchars($siteBase . '/about.php') ?>" class="<?= nav_active($currentPage === 'about.php') ?>">About</a></li>
                     <li><a href="<?= htmlspecialchars($siteBase . '/pressme.php') ?>" class="<?= nav_active($currentPage === 'pressme.php') ?>">Random Video Picker</a></li>
                     <li><a href="<?= htmlspecialchars($siteBase . '/contact.php') ?>" class="<?= nav_active($currentPage === 'contact.php') ?>">Contact</a></li>
+                    <li><a href="<?= htmlspecialchars($siteBase . '/privacy.php') ?>" class="<?= nav_active($currentPage === 'privacy.php') ?>">Privacy Policy</a></li>
                     <p>© <span id="year"></span> Nick Sanzeri Music. All rights reserved.</p>
                     <p class="footer-location">Based in Chicagoland · Available nationwide</p>
                     

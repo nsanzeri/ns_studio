@@ -80,10 +80,10 @@ function setmaxx_parse_song_import(string $text): array {
 
         if (str_contains($line, "\t")) {
             $parts = array_map('trim', explode("\t", $line));
-        } elseif (str_contains($line, ',')) {
-            $parts = array_map('trim', str_getcsv($line));
         } elseif (preg_match('/\s+-\s+/', $line)) {
             $parts = array_map('trim', preg_split('/\s+-\s+/', $line, 2));
+        } elseif (str_contains($line, ',')) {
+            $parts = array_map('trim', str_getcsv($line, ',', '"', ''));
         } else {
             $parts = [$line];
         }
@@ -305,7 +305,10 @@ setmaxx_page_head('Set Maxx | Song Catalog');
   <?php if (!$tablesReady): ?><?php setmaxx_install_notice(); ?><?php else: ?>
   <section class="setmaxx-grid">
     <div class="setmaxx-card">
-      <h2 style="margin-top:0;">Import songs</h2>
+      <div class="setmaxx-section-head">
+        <h2>Import songs</h2>
+        <button class="setmaxx-help-button" type="button" id="setmaxxImportHelpBtn" aria-label="Show import help" aria-haspopup="dialog">?</button>
+      </div>
       <form method="post" enctype="multipart/form-data" class="setmaxx-stack" action="">
         <input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>">
         <input type="hidden" name="action" value="import_songs">
@@ -343,11 +346,15 @@ setmaxx_page_head('Set Maxx | Song Catalog');
     <input type="hidden" name="action" value="save_catalog">
     <div class="setmaxx-catalog-toolbar">
       <div>
-        <h2 style="margin:0;">Editable catalog</h2>
+        <div class="setmaxx-section-head">
+          <h2>Editable catalog</h2>
+          <button class="setmaxx-help-button" type="button" id="setmaxxCatalogHelpBtn" aria-label="Show catalog help" aria-haspopup="dialog">?</button>
+        </div>
         <div class="setmaxx-help"><?= (int)$songCount ?> total <?= $songCount === 1 ? 'entry' : 'entries' ?>. Only changed rows are saved, which keeps large catalogs fast.</div>
       </div>
       <div class="setmaxx-actions">
         <button class="btn btn-outline" type="button" id="setmaxxEnrichBtn" <?= $songs ? '' : 'disabled' ?>>Enrich visible</button>
+        <button class="btn btn-outline" type="button" id="setmaxxExportBtn" <?= $songs ? '' : 'disabled' ?>>Export / print</button>
         <button class="btn btn-outline" type="submit" name="action" value="delete_selected" id="setmaxxDeleteSelectedBtn" <?= $isProUser && $songs ? '' : 'disabled' ?>>Delete selected</button>
         <button class="btn btn-primary" type="submit" <?= $isProUser && $songs ? '' : 'disabled' ?>>Save catalog</button>
       </div>
@@ -438,6 +445,66 @@ setmaxx_page_head('Set Maxx | Song Catalog');
       </div>
     <?php endif; ?>
   </form>
+  <dialog class="setmaxx-dialog" id="setmaxxImportHelpDialog" aria-labelledby="setmaxxImportHelpTitle">
+    <div class="setmaxx-dialog-inner">
+      <div class="setmaxx-dialog-head">
+        <div>
+          <div class="setmaxx-pill">Import help</div>
+          <h2 class="setmaxx-dialog-title" id="setmaxxImportHelpTitle">What can I import?</h2>
+        </div>
+        <button class="setmaxx-dialog-close" type="button" id="setmaxxImportHelpClose" aria-label="Close">&times;</button>
+      </div>
+      <ul class="setmaxx-format-list">
+        <li>One song per line is required.</li>
+        <li>Title-only rows work: <strong>Mr. Brightside</strong></li>
+        <li>Title and artist rows work with a dash: <strong>Sweet Caroline - Neil Diamond</strong></li>
+        <li>CSV or tab-separated rows work in this order: title, artist, year, source genre, broad genre.</li>
+        <li>A header row is optional. Supported headers include title, artist, year, genre, and broad genre.</li>
+      </ul>
+      <pre class="setmaxx-format-example">A DAY IN THE LIFE - THE BEATLES
+A HORSE WITH NO NAME - AMERICA
+ADDICTED TO LOVE - ROBERT PALMER</pre>
+    </div>
+  </dialog>
+  <dialog class="setmaxx-dialog" id="setmaxxCatalogHelpDialog" aria-labelledby="setmaxxCatalogHelpTitle">
+    <div class="setmaxx-dialog-inner">
+      <div class="setmaxx-dialog-head">
+        <div>
+          <div class="setmaxx-pill">Catalog help</div>
+          <h2 class="setmaxx-dialog-title" id="setmaxxCatalogHelpTitle">How the catalog controls work</h2>
+        </div>
+        <button class="setmaxx-dialog-close" type="button" id="setmaxxCatalogHelpClose" aria-label="Close">&times;</button>
+      </div>
+      <ul class="setmaxx-format-list">
+        <li><strong>Select rows</strong> to enrich or delete a specific group. With nothing selected, Enrich visible works on the current filtered view.</li>
+        <li><strong>Active</strong> controls whether fans can request the song.</li>
+        <li><strong>Min $</strong> is the minimum request amount for that song.</li>
+        <li><strong>Year, source genre, broad genre, length, and tempo</strong> help organize the catalog and build better sets.</li>
+        <li><strong>Track</strong> marks prerecorded backing tracks. <strong>Medley</strong>, <strong>opener</strong>, <strong>vocal</strong>, <strong>key</strong>, <strong>family</strong>, and <strong>instrumental</strong> are stage-planning fields.</li>
+        <li><strong>Notes</strong> are private performance reminders for arrangement, capo, transitions, or special instructions.</li>
+      </ul>
+    </div>
+  </dialog>
+  <dialog class="setmaxx-dialog" id="setmaxxExportDialog" aria-labelledby="setmaxxExportTitle">
+    <div class="setmaxx-dialog-inner">
+      <div class="setmaxx-dialog-head">
+        <div>
+          <div class="setmaxx-pill">Export</div>
+          <h2 class="setmaxx-dialog-title" id="setmaxxExportTitle">Export or print songs</h2>
+        </div>
+        <button class="setmaxx-dialog-close" type="button" id="setmaxxExportClose" aria-label="Close">&times;</button>
+      </div>
+      <p class="setmaxx-help" id="setmaxxExportSummary">Selected songs are exported. If none are selected, the current filtered list is used.</p>
+      <div class="setmaxx-option-list">
+        <label><input type="checkbox" id="setmaxxExportArtist" checked> Include artist</label>
+        <label><input type="checkbox" id="setmaxxExportKey"> Include song key</label>
+      </div>
+      <div class="setmaxx-actions">
+        <button class="btn btn-primary" type="button" id="setmaxxPrintBtn">Print list</button>
+        <button class="btn btn-outline" type="button" id="setmaxxCsvBtn">Download CSV</button>
+      </div>
+    </div>
+  </dialog>
   <?php endif; ?>
 </main>
 <style>
@@ -466,10 +533,66 @@ setmaxx_page_head('Set Maxx | Song Catalog');
   .setmaxx-song-table input[type="checkbox"] { width:18px; height:18px; accent-color:#8c6bff; }
   .setmaxx-mini-link { display:inline-flex; align-items:center; min-height:34px; color:#efe7ff; font-size:.86rem; text-decoration:none; }
   .setmaxx-mini-link:hover { text-decoration:underline; }
+  .setmaxx-section-head { display:flex; align-items:center; gap:.65rem; margin-bottom:1rem; }
+  .setmaxx-section-head h2 { margin:0; }
+  .setmaxx-help-button { display:inline-flex; align-items:center; justify-content:center; width:32px; height:32px; border-radius:999px; border:1px solid rgba(255,255,255,.18); background:rgba(255,255,255,.06); color:#efe7ff; font-weight:700; cursor:pointer; }
+  .setmaxx-help-button:hover, .setmaxx-help-button:focus-visible { border-color:rgba(140,107,255,.55); background:rgba(140,107,255,.18); outline:none; }
+  .setmaxx-dialog { width:min(560px, calc(100vw - 2rem)); border:1px solid rgba(255,255,255,.12); border-radius:18px; padding:0; background:#151323; color:#fff; box-shadow:0 24px 70px rgba(0,0,0,.55); }
+  .setmaxx-dialog::backdrop { background:rgba(0,0,0,.62); backdrop-filter:blur(4px); }
+  .setmaxx-dialog-inner { padding:1.15rem; display:grid; gap:1rem; }
+  .setmaxx-dialog-head { display:flex; align-items:flex-start; justify-content:space-between; gap:1rem; }
+  .setmaxx-dialog-title { margin:0; font-size:1.15rem; }
+  .setmaxx-dialog-close { border:1px solid rgba(255,255,255,.14); border-radius:999px; width:36px; height:36px; background:rgba(255,255,255,.05); color:#fff; cursor:pointer; font-size:1.35rem; line-height:1; }
+  .setmaxx-format-list { margin:0; padding-left:1.2rem; color:rgba(255,255,255,.82); line-height:1.75; }
+  .setmaxx-format-example { margin:0; padding:.85rem .95rem; border-radius:14px; background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.08); color:#efe7ff; white-space:pre-wrap; overflow:auto; }
+  .setmaxx-option-list { display:grid; gap:.55rem; color:rgba(255,255,255,.86); }
+  .setmaxx-option-list label { display:flex; align-items:center; gap:.55rem; }
+  .setmaxx-option-list input[type="checkbox"] { width:18px; height:18px; accent-color:#8c6bff; }
 </style>
 <script>
 (function() {
+  function setupDialog(buttonId, dialogId, closeId) {
+    const openButton = document.getElementById(buttonId);
+    const dialog = document.getElementById(dialogId);
+    const closeButton = document.getElementById(closeId);
+    if (!openButton || !dialog) return;
+
+    function closeDialog() {
+      if (typeof dialog.close === 'function') {
+        dialog.close();
+      } else {
+        dialog.setAttribute('hidden', '');
+      }
+    }
+
+    openButton.addEventListener('click', function() {
+      if (typeof dialog.showModal === 'function') {
+        dialog.showModal();
+      } else {
+        dialog.removeAttribute('hidden');
+      }
+    });
+
+    if (closeButton) closeButton.addEventListener('click', closeDialog);
+    dialog.addEventListener('click', function(event) {
+      if (event.target === dialog) closeDialog();
+    });
+  }
+
+  setupDialog('setmaxxImportHelpBtn', 'setmaxxImportHelpDialog', 'setmaxxImportHelpClose');
+  setupDialog('setmaxxCatalogHelpBtn', 'setmaxxCatalogHelpDialog', 'setmaxxCatalogHelpClose');
+})();
+
+(function() {
   const button = document.getElementById('setmaxxEnrichBtn');
+  const exportButton = document.getElementById('setmaxxExportBtn');
+  const exportDialog = document.getElementById('setmaxxExportDialog');
+  const exportClose = document.getElementById('setmaxxExportClose');
+  const printButton = document.getElementById('setmaxxPrintBtn');
+  const csvButton = document.getElementById('setmaxxCsvBtn');
+  const exportArtist = document.getElementById('setmaxxExportArtist');
+  const exportKey = document.getElementById('setmaxxExportKey');
+  const exportSummary = document.getElementById('setmaxxExportSummary');
   const deleteButton = document.getElementById('setmaxxDeleteSelectedBtn');
   const selectAll = document.getElementById('setmaxxSelectAll');
   const table = document.getElementById('setmaxxSongTable');
@@ -575,6 +698,127 @@ setmaxx_page_head('Set Maxx | Song Catalog');
     });
   }
 
+  function exportRows() {
+    const checkedRows = selectedRows();
+    return checkedRows.length ? checkedRows : visibleRows();
+  }
+
+  function fieldValue(row, selector) {
+    const field = row.querySelector(selector);
+    return field ? field.value.trim() : '';
+  }
+
+  function exportData() {
+    return exportRows().map(function(row) {
+      return {
+        title: fieldValue(row, '.js-title'),
+        artist: fieldValue(row, '.js-artist'),
+        key: fieldValue(row, 'input[name$="[song_key]"]')
+      };
+    }).filter(function(song) {
+      return song.title !== '';
+    });
+  }
+
+  function exportColumns() {
+    const columns = ['Title'];
+    if (exportArtist && exportArtist.checked) columns.push('Artist');
+    if (exportKey && exportKey.checked) columns.push('Key');
+    return columns;
+  }
+
+  function valueForColumn(song, column) {
+    if (column === 'Artist') return song.artist;
+    if (column === 'Key') return song.key;
+    return song.title;
+  }
+
+  function escapeHtml(value) {
+    return String(value).replace(/[&<>"']/g, function(character) {
+      return {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;'
+      }[character];
+    });
+  }
+
+  function csvValue(value) {
+    const text = String(value);
+    return /[",\r\n]/.test(text) ? '"' + text.replace(/"/g, '""') + '"' : text;
+  }
+
+  function updateExportSummary() {
+    if (!exportSummary) return;
+    const checkedCount = selectedRows().length;
+    const count = exportRows().length;
+    const source = checkedCount > 0 ? 'selected' : 'visible';
+    exportSummary.textContent = count + ' ' + source + ' ' + (count === 1 ? 'song' : 'songs') + ' will be exported.';
+  }
+
+  function closeExportDialog() {
+    if (!exportDialog) return;
+    if (typeof exportDialog.close === 'function') {
+      exportDialog.close();
+    } else {
+      exportDialog.setAttribute('hidden', '');
+    }
+  }
+
+  function openExportDialog() {
+    if (!exportDialog) return;
+    updateExportSummary();
+    if (typeof exportDialog.showModal === 'function') {
+      exportDialog.showModal();
+    } else {
+      exportDialog.removeAttribute('hidden');
+    }
+  }
+
+  function printExport() {
+    const songsToExport = exportData();
+    if (!songsToExport.length) return;
+    const columns = exportColumns();
+    const header = columns.map(function(column) {
+      return '<th>' + escapeHtml(column) + '</th>';
+    }).join('');
+    const body = songsToExport.map(function(song) {
+      return '<tr>' + columns.map(function(column) {
+        return '<td>' + escapeHtml(valueForColumn(song, column)) + '</td>';
+      }).join('') + '</tr>';
+    }).join('');
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      window.alert('Your browser blocked the print window. Allow popups for this site and try again.');
+      return;
+    }
+    printWindow.document.write('<!doctype html><html><head><meta charset="utf-8"><title>Set Maxx Song Export</title><style>body{font-family:Arial,sans-serif;margin:32px;color:#111;}h1{font-size:24px;margin:0 0 6px;}p{margin:0 0 18px;color:#555;}table{width:100%;border-collapse:collapse;}th,td{padding:8px 10px;border-bottom:1px solid #ddd;text-align:left;}th{background:#f2f2f2;}@media print{body{margin:18mm;}}</style></head><body><h1>Set Maxx Song Catalog</h1><p>' + songsToExport.length + ' ' + (songsToExport.length === 1 ? 'song' : 'songs') + '</p><table><thead><tr>' + header + '</tr></thead><tbody>' + body + '</tbody></table></body></html>');
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.print();
+  }
+
+  function downloadCsv() {
+    const songsToExport = exportData();
+    if (!songsToExport.length) return;
+    const columns = exportColumns();
+    const lines = [columns.map(csvValue).join(',')].concat(songsToExport.map(function(song) {
+      return columns.map(function(column) {
+        return csvValue(valueForColumn(song, column));
+      }).join(',');
+    }));
+    const blob = new Blob([lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = 'setmaxx-song-catalog.csv';
+    document.body.appendChild(link);
+    link.click();
+    URL.revokeObjectURL(link.href);
+    link.remove();
+  }
+
   function updateSelectionControls() {
     const checkboxes = visibleRows().map(function(row) {
       return row.querySelector('.js-row-select');
@@ -589,6 +833,7 @@ setmaxx_page_head('Set Maxx | Song Catalog');
       selectAll.checked = checkboxes.length > 0 && selectedCount === checkboxes.length;
       selectAll.indeterminate = selectedCount > 0 && selectedCount < checkboxes.length;
     }
+    updateExportSummary();
   }
 
   function rowLetter(row) {
@@ -680,6 +925,18 @@ setmaxx_page_head('Set Maxx | Song Catalog');
       applyCatalogView();
     });
   });
+
+  if (exportButton) exportButton.addEventListener('click', openExportDialog);
+  if (exportClose) exportClose.addEventListener('click', closeExportDialog);
+  if (exportDialog) {
+    exportDialog.addEventListener('click', function(event) {
+      if (event.target === exportDialog) closeExportDialog();
+    });
+  }
+  if (printButton) printButton.addEventListener('click', printExport);
+  if (csvButton) csvButton.addEventListener('click', downloadCsv);
+  if (exportArtist) exportArtist.addEventListener('change', updateExportSummary);
+  if (exportKey) exportKey.addEventListener('change', updateExportSummary);
 
   if (deleteButton) {
     deleteButton.addEventListener('click', function(event) {

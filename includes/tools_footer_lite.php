@@ -23,6 +23,7 @@ $homeUrl = function_exists('rss_public_root_url')
                     </a>
                 </li>
                 <li><a href="<?= htmlspecialchars($homeUrl, ENT_QUOTES, 'UTF-8') ?>">Main Site</a></li>
+                <li><a href="<?= htmlspecialchars(preg_replace('#/studio$#', '', base_url('')) . '/privacy.php', ENT_QUOTES, 'UTF-8') ?>">Privacy Policy</a></li>
             </ul>
             <p>© <span id="year"></span> Ready Set Shows</p>
             <?php if (!$isReadySetShowsHost): ?>

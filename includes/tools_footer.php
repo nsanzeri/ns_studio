@@ -13,6 +13,7 @@ $studioBase = $siteBase . '/studio';
                 <li><a href="<?= htmlspecialchars($studioBase . '/member/library.php') ?>">My Products</a></li>
                 <li><a href="<?= htmlspecialchars($siteBase . '/contact.php') ?>">Support</a></li>
                 <li><a href="<?= htmlspecialchars($siteBase . '/index.php') ?>">Main Site</a></li>
+                <li><a href="<?= htmlspecialchars($siteBase . '/privacy.php') ?>">Privacy Policy</a></li>
             </ul>
             <p>© <span id="year"></span> Ready Set Shows</p>
             <p class="footer-location">Built by Nick Sanzeri</p>

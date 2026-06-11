@@ -736,16 +736,16 @@ $shopUrl = $studioBase . '/shop/index.php';
             <div class="container">
                 <div class="rss-proof-grid">
                     <div class="rss-proof-item">
-                        <div class="rss-proof-value">$5+</div>
-                        <p>Default paid request path, with free requests still available when the room calls for it.</p>
+                        <div class="rss-proof-value">$$$</div>
+                        <p>You decide the lowest amount per request for each show, and even each song. Freebird? That will be $100, please.</p>
                     </div>
                     <div class="rss-proof-item">
                         <div class="rss-proof-value">QR</div>
-                        <p>Launch a custom public page for each show so guests can request, tip, and follow along from their phones.</p>
+                        <p>Your QR code links to the current active show. People scan, select, and ka-ching!</p>
                     </div>
                     <div class="rss-proof-item">
                         <div class="rss-proof-value">Live</div>
-                        <p>Queue, play, decline, and peek lyrics from one performer-facing dashboard.</p>
+                        <p>Control the queue by marking incoming requests as played and seeing who paid what to make certain songs a priority.</p>
                     </div>
                     <div class="rss-proof-item">
                         <div class="rss-proof-value">Flow</div>
@@ -946,6 +946,7 @@ $shopUrl = $studioBase . '/shop/index.php';
     <footer class="rss-footer">
         <div class="container">
             &copy; <?= date('Y') ?> Ready Set Shows. Set Maxx is built for working musicians.
+            <a href="<?= htmlspecialchars($siteBase . '/privacy.php', ENT_QUOTES, 'UTF-8') ?>">Privacy Policy</a>
         </div>
     </footer>
 </body>

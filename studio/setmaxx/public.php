@@ -302,7 +302,7 @@ if ($tablesReady && $publicUserId > 0) {
     $priceStepDollars = (int)($publicProfile['price_step_dollars'] ?? 1);
     if (!in_array($priceStepDollars, [1, 5, 10], true)) $priceStepDollars = 1;
     $venmoHandle = ltrim(trim((string)($publicProfile['venmo_handle'] ?? '')), '@');
-    $venmoAvailable = $session && !empty($session['venmo_enabled']) && $venmoHandle !== '';
+    $venmoAvailable = $session && $venmoHandle !== '';
 }
 
 if ($session && $tablesReady) {

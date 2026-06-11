@@ -156,7 +156,7 @@ setmaxx_page_head('Set Maxx | Payments');
     <div class="setmaxx-card">
       <div class="setmaxx-pill">Payments</div>
       <h1 style="margin:.8rem 0 .45rem;">Tips and Payouts</h1>
-      <p class="setmaxx-help" style="font-size:1rem; margin:0;">Connect Stripe for verified card payments, or turn on Venmo per session to record direct Venmo requests and tips.</p>
+      <p class="setmaxx-help" style="font-size:1rem; margin:0;">Connect Stripe for verified card payments, or add a global Venmo handle to record direct Venmo requests and tips.</p>
     </div>
     <div class="setmaxx-card">
       <h2 style="margin-top:0;">Tip routing</h2>

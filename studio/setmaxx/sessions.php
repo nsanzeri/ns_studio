@@ -107,7 +107,6 @@ if ($tablesReady && is_post()) {
 				$title = trim((string)($_POST['session_title'] ?? ''));
 				$venue = trim((string)($_POST['venue_name'] ?? ''));
 				$goLive = isset($_POST['go_live']) ? 1 : 0;
-				$venmoEnabled = isset($_POST['venmo_enabled']) ? 1 : 0;
 				if ($title === '') throw new RuntimeException('Session title is required.');
 				$baseSlug = strtolower(trim(preg_replace('/[^a-z0-9]+/i', '-', $title), '-')) ?: 'gig';
 				$sessionSlug = $baseSlug . '-' . substr(bin2hex(random_bytes(4)), 0, 8);
@@ -119,8 +118,8 @@ if ($tablesReady && is_post()) {
 				if ($goLive) {
 					$pdo->prepare("UPDATE setmaxx_gig_sessions SET status = 'closed', ends_at = NOW() WHERE user_id = ? AND status = 'live'")->execute([$userId]);
 				}
-				$stmt = $pdo->prepare("INSERT INTO setmaxx_gig_sessions (user_id, title, venue_name, session_slug, public_token, status, venmo_enabled, starts_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
-				$stmt->execute([$userId, $title, $venue !== '' ? $venue : null, $sessionSlug, $publicToken, $status, $venmoEnabled, $goLive ? date('Y-m-d H:i:s') : null]);
+				$stmt = $pdo->prepare("INSERT INTO setmaxx_gig_sessions (user_id, title, venue_name, session_slug, public_token, status, starts_at) VALUES (?, ?, ?, ?, ?, ?, ?)");
+				$stmt->execute([$userId, $title, $venue !== '' ? $venue : null, $sessionSlug, $publicToken, $status, $goLive ? date('Y-m-d H:i:s') : null]);
 				$pdo->commit();
 				setmaxx_enforce_single_live_session($pdo, $userId);
 				$messages[] = $goLive ? 'New live session created.' : 'Session created in draft mode.';
@@ -186,14 +185,6 @@ if ($tablesReady && is_post()) {
 				$pdo->commit();
 				setmaxx_enforce_single_live_session($pdo, $userId);
 			}
-			if ($action === 'session_venmo') {
-				$sessionId = (int)($_POST['session_id'] ?? 0);
-				$venmoEnabled = isset($_POST['venmo_enabled']) ? 1 : 0;
-				if ($sessionId <= 0) throw new RuntimeException('Invalid session update.');
-				setmaxx_ensure_session_venmo_column($pdo);
-				$pdo->prepare("UPDATE setmaxx_gig_sessions SET venmo_enabled = ? WHERE id = ? AND user_id = ?")->execute([$venmoEnabled, $sessionId, $userId]);
-				$messages[] = $venmoEnabled ? 'Venmo is on for that session.' : 'Venmo is off for that session.';
-			}
 			if ($action === 'delete_session') {
 				$sessionId = (int)($_POST['session_id'] ?? 0);
 				if ($sessionId <= 0) throw new RuntimeException('Invalid session delete request.');
@@ -225,7 +216,7 @@ $sessions = [];
 if ($tablesReady) {
 	setmaxx_enforce_single_live_session($pdo, $userId);
 	setmaxx_ensure_session_venmo_column($pdo);
-	$sessionsStmt = $pdo->prepare("SELECT id, title, venue_name, session_slug, public_token, status, venmo_enabled, starts_at, ends_at, created_at FROM setmaxx_gig_sessions WHERE user_id = ? ORDER BY FIELD(status, 'live', 'draft', 'closed'), created_at DESC LIMIT 20");
+	$sessionsStmt = $pdo->prepare("SELECT id, title, venue_name, session_slug, public_token, status, starts_at, ends_at, created_at FROM setmaxx_gig_sessions WHERE user_id = ? ORDER BY FIELD(status, 'live', 'draft', 'closed'), created_at DESC LIMIT 20");
 	$sessionsStmt->execute([$userId]);
 	$sessions = $sessionsStmt->fetchAll(PDO::FETCH_ASSOC);
 }
@@ -253,7 +244,6 @@ setmaxx_page_head('Set Maxx | Gig Sessions');
           <div class="setmaxx-field"><label for="venue_name">Venue</label><input class="setmaxx-input" id="venue_name" name="venue_name" placeholder="Moretti's Rosemont"></div>
         </div>
         <label style="display:flex; gap:.6rem; align-items:center;"><input type="checkbox" name="go_live" value="1" checked><span class="setmaxx-help">Make this the live request page now</span></label>
-        <label style="display:flex; gap:.6rem; align-items:center;"><input type="checkbox" name="venmo_enabled" value="1" <?= !empty($publicProfile['venmo_handle']) ? 'checked' : '' ?>><span class="setmaxx-help">Show Venmo on this session<?= empty($publicProfile['venmo_handle']) ? ' after you add a handle below' : '' ?></span></label>
         <div class="setmaxx-actions"><button class="btn btn-primary" type="submit" <?= $isProUser ? '' : 'disabled' ?>>Create session</button></div>
       </form>
     </div>
@@ -286,7 +276,7 @@ setmaxx_page_head('Set Maxx | Gig Sessions');
       </div>
       <div class="setmaxx-form-grid">
         <div class="setmaxx-field"><label for="venmo_handle">Venmo handle</label><input class="setmaxx-input" id="venmo_handle" name="venmo_handle" placeholder="@your-venmo" value="<?= e((string)($publicProfile['venmo_handle'] ?? '')) ?>"></div>
-        <div class="setmaxx-field"><label>Venmo tracking</label><div class="setmaxx-help">When Venmo is turned on for a session, Set Maxx records those amounts separately as Venmo recorded.</div></div>
+        <div class="setmaxx-field"><label>Venmo tracking</label><div class="setmaxx-help">Add a Venmo handle to show Venmo on public request pages. Set Maxx records those amounts separately as Venmo recorded.</div></div>
       </div>
       <div class="setmaxx-form-grid">
         <div class="setmaxx-field">
@@ -336,7 +326,6 @@ setmaxx_page_head('Set Maxx | Gig Sessions');
           <div style="min-width:0; flex:1;">
             <div style="display:flex; gap:.6rem; align-items:center; flex-wrap:wrap;"><div style="font-weight:600;"><?= e($session['title']) ?></div><?= setmaxx_status_pill((string)$session['status']) ?></div>
             <div class="setmaxx-meta"><?= e((string)($session['venue_name'] ?: 'Venue not set')) ?></div>
-            <div class="setmaxx-meta">Venmo: <?= !empty($session['venmo_enabled']) ? 'On' : 'Off' ?></div>
             <?php if (($session['status'] ?? '') === 'live' && $stablePublicUrl): ?>
               <div class="setmaxx-link-box" style="margin-top:.7rem;"><strong>Live public page</strong><code><?= e($stablePublicUrl) ?></code><a class="btn btn-outline" href="<?= e($stablePublicUrl) ?>" target="_blank" rel="noopener">Open</a></div>
             <?php else: ?>
@@ -344,15 +333,6 @@ setmaxx_page_head('Set Maxx | Gig Sessions');
             <?php endif; ?>
           </div>
           <div class="setmaxx-actions">
-            <form method="post" action="">
-              <input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>">
-              <input type="hidden" name="action" value="session_venmo">
-              <input type="hidden" name="session_id" value="<?= (int)$session['id'] ?>">
-              <label class="setmaxx-help" style="display:flex; gap:.45rem; align-items:center;">
-                <input type="checkbox" name="venmo_enabled" value="1" <?= !empty($session['venmo_enabled']) ? 'checked' : '' ?> onchange="this.form.submit()" <?= $isProUser ? '' : 'disabled' ?>>
-                Venmo
-              </label>
-            </form>
             <?php if (($session['status'] ?? '') !== 'live'): ?>
               <form method="post" action=""><input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>"><input type="hidden" name="action" value="session_status"><input type="hidden" name="session_id" value="<?= (int)$session['id'] ?>"><input type="hidden" name="new_status" value="live"><button class="btn btn-outline" type="submit" <?= $isProUser ? '' : 'disabled' ?>>Go live</button></form>
             <?php else: ?>
@@ -384,7 +364,7 @@ setmaxx_page_head('Set Maxx | Gig Sessions');
         <li>The venue appears in your session list and request history.</li>
         <li>If "Make this live" is checked, this session immediately becomes the public request page.</li>
         <li>Only one session can be live at a time. Going live automatically closes any other live session.</li>
-        <li>Turn Venmo on here only when you want that session to show your Venmo option.</li>
+        <li>Venmo is controlled by the global Venmo handle in Public page settings.</li>
       </ul>
     </div>
   </dialog>
@@ -417,7 +397,7 @@ setmaxx_page_head('Set Maxx | Gig Sessions');
       </div>
       <ul class="setmaxx-format-list">
         <li>The website and review links appear on the public request page so fans can find you again.</li>
-        <li>The Venmo handle is saved globally, but Venmo only appears when it is turned on for a session.</li>
+        <li>The Venmo handle is saved globally. Leave it blank if you do not want Venmo shown publicly.</li>
         <li>Lowest paid amount is the minimum a fan can choose for a paid request.</li>
         <li>Suggested price is the amount selected first in the public request dropdown.</li>
         <li>Price increments control the dropdown steps, such as $1, $5, or $10 jumps.</li>
@@ -438,7 +418,6 @@ setmaxx_page_head('Set Maxx | Gig Sessions');
         <li>Live sessions are currently receiving public requests through the permanent QR link.</li>
         <li>Draft or closed sessions can be made live with "Go live." That closes any other live session.</li>
         <li>Close ends the active request page and preserves the session history.</li>
-        <li>The Venmo checkbox can be toggled per session without changing your saved Venmo handle.</li>
         <li>Open history shows request activity for past sessions.</li>
         <li>Delete removes the session and its attached requests, so use it only for mistakes or test sessions.</li>
       </ul>

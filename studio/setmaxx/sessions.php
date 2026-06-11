@@ -360,11 +360,11 @@ setmaxx_page_head('Set Maxx | Gig Sessions');
       </div>
       <ul class="setmaxx-format-list">
         <li>A session is the request page for one show, date, room, or event.</li>
-        <li>The session title is internal-facing and helps you recognize the show later.</li>
-        <li>The venue appears in your session list and request history.</li>
+        <li>The session title shows up on the public request page and also helps you recognize the show later.</li>
+        <li>The venue also appears on your public request page and also appears in your session list and request history.</li>
         <li>If "Make this live" is checked, this session immediately becomes the public request page.</li>
         <li>Only one session can be live at a time. Going live automatically closes any other live session.</li>
-        <li>Venmo is controlled by the global Venmo handle in Public page settings.</li>
+        <li>Venmo payments can be turned on or off for any particular show.</li>
       </ul>
     </div>
   </dialog>
@@ -398,10 +398,10 @@ setmaxx_page_head('Set Maxx | Gig Sessions');
       <ul class="setmaxx-format-list">
         <li>The website and review links appear on the public request page so fans can find you again.</li>
         <li>The Venmo handle is saved globally. Leave it blank if you do not want Venmo shown publicly.</li>
-        <li>Lowest paid amount is the minimum a fan can choose for a paid request.</li>
-        <li>Suggested price is the amount selected first in the public request dropdown.</li>
-        <li>Price increments control the dropdown steps, such as $1, $5, or $10 jumps.</li>
-        <li>The logo appears on the public request page and helps fans confirm they are in the right place.</li>
+        <li>Lowest paid amount is the minimum a fan can choose for a paid request.  For instance, this could be 0, 5 or 10 dollars.  If not 0 that means there will be no free request option for that session.</li>
+        <li>Suggested price is the amount selected first in the public request dropdown.  This is to help nudge patrons to pay the suggested amount, even though they could also select lesser amounts in the drop-down if they so choose.  But it is a "nudge" the direction you want them to go.</li>
+        <li>Price increments control the dropdown steps, such as $1, $5, or $10 jumps.  This doesn't go up in a linear fashion but in a way that makes the price choices less overwhelming.</li>
+        <li>The logo appears on the public request page and is a further way to customize the public facing request page.</li>
       </ul>
     </div>
   </dialog>

@@ -241,7 +241,10 @@ setmaxx_page_head('Set Maxx | Gig Sessions');
   <?php if (!$tablesReady): ?><?php setmaxx_install_notice(); ?><?php else: ?>
   <section class="setmaxx-grid">
     <div class="setmaxx-card">
-      <h2 style="margin-top:0;">New session</h2>
+      <div class="setmaxx-section-head">
+        <h2>New session</h2>
+        <button class="setmaxx-help-button" type="button" id="setmaxxNewSessionHelpBtn" aria-label="Show new session help" aria-haspopup="dialog">?</button>
+      </div>
       <form method="post" class="setmaxx-stack" action="">
         <input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>">
         <input type="hidden" name="action" value="create_session">
@@ -255,7 +258,10 @@ setmaxx_page_head('Set Maxx | Gig Sessions');
       </form>
     </div>
     <div class="setmaxx-card">
-      <h2 style="margin-top:0;">Permanent request QR</h2>
+      <div class="setmaxx-section-head">
+        <h2>Permanent request QR</h2>
+        <button class="setmaxx-help-button" type="button" id="setmaxxQrHelpBtn" aria-label="Show QR help" aria-haspopup="dialog">?</button>
+      </div>
       <p class="setmaxx-help">This QR code stays the same. It always opens whichever session is currently live.</p>
       <?php if ($stablePublicUrl): ?>
         <div class="setmaxx-qr-wrap">
@@ -267,7 +273,10 @@ setmaxx_page_head('Set Maxx | Gig Sessions');
     </div>
   </section>
   <div class="setmaxx-card" style="margin-top:1rem;">
-    <h2 style="margin-top:0;">Public page settings</h2>
+    <div class="setmaxx-section-head">
+      <h2>Public page settings</h2>
+      <button class="setmaxx-help-button" type="button" id="setmaxxPublicSettingsHelpBtn" aria-label="Show public page settings help" aria-haspopup="dialog">?</button>
+    </div>
     <form method="post" enctype="multipart/form-data" class="setmaxx-stack" action="">
       <input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>">
       <input type="hidden" name="action" value="save_public_profile">
@@ -315,7 +324,10 @@ setmaxx_page_head('Set Maxx | Gig Sessions');
     </form>
   </div>
   <div class="setmaxx-card" style="margin-top:1rem;">
-    <h2 style="margin-top:0;">Sessions</h2>
+    <div class="setmaxx-section-head">
+      <h2>Sessions</h2>
+      <button class="setmaxx-help-button" type="button" id="setmaxxSessionsHelpBtn" aria-label="Show sessions list help" aria-haspopup="dialog">?</button>
+    </div>
     <div class="setmaxx-list">
       <?php if (!$sessions): ?>
         <div class="setmaxx-row"><div class="setmaxx-meta">No gig sessions yet.</div></div>
@@ -357,11 +369,133 @@ setmaxx_page_head('Set Maxx | Gig Sessions');
       <?php endforeach; endif; ?>
     </div>
   </div>
+  <dialog class="setmaxx-dialog" id="setmaxxNewSessionHelpDialog" aria-labelledby="setmaxxNewSessionHelpTitle">
+    <div class="setmaxx-dialog-inner">
+      <div class="setmaxx-dialog-head">
+        <div>
+          <div class="setmaxx-pill">Session help</div>
+          <h2 class="setmaxx-dialog-title" id="setmaxxNewSessionHelpTitle">Creating a session</h2>
+        </div>
+        <button class="setmaxx-dialog-close" type="button" id="setmaxxNewSessionHelpClose" aria-label="Close">&times;</button>
+      </div>
+      <ul class="setmaxx-format-list">
+        <li>A session is the request page for one show, date, room, or event.</li>
+        <li>The session title is internal-facing and helps you recognize the show later.</li>
+        <li>The venue appears in your session list and request history.</li>
+        <li>If "Make this live" is checked, this session immediately becomes the public request page.</li>
+        <li>Only one session can be live at a time. Going live automatically closes any other live session.</li>
+        <li>Turn Venmo on here only when you want that session to show your Venmo option.</li>
+      </ul>
+    </div>
+  </dialog>
+  <dialog class="setmaxx-dialog" id="setmaxxQrHelpDialog" aria-labelledby="setmaxxQrHelpTitle">
+    <div class="setmaxx-dialog-inner">
+      <div class="setmaxx-dialog-head">
+        <div>
+          <div class="setmaxx-pill">QR help</div>
+          <h2 class="setmaxx-dialog-title" id="setmaxxQrHelpTitle">How the permanent QR works</h2>
+        </div>
+        <button class="setmaxx-dialog-close" type="button" id="setmaxxQrHelpClose" aria-label="Close">&times;</button>
+      </div>
+      <ul class="setmaxx-format-list">
+        <li>This QR code is meant for signs, table tents, business cards, and repeat use.</li>
+        <li>The QR code does not change from show to show.</li>
+        <li>It routes fans to whichever session is currently live.</li>
+        <li>If no session is live, fans will not have an active show request page to use.</li>
+        <li>Use "Open Request Dashboard" to watch incoming requests and tips during the show.</li>
+      </ul>
+    </div>
+  </dialog>
+  <dialog class="setmaxx-dialog" id="setmaxxPublicSettingsHelpDialog" aria-labelledby="setmaxxPublicSettingsHelpTitle">
+    <div class="setmaxx-dialog-inner">
+      <div class="setmaxx-dialog-head">
+        <div>
+          <div class="setmaxx-pill">Public page help</div>
+          <h2 class="setmaxx-dialog-title" id="setmaxxPublicSettingsHelpTitle">Public page settings</h2>
+        </div>
+        <button class="setmaxx-dialog-close" type="button" id="setmaxxPublicSettingsHelpClose" aria-label="Close">&times;</button>
+      </div>
+      <ul class="setmaxx-format-list">
+        <li>The website and review links appear on the public request page so fans can find you again.</li>
+        <li>The Venmo handle is saved globally, but Venmo only appears when it is turned on for a session.</li>
+        <li>Lowest paid amount is the minimum a fan can choose for a paid request.</li>
+        <li>Suggested price is the amount selected first in the public request dropdown.</li>
+        <li>Price increments control the dropdown steps, such as $1, $5, or $10 jumps.</li>
+        <li>The logo appears on the public request page and helps fans confirm they are in the right place.</li>
+      </ul>
+    </div>
+  </dialog>
+  <dialog class="setmaxx-dialog" id="setmaxxSessionsHelpDialog" aria-labelledby="setmaxxSessionsHelpTitle">
+    <div class="setmaxx-dialog-inner">
+      <div class="setmaxx-dialog-head">
+        <div>
+          <div class="setmaxx-pill">Sessions help</div>
+          <h2 class="setmaxx-dialog-title" id="setmaxxSessionsHelpTitle">Managing sessions</h2>
+        </div>
+        <button class="setmaxx-dialog-close" type="button" id="setmaxxSessionsHelpClose" aria-label="Close">&times;</button>
+      </div>
+      <ul class="setmaxx-format-list">
+        <li>Live sessions are currently receiving public requests through the permanent QR link.</li>
+        <li>Draft or closed sessions can be made live with "Go live." That closes any other live session.</li>
+        <li>Close ends the active request page and preserves the session history.</li>
+        <li>The Venmo checkbox can be toggled per session without changing your saved Venmo handle.</li>
+        <li>Open history shows request activity for past sessions.</li>
+        <li>Delete removes the session and its attached requests, so use it only for mistakes or test sessions.</li>
+      </ul>
+    </div>
+  </dialog>
   <?php endif; ?>
 </main>
 <style>
   .setmaxx-qr-wrap { display:grid; gap:.9rem; margin:1rem 0; }
   .setmaxx-qr-img { width:180px; max-width:100%; border-radius:14px; background:#fff; padding:.45rem; }
   .setmaxx-profile-logo-preview { width:58px; height:58px; object-fit:contain; border-radius:12px; background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.1); padding:.35rem; }
+  .setmaxx-section-head { display:flex; align-items:center; gap:.65rem; margin-bottom:1rem; }
+  .setmaxx-section-head h2 { margin:0; }
+  .setmaxx-help-button { display:inline-flex; align-items:center; justify-content:center; width:32px; height:32px; border-radius:999px; border:1px solid rgba(255,255,255,.18); background:rgba(255,255,255,.06); color:#efe7ff; font-weight:700; cursor:pointer; }
+  .setmaxx-help-button:hover, .setmaxx-help-button:focus-visible { border-color:rgba(140,107,255,.55); background:rgba(140,107,255,.18); outline:none; }
+  .setmaxx-dialog { width:min(560px, calc(100vw - 2rem)); border:1px solid rgba(255,255,255,.12); border-radius:18px; padding:0; background:#151323; color:#fff; box-shadow:0 24px 70px rgba(0,0,0,.55); }
+  .setmaxx-dialog::backdrop { background:rgba(0,0,0,.62); backdrop-filter:blur(4px); }
+  .setmaxx-dialog-inner { padding:1.15rem; display:grid; gap:1rem; }
+  .setmaxx-dialog-head { display:flex; align-items:flex-start; justify-content:space-between; gap:1rem; }
+  .setmaxx-dialog-title { margin:0; font-size:1.15rem; }
+  .setmaxx-dialog-close { border:1px solid rgba(255,255,255,.14); border-radius:999px; width:36px; height:36px; background:rgba(255,255,255,.05); color:#fff; cursor:pointer; font-size:1.35rem; line-height:1; }
+  .setmaxx-format-list { margin:0; padding-left:1.2rem; color:rgba(255,255,255,.82); line-height:1.75; }
 </style>
+<script>
+(function() {
+  function setupDialog(buttonId, dialogId, closeId) {
+    const openButton = document.getElementById(buttonId);
+    const dialog = document.getElementById(dialogId);
+    const closeButton = document.getElementById(closeId);
+    if (!openButton || !dialog) return;
+
+    function closeDialog() {
+      if (typeof dialog.close === 'function') {
+        dialog.close();
+      } else {
+        dialog.setAttribute('hidden', '');
+      }
+    }
+
+    openButton.addEventListener('click', function() {
+      if (typeof dialog.showModal === 'function') {
+        dialog.showModal();
+      } else {
+        dialog.removeAttribute('hidden');
+      }
+    });
+
+    if (closeButton) closeButton.addEventListener('click', closeDialog);
+    dialog.addEventListener('click', function(event) {
+      if (event.target === dialog) closeDialog();
+    });
+  }
+
+  setupDialog('setmaxxNewSessionHelpBtn', 'setmaxxNewSessionHelpDialog', 'setmaxxNewSessionHelpClose');
+  setupDialog('setmaxxQrHelpBtn', 'setmaxxQrHelpDialog', 'setmaxxQrHelpClose');
+  setupDialog('setmaxxPublicSettingsHelpBtn', 'setmaxxPublicSettingsHelpDialog', 'setmaxxPublicSettingsHelpClose');
+  setupDialog('setmaxxSessionsHelpBtn', 'setmaxxSessionsHelpDialog', 'setmaxxSessionsHelpClose');
+})();
+</script>
 <?php setmaxx_page_foot(); ?>

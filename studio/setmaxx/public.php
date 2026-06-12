@@ -187,6 +187,18 @@ function setmaxx_public_profile(PDO $pdo, int $userId): array {
     return $stmt->fetch(PDO::FETCH_ASSOC) ?: ['artist_name' => '', 'website_url' => '', 'review_url' => '', 'logo_path' => '', 'venmo_handle' => '', 'minimum_tip_dollars' => 10, 'suggested_request_dollars' => 10, 'price_step_dollars' => 1];
 }
 
+function setmaxx_public_user_name(PDO $pdo, int $userId): string {
+    if ($userId <= 0) return '';
+    $stmt = $pdo->prepare("SELECT display_name, email FROM users WHERE id = ? LIMIT 1");
+    $stmt->execute([$userId]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+    $displayName = trim((string)($row['display_name'] ?? ''));
+    if ($displayName !== '') return $displayName;
+    $email = trim((string)($row['email'] ?? ''));
+    if ($email === '' || !str_contains($email, '@')) return '';
+    return trim(str_replace(['.', '_', '-'], ' ', substr($email, 0, strpos($email, '@'))));
+}
+
 function setmaxx_public_venmo_url(string $handle, int $amountDollars, string $note): string {
     $handle = ltrim(trim($handle), '@');
     $query = http_build_query([
@@ -295,6 +307,9 @@ if ($tablesReady && $publicUserId > 0) {
         $publicProfile = ['artist_name' => '', 'website_url' => '', 'review_url' => '', 'logo_path' => '', 'venmo_handle' => '', 'minimum_tip_dollars' => 10, 'suggested_request_dollars' => 10, 'price_step_dollars' => 1];
     }
     $savedArtistName = trim((string)($publicProfile['artist_name'] ?? ''));
+    if (trim($publicDisplayName) === '') {
+        $publicDisplayName = setmaxx_public_user_name($pdo, $publicUserId);
+    }
     $publicHostName = $savedArtistName !== '' ? $savedArtistName : (trim($publicDisplayName) !== '' ? trim($publicDisplayName) : 'the artist');
 
     if (isset($_GET['tip'])) {

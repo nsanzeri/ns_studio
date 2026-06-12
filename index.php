@@ -7,6 +7,44 @@ if ($isReadySetShowsHost || isset($_GET['rss_preview'])) {
     require __DIR__ . '/includes/readysetshows_index.php';
     exit;
 }
+
+$currentScheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+$currentHost = (string)($_SERVER['HTTP_HOST'] ?? 'nicksanzeri.com');
+$currentDir = rtrim(dirname((string)($_SERVER['SCRIPT_NAME'] ?? '/')), '/\\');
+if ($currentDir === '/' || $currentDir === '.') $currentDir = '';
+$liveRequestsPath = 'requests.php';
+$sitePublicTokens = [
+    'nicksanzeri.com' => '9b054ed9dfcb4bc0bfdc3433baf12d7e',
+    'www.nicksanzeri.com' => '9b054ed9dfcb4bc0bfdc3433baf12d7e',
+];
+
+try {
+    require_once __DIR__ . '/studio/_private/_core/bootstrap.php';
+
+    $configuredPublicToken = trim((string)env('SETMAXX_SITE_PUBLIC_TOKEN', ''));
+    if ($configuredPublicToken === '' && isset($sitePublicTokens[$requestHost])) {
+        $configuredPublicToken = $sitePublicTokens[$requestHost];
+    }
+    if ($configuredPublicToken !== '') {
+        $liveRequestsPath = 'studio/setmaxx/public.php?link=' . rawurlencode($configuredPublicToken);
+    }
+
+    $performerUserId = (int)env('SETMAXX_SITE_PERFORMER_USER_ID', 0);
+    $linksReady = $pdo->query("SHOW TABLES LIKE 'setmaxx_public_links'")->fetchColumn();
+
+    if ($configuredPublicToken === '' && $liveRequestsPath === 'requests.php' && $linksReady && $performerUserId > 0) {
+        $linkStmt = $pdo->prepare("SELECT public_token FROM setmaxx_public_links WHERE user_id = ? LIMIT 1");
+        $linkStmt->execute([$performerUserId]);
+        $publicToken = (string)($linkStmt->fetchColumn() ?: '');
+        if ($publicToken !== '') {
+            $liveRequestsPath = 'studio/setmaxx/public.php?link=' . rawurlencode($publicToken);
+        }
+    }
+} catch (Throwable $e) {
+    $liveRequestsPath = 'requests.php';
+}
+
+$liveRequestsUrl = $currentScheme . '://' . $currentHost . $currentDir . '/' . $liveRequestsPath;
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -111,12 +149,12 @@ include __DIR__ . '/includes/header.php';
                         The same link also works between shows for tips, reviews, and future song ideas.
                     </p>
                     <div class="hero-actions">
-                        <a href="requests.php" class="btn btn-primary">Open Live Requests</a>
+                        <a href="<?= htmlspecialchars($liveRequestsPath, ENT_QUOTES, 'UTF-8') ?>" class="btn btn-primary">Open Live Requests</a>
                         <a href="shows.php" class="btn btn-outline">See Upcoming Dates</a>
                     </div>
                 </div>
-                <a class="live-requests-qr" href="requests.php" aria-label="Open live requests">
-                    <img src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=12&data=<?= urlencode(((isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http') . '://' . ($_SERVER['HTTP_HOST'] ?? 'nicksanzeri.com') . rtrim(dirname($_SERVER['SCRIPT_NAME'] ?? '/'), '/\\') . '/requests.php') ?>" alt="QR code for Nick Sanzeri live requests">
+                <a class="live-requests-qr" href="<?= htmlspecialchars($liveRequestsPath, ENT_QUOTES, 'UTF-8') ?>" aria-label="Open live requests">
+                    <img src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=12&data=<?= urlencode($liveRequestsUrl) ?>" alt="QR code for Nick Sanzeri live requests">
                     <span>Scan at the gig</span>
                 </a>
             </div>

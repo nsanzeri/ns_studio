@@ -67,7 +67,7 @@ setmaxx_page_head('Set Maxx | Session History');
       <div class="setmaxx-pill">Session history</div>
       <h1 style="margin:.8rem 0 .35rem;"><?= e((string)$session['title']) ?></h1>
       <p class="setmaxx-help" style="margin:0;"><?= e((string)($session['venue_name'] ?: 'Venue not set')) ?> &middot; <?= e((string)$session['status']) ?></p>
-      <div class="setmaxx-actions" style="margin-top:1rem;"><a class="btn btn-outline" href="<?= e(base_url('/setmaxx/sessions.php')) ?>">Back to Sessions</a></div>
+      <div class="setmaxx-actions" style="margin-top:1rem;"><a class="btn btn-outline" href="<?= e(base_url('/setmaxx/history.php')) ?>">Back to History</a></div>
     </div>
 
     <section class="setmaxx-grid">

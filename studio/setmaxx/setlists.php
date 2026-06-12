@@ -277,7 +277,10 @@ setmaxx_page_head('Set Maxx | Setlist Generator');
   <?php if (!$tablesReady): ?><?php setmaxx_install_notice(); ?><?php else: ?>
     <section class="setmaxx-grid">
       <div class="setmaxx-card">
-        <h2 style="margin-top:0;">Criteria</h2>
+        <div class="setmaxx-section-head">
+          <h2>Criteria</h2>
+          <button class="setmaxx-help-button" type="button" id="setmaxxCriteriaHelpBtn" aria-label="Show criteria help" aria-haspopup="dialog">?</button>
+        </div>
         <form method="post" class="setmaxx-stack" action="">
           <input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>">
           <div class="setmaxx-form-grid">
@@ -368,7 +371,10 @@ setmaxx_page_head('Set Maxx | Setlist Generator');
         </form>
       </div>
       <div class="setmaxx-card">
-        <h2 style="margin-top:0;">How it chooses songs</h2>
+        <div class="setmaxx-section-head">
+          <h2>How it chooses songs</h2>
+          <button class="setmaxx-help-button" type="button" id="setmaxxChooserHelpBtn" aria-label="Show setlist generator help" aria-haspopup="dialog">?</button>
+        </div>
         <p class="setmaxx-help">Songs are placed until each set is near the target time, then ordered by your tempo pacing choice. Missing song lengths count as 4 minutes. Songs without BPM stay after the tempo-shaped portion.</p>
         <?php if (is_post()): ?>
           <div class="setmaxx-list">
@@ -443,6 +449,46 @@ setmaxx_page_head('Set Maxx | Setlist Generator');
         <?php endif; ?>
       </section>
     <?php endif; ?>
+    <dialog class="setmaxx-dialog" id="setmaxxCriteriaHelpDialog" aria-labelledby="setmaxxCriteriaHelpTitle">
+      <div class="setmaxx-dialog-inner">
+        <div class="setmaxx-dialog-head">
+          <div>
+            <div class="setmaxx-pill">Setlist help</div>
+            <h2 class="setmaxx-dialog-title" id="setmaxxCriteriaHelpTitle">Using setlist criteria</h2>
+          </div>
+          <button class="setmaxx-dialog-close" type="button" id="setmaxxCriteriaHelpClose" aria-label="Close">&times;</button>
+        </div>
+        <ul class="setmaxx-format-list">
+          <li>Year from and year to limit songs by saved release year. Leave them blank to use all years.</li>
+          <li>Active songs controls whether inactive catalog songs are allowed into the generated set.</li>
+          <li>Family friendly uses the family-friendly flag from the song catalog.</li>
+          <li>Number of sets and minutes per set define the target show shape.</li>
+          <li>Broad genres are your cleaned-up categories. Source genres are the imported or lookup genres.</li>
+          <li>Vocal difficulty and prerecorded tracks use the metadata saved on each song.</li>
+          <li>Tempo pacing changes the order inside each generated set when songs have BPM saved.</li>
+        </ul>
+      </div>
+    </dialog>
+    <dialog class="setmaxx-dialog" id="setmaxxChooserHelpDialog" aria-labelledby="setmaxxChooserHelpTitle">
+      <div class="setmaxx-dialog-inner">
+        <div class="setmaxx-dialog-head">
+          <div>
+            <div class="setmaxx-pill">Generator help</div>
+            <h2 class="setmaxx-dialog-title" id="setmaxxChooserHelpTitle">How songs are chosen</h2>
+          </div>
+          <button class="setmaxx-dialog-close" type="button" id="setmaxxChooserHelpClose" aria-label="Close">&times;</button>
+        </div>
+        <ul class="setmaxx-format-list">
+          <li>The generator first filters your catalog using the criteria on the left.</li>
+          <li>Songs marked as openers are considered first, then the remaining matching songs are mixed in.</li>
+          <li>Each song is placed into the set where it gets closest to the target time without already being over.</li>
+          <li>Songs with no saved length are planned as 4 minutes and are listed as assumed after generation.</li>
+          <li>After songs are placed, tempo pacing reorders each set when BPM is available.</li>
+          <li>Songs without BPM stay after the tempo-shaped part of the set.</li>
+          <li>Treat the result as a strong starting draft, then adjust the final order for the actual room.</li>
+        </ul>
+      </div>
+    </dialog>
   <?php endif; ?>
 </main>
 <style>
@@ -460,6 +506,17 @@ setmaxx_page_head('Set Maxx | Setlist Generator');
   .setmaxx-song-badges span { display:inline-flex; padding:.16rem .48rem; border-radius:999px; background:rgba(255,255,255,.07); color:rgba(255,255,255,.82); font-size:.78rem; }
   .setmaxx-song-badges a { display:inline-flex; padding:.16rem .48rem; border-radius:999px; background:rgba(140,107,255,.16); color:#efe7ff; font-size:.78rem; text-decoration:none; }
   .setmaxx-song-badges a:hover { text-decoration:underline; }
+  .setmaxx-section-head { display:flex; align-items:center; gap:.65rem; margin-bottom:1rem; }
+  .setmaxx-section-head h2 { margin:0; }
+  .setmaxx-help-button { display:inline-flex; align-items:center; justify-content:center; width:32px; height:32px; border-radius:999px; border:1px solid rgba(255,255,255,.18); background:rgba(255,255,255,.06); color:#efe7ff; font-weight:700; cursor:pointer; }
+  .setmaxx-help-button:hover, .setmaxx-help-button:focus-visible { border-color:rgba(140,107,255,.55); background:rgba(140,107,255,.18); outline:none; }
+  .setmaxx-dialog { width:min(560px, calc(100vw - 2rem)); border:1px solid rgba(255,255,255,.12); border-radius:18px; padding:0; background:#151323; color:#fff; box-shadow:0 24px 70px rgba(0,0,0,.55); }
+  .setmaxx-dialog::backdrop { background:rgba(0,0,0,.62); backdrop-filter:blur(4px); }
+  .setmaxx-dialog-inner { padding:1.15rem; display:grid; gap:1rem; }
+  .setmaxx-dialog-head { display:flex; align-items:flex-start; justify-content:space-between; gap:1rem; }
+  .setmaxx-dialog-title { margin:0; font-size:1.15rem; }
+  .setmaxx-dialog-close { border:1px solid rgba(255,255,255,.14); border-radius:999px; width:36px; height:36px; background:rgba(255,255,255,.05); color:#fff; cursor:pointer; font-size:1.35rem; line-height:1; }
+  .setmaxx-format-list { margin:0; padding-left:1.2rem; color:rgba(255,255,255,.82); line-height:1.75; }
   @media print {
     @page { margin:.45in; }
     .setmaxx-site-header, .setmaxx-site-footer, .setmaxx-grid, .setmaxx-actions, .btn, .setmaxx-song-badges, .setmaxx-printable-setlist .setmaxx-help, .setmaxx-printable-setlist .setmaxx-pill, .setmaxx-card:not(.setmaxx-printable-setlist) { display:none !important; }
@@ -479,4 +536,38 @@ setmaxx_page_head('Set Maxx | Setlist Generator');
     .setmaxx-set-songs span { display:none !important; }
   }
 </style>
+<script>
+(function() {
+  function setupDialog(buttonId, dialogId, closeId) {
+    const openButton = document.getElementById(buttonId);
+    const dialog = document.getElementById(dialogId);
+    const closeButton = document.getElementById(closeId);
+    if (!openButton || !dialog) return;
+
+    function closeDialog() {
+      if (typeof dialog.close === 'function') {
+        dialog.close();
+      } else {
+        dialog.setAttribute('hidden', '');
+      }
+    }
+
+    openButton.addEventListener('click', function() {
+      if (typeof dialog.showModal === 'function') {
+        dialog.showModal();
+      } else {
+        dialog.removeAttribute('hidden');
+      }
+    });
+
+    if (closeButton) closeButton.addEventListener('click', closeDialog);
+    dialog.addEventListener('click', function(event) {
+      if (event.target === dialog) closeDialog();
+    });
+  }
+
+  setupDialog('setmaxxCriteriaHelpBtn', 'setmaxxCriteriaHelpDialog', 'setmaxxCriteriaHelpClose');
+  setupDialog('setmaxxChooserHelpBtn', 'setmaxxChooserHelpDialog', 'setmaxxChooserHelpClose');
+})();
+</script>
 <?php setmaxx_page_foot(); ?>

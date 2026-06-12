@@ -175,15 +175,29 @@ if ($tablesReady) {
         $generalTips = $tipsStmt->fetchAll(PDO::FETCH_ASSOC);
     }
     if ($suggestionsReady) {
-        $suggestStmt = $pdo->prepare(
-            "SELECT ss.suggested_title, ss.suggested_artist, ss.requester_name, ss.suggestion_note, ss.created_at, gs.title AS session_title
-             FROM setmaxx_song_suggestions ss
-             LEFT JOIN setmaxx_gig_sessions gs ON gs.id = ss.gig_session_id
-             WHERE ss.user_id = ?
-             ORDER BY ss.created_at DESC
-             LIMIT 8"
-        );
-        $suggestStmt->execute([$userId]);
+        if ($liveSession) {
+            $suggestStmt = $pdo->prepare(
+                "SELECT ss.suggested_title, ss.suggested_artist, ss.requester_name, ss.suggestion_note, ss.created_at, gs.title AS session_title
+                 FROM setmaxx_song_suggestions ss
+                 LEFT JOIN setmaxx_gig_sessions gs ON gs.id = ss.gig_session_id
+                 WHERE ss.user_id = ?
+                   AND ss.gig_session_id = ?
+                 ORDER BY ss.created_at DESC
+                 LIMIT 8"
+            );
+            $suggestStmt->execute([$userId, (int)$liveSession['id']]);
+        } else {
+            $suggestStmt = $pdo->prepare(
+                "SELECT ss.suggested_title, ss.suggested_artist, ss.requester_name, ss.suggestion_note, ss.created_at, gs.title AS session_title
+                 FROM setmaxx_song_suggestions ss
+                 LEFT JOIN setmaxx_gig_sessions gs ON gs.id = ss.gig_session_id
+                 WHERE ss.user_id = ?
+                   AND (ss.gig_session_id IS NULL OR gs.status <> 'closed')
+                 ORDER BY ss.created_at DESC
+                 LIMIT 8"
+            );
+            $suggestStmt->execute([$userId]);
+        }
         $suggestions = $suggestStmt->fetchAll(PDO::FETCH_ASSOC);
     }
     if ($mailingReady) {
@@ -287,10 +301,16 @@ setmaxx_page_head('Set Maxx | Request Dashboard');
       </div>
     </div>
     <div class="setmaxx-card">
-      <h2 style="margin-top:0;">Song suggestions</h2>
+      <div style="display:flex; justify-content:space-between; gap:1rem; align-items:flex-start; flex-wrap:wrap;">
+        <div>
+          <h2 style="margin:0;">Song suggestions</h2>
+          <p class="setmaxx-help" style="margin:.35rem 0 0;"><?= $liveSession ? 'Suggestions for the current live session.' : 'Recent suggestions that are not tied to closed sessions.' ?></p>
+        </div>
+        <a class="btn btn-outline" href="<?= e(base_url('/setmaxx/history.php#suggestions')) ?>">View history</a>
+      </div>
       <div class="setmaxx-list">
         <?php if (!$suggestions): ?>
-          <div class="setmaxx-row"><div class="setmaxx-meta">No song suggestions yet.</div></div>
+          <div class="setmaxx-row"><div class="setmaxx-meta">No current song suggestions yet.</div></div>
         <?php else: foreach ($suggestions as $suggestion): ?>
           <div class="setmaxx-row">
             <div>

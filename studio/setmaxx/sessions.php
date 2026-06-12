@@ -216,7 +216,7 @@ $sessions = [];
 if ($tablesReady) {
 	setmaxx_enforce_single_live_session($pdo, $userId);
 	setmaxx_ensure_session_venmo_column($pdo);
-	$sessionsStmt = $pdo->prepare("SELECT id, title, venue_name, session_slug, public_token, status, starts_at, ends_at, created_at FROM setmaxx_gig_sessions WHERE user_id = ? ORDER BY FIELD(status, 'live', 'draft', 'closed'), created_at DESC LIMIT 20");
+	$sessionsStmt = $pdo->prepare("SELECT id, title, venue_name, session_slug, public_token, status, starts_at, ends_at, created_at FROM setmaxx_gig_sessions WHERE user_id = ? AND status <> 'closed' ORDER BY FIELD(status, 'live', 'draft'), created_at DESC LIMIT 20");
 	$sessionsStmt->execute([$userId]);
 	$sessions = $sessionsStmt->fetchAll(PDO::FETCH_ASSOC);
 }
@@ -318,9 +318,12 @@ setmaxx_page_head('Set Maxx | Gig Sessions');
       <h2>Sessions</h2>
       <button class="setmaxx-help-button" type="button" id="setmaxxSessionsHelpBtn" aria-label="Show sessions list help" aria-haspopup="dialog">?</button>
     </div>
+    <div class="setmaxx-actions" style="margin-bottom:1rem;">
+      <a class="btn btn-outline" href="<?= e(base_url('/setmaxx/history.php')) ?>">View history</a>
+    </div>
     <div class="setmaxx-list">
       <?php if (!$sessions): ?>
-        <div class="setmaxx-row"><div class="setmaxx-meta">No gig sessions yet.</div></div>
+        <div class="setmaxx-row"><div class="setmaxx-meta">No live or draft sessions right now.</div></div>
       <?php else: foreach ($sessions as $session): ?>
         <div class="setmaxx-row">
           <div style="min-width:0; flex:1;">
@@ -364,7 +367,7 @@ setmaxx_page_head('Set Maxx | Gig Sessions');
         <li>The venue also appears on your public request page and also appears in your session list and request history.</li>
         <li>If "Make this live" is checked, this session immediately becomes the public request page.</li>
         <li>Only one session can be live at a time. Going live automatically closes any other live session.</li>
-        <li>Venmo payments can be turned on or off for any particular show.</li>
+        <li>Venmo is controlled by the global Venmo handle in Public page settings.</li>
       </ul>
     </div>
   </dialog>
@@ -416,9 +419,9 @@ setmaxx_page_head('Set Maxx | Gig Sessions');
       </div>
       <ul class="setmaxx-format-list">
         <li>Live sessions are currently receiving public requests through the permanent QR link.</li>
-        <li>Draft or closed sessions can be made live with "Go live." That closes any other live session.</li>
+        <li>Draft sessions can be made live with "Go live." That closes any other live session.</li>
         <li>Close ends the active request page and preserves the session history.</li>
-        <li>Open history shows request activity for past sessions.</li>
+        <li>Closed sessions move to History so this page stays focused on the next show.</li>
         <li>Delete removes the session and its attached requests, so use it only for mistakes or test sessions.</li>
       </ul>
     </div>

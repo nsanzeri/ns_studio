@@ -79,8 +79,20 @@ if ($tablesReady && is_post()) {
         try {
             $requestId = (int)($_POST['request_id'] ?? 0);
             $newStatus = (string)($_POST['new_status'] ?? '');
-            $allowedStatuses = ['queued', 'played', 'declined', 'canceled'];
-            if ($requestId <= 0 || !in_array($newStatus, $allowedStatuses, true)) throw new RuntimeException('Invalid request update.');
+            $allowedTransitions = [
+                'pending' => ['played', 'declined'],
+                'queued' => ['played', 'declined'],
+                'played' => [],
+                'declined' => [],
+                'canceled' => [],
+            ];
+            if ($requestId <= 0) throw new RuntimeException('Invalid request update.');
+            $currentStmt = $pdo->prepare("SELECT r.status FROM setmaxx_requests r JOIN setmaxx_gig_sessions gs ON gs.id = r.gig_session_id WHERE r.id = ? AND gs.user_id = ? LIMIT 1");
+            $currentStmt->execute([$requestId, $userId]);
+            $currentStatus = (string)($currentStmt->fetchColumn() ?: '');
+            if (!isset($allowedTransitions[$currentStatus]) || !in_array($newStatus, $allowedTransitions[$currentStatus], true)) {
+                throw new RuntimeException('That request status cannot be changed that way.');
+            }
             $activeLock = in_array($newStatus, ['declined', 'canceled'], true) ? null : 1;
             $stmt = $pdo->prepare("UPDATE setmaxx_requests r JOIN setmaxx_gig_sessions gs ON gs.id = r.gig_session_id SET r.status = ?, r.active_lock = ? WHERE r.id = ? AND gs.user_id = ?");
             $stmt->execute([$newStatus, $activeLock, $requestId, $userId]);
@@ -251,7 +263,7 @@ setmaxx_page_head('Set Maxx | Request Dashboard');
   <div class="setmaxx-card" style="margin-bottom:1rem;">
     <div class="setmaxx-pill">Request Dashboard</div>
     <h1 style="margin:.8rem 0 .35rem;">Control the room without losing the room</h1>
-    <p class="setmaxx-help">Queue, mark played, or decline requests from the current live session.</p>
+    <p class="setmaxx-help">Mark requests played or decline them from the current live session.</p>
   </div>
   <?php if (!$tablesReady): ?><?php setmaxx_install_notice(); ?><?php else: ?>
   <section class="setmaxx-grid">
@@ -279,11 +291,17 @@ setmaxx_page_head('Set Maxx | Request Dashboard');
                 <div class="setmaxx-request-amount"><?= e(setmaxx_money((int)$request['amount_cents'])) ?></div>
                 <?php if (($request['payment_method'] ?? '') === 'stripe'): ?><div class="setmaxx-meta">Stripe</div><?php endif; ?>
                 <div class="setmaxx-actions" style="justify-content:flex-end; margin-top:.45rem;">
-                  <?php foreach (['queued' => 'Queue', 'played' => 'Played', 'declined' => 'Decline'] as $statusValue => $label): ?>
-                    <?php if ($request['status'] !== $statusValue): ?>
+                  <?php
+                    $requestStatus = (string)$request['status'];
+                    $requestActions = $requestStatus === 'pending'
+                        ? ['played' => 'Played', 'declined' => 'Decline']
+                        : ($requestStatus === 'queued' ? ['played' => 'Played', 'declined' => 'Decline'] : []);
+                  ?>
+                  <?php if (!$requestActions): ?>
+                    <span class="setmaxx-meta">No further action</span>
+                  <?php else: foreach ($requestActions as $statusValue => $label): ?>
                       <form method="post" action=""><input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>"><input type="hidden" name="request_id" value="<?= (int)$request['id'] ?>"><input type="hidden" name="new_status" value="<?= e($statusValue) ?>"><button class="btn btn-outline" type="submit"><?= e($label) ?></button></form>
-                    <?php endif; ?>
-                  <?php endforeach; ?>
+                  <?php endforeach; endif; ?>
                 </div>
               </div>
             </div>

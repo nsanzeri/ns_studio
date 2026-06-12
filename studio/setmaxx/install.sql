@@ -62,6 +62,7 @@ CREATE TABLE IF NOT EXISTS `setmaxx_public_links` (
 CREATE TABLE IF NOT EXISTS `setmaxx_public_profiles` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `user_id` int(10) unsigned NOT NULL,
+  `artist_name` varchar(190) DEFAULT NULL,
   `website_url` varchar(255) DEFAULT NULL,
   `review_url` varchar(255) DEFAULT NULL,
   `logo_path` varchar(255) DEFAULT NULL,

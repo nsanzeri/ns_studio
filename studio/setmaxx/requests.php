@@ -262,8 +262,20 @@ setmaxx_page_head('Set Maxx | Request Dashboard');
   <?php setmaxx_flash($messages, $errors); ?>
   <div class="setmaxx-card" style="margin-bottom:1rem;">
     <div class="setmaxx-pill">Request Dashboard</div>
-    <h1 style="margin:.8rem 0 .35rem;">Control the room without losing the room</h1>
-    <p class="setmaxx-help">Mark requests played or decline them from the current live session.</p>
+    <?php if ($liveSession): ?>
+      <?php $publicUrl = $sessionLinkBase . rawurlencode((string)$liveSession['public_token']); ?>
+      <div class="setmaxx-dashboard-hero">
+        <div>
+          <h1 style="margin:.8rem 0 .35rem;">Tonight's requests, right here</h1>
+          <p class="setmaxx-help">Live now: <strong><?= e($liveSession['title']) ?></strong>. New requests appear quietly and get a little glow.</p>
+          <div class="setmaxx-public-link-inline"><span>Public page</span><code><?= e($publicUrl) ?></code></div>
+        </div>
+        <a class="btn btn-outline" href="<?= e($publicUrl) ?>" target="_blank" rel="noopener">Open public page</a>
+      </div>
+    <?php else: ?>
+      <h1 style="margin:.8rem 0 .35rem;">Tonight's requests, right here</h1>
+      <p class="setmaxx-help">Start a live session and this page will watch for requests quietly.</p>
+    <?php endif; ?>
   </div>
   <?php if (!$tablesReady): ?><?php setmaxx_install_notice(); ?><?php else: ?>
   <section class="setmaxx-grid">
@@ -273,10 +285,6 @@ setmaxx_page_head('Set Maxx | Request Dashboard');
         <p class="setmaxx-help">No live session right now. Create one first.</p>
         <a class="btn btn-primary" href="<?= e(base_url('/setmaxx/sessions.php')) ?>">Create Session</a>
       <?php else: ?>
-        <?php $publicUrl = $sessionLinkBase . rawurlencode((string)$liveSession['public_token']); ?>
-        <div class="setmaxx-meta" style="margin-bottom:1rem;">Live now: <strong><?= e($liveSession['title']) ?></strong></div>
-        <div class="setmaxx-link-box" style="margin-bottom:1rem;"><strong>Public page</strong><code><?= e($publicUrl) ?></code><a class="btn btn-outline" href="<?= e($publicUrl) ?>" target="_blank" rel="noopener">Open</a></div>
-        <div class="setmaxx-live-watch-note">Silent auto-refresh is on. New requests are checked every 5 seconds and highlighted visually.</div>
         <div class="setmaxx-list">
           <?php if (!$requests): ?>
             <div class="setmaxx-row"><div class="setmaxx-meta">No requests yet for this session.</div></div>
@@ -384,7 +392,10 @@ setmaxx_page_head('Set Maxx | Request Dashboard');
 <style>
   .setmaxx-mini-link { color:#efe7ff; font-size:.84rem; text-decoration:none; }
   .setmaxx-mini-link:hover { text-decoration:underline; }
-  .setmaxx-live-watch-note { margin:-.25rem 0 1rem; padding:.72rem .85rem; border-left:3px solid rgba(126,255,191,.55); color:rgba(255,255,255,.78); background:rgba(126,255,191,.07); border-radius:0 12px 12px 0; font-size:.92rem; }
+  .setmaxx-dashboard-hero { display:flex; justify-content:space-between; align-items:flex-end; gap:1rem; flex-wrap:wrap; }
+  .setmaxx-public-link-inline { display:flex; align-items:center; gap:.55rem; flex-wrap:wrap; margin-top:.8rem; color:rgba(255,255,255,.72); font-size:.88rem; }
+  .setmaxx-public-link-inline span { font-weight:700; color:#efe7ff; }
+  .setmaxx-public-link-inline code { word-break:break-all; color:rgba(255,255,255,.86); }
   .setmaxx-live-alert { position:sticky; top: calc(76px + 2rem); z-index:20; display:none; align-items:center; justify-content:space-between; gap:1rem; margin-bottom:1rem; padding:.9rem 1rem; border-radius:16px; border:1px solid rgba(126,255,191,.32); background:rgba(28,95,68,.28); color:#eafff4; box-shadow:0 12px 30px rgba(0,0,0,.22); }
   .setmaxx-live-alert.visible { display:flex; }
   .setmaxx-live-alert strong { color:#fff; }
@@ -431,14 +442,14 @@ setmaxx_page_head('Set Maxx | Request Dashboard');
       alert.id = 'setmaxxLiveAlert';
       alert.setAttribute('role', 'status');
       alert.setAttribute('aria-live', 'polite');
-      alert.innerHTML = '<div><strong>New request received.</strong> <span></span></div><button type="button">Dismiss</button>';
+      alert.innerHTML = '<div><strong>New request in.</strong> <span></span></div><button type="button">Dismiss</button>';
       const shell = document.querySelector('.setmaxx-shell');
       if (shell) shell.insertBefore(alert, shell.firstElementChild ? shell.firstElementChild.nextSibling : null);
       const close = alert.querySelector('button');
       if (close) close.addEventListener('click', function() { alert.classList.remove('visible'); });
     }
     const detail = alert.querySelector('span');
-    if (detail) detail.textContent = count > 1 ? count + ' new requests will be highlighted automatically.' : 'It will be highlighted automatically.';
+    if (detail) detail.textContent = count > 1 ? count + ' fresh picks just landed.' : 'Fresh pick just landed.';
     alert.classList.add('visible');
   }
 

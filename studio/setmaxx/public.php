@@ -13,7 +13,8 @@ $songs = [];
 $lockedSongIds = [];
 $availableLetters = [];
 $songCount = 0;
-$publicProfile = ['website_url' => '', 'review_url' => '', 'logo_path' => '', 'venmo_handle' => '', 'minimum_tip_dollars' => 10, 'suggested_request_dollars' => 10, 'price_step_dollars' => 1];
+$publicProfile = ['artist_name' => '', 'website_url' => '', 'review_url' => '', 'logo_path' => '', 'venmo_handle' => '', 'minimum_tip_dollars' => 10, 'suggested_request_dollars' => 10, 'price_step_dollars' => 1];
+$publicHostName = 'the artist';
 $sessionMinimumDollars = 10;
 $priceStepDollars = 1;
 $venmoHandle = '';
@@ -93,6 +94,7 @@ function setmaxx_public_ensure_profile_table(PDO $pdo): void {
         CREATE TABLE IF NOT EXISTS `setmaxx_public_profiles` (
           `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
           `user_id` int(10) unsigned NOT NULL,
+          `artist_name` varchar(190) DEFAULT NULL,
           `website_url` varchar(255) DEFAULT NULL,
           `review_url` varchar(255) DEFAULT NULL,
           `logo_path` varchar(255) DEFAULT NULL,
@@ -117,6 +119,9 @@ function setmaxx_public_profile_column_exists(PDO $pdo, string $columnName): boo
 
 function setmaxx_public_ensure_profile_pricing_columns(PDO $pdo): void {
     setmaxx_public_ensure_profile_table($pdo);
+    if (!setmaxx_public_profile_column_exists($pdo, 'artist_name')) {
+        $pdo->exec("ALTER TABLE setmaxx_public_profiles ADD COLUMN artist_name varchar(190) DEFAULT NULL AFTER user_id");
+    }
     if (!setmaxx_public_profile_column_exists($pdo, 'venmo_handle')) {
         $pdo->exec("ALTER TABLE setmaxx_public_profiles ADD COLUMN venmo_handle varchar(80) DEFAULT NULL AFTER logo_path");
     }
@@ -177,9 +182,9 @@ function setmaxx_public_ensure_general_tips_table(PDO $pdo): void {
 
 function setmaxx_public_profile(PDO $pdo, int $userId): array {
     setmaxx_public_ensure_profile_pricing_columns($pdo);
-    $stmt = $pdo->prepare("SELECT website_url, review_url, logo_path, venmo_handle, minimum_tip_dollars, suggested_request_dollars, price_step_dollars FROM setmaxx_public_profiles WHERE user_id = ? LIMIT 1");
+    $stmt = $pdo->prepare("SELECT artist_name, website_url, review_url, logo_path, venmo_handle, minimum_tip_dollars, suggested_request_dollars, price_step_dollars FROM setmaxx_public_profiles WHERE user_id = ? LIMIT 1");
     $stmt->execute([$userId]);
-    return $stmt->fetch(PDO::FETCH_ASSOC) ?: ['website_url' => '', 'review_url' => '', 'logo_path' => '', 'venmo_handle' => '', 'minimum_tip_dollars' => 10, 'suggested_request_dollars' => 10, 'price_step_dollars' => 1];
+    return $stmt->fetch(PDO::FETCH_ASSOC) ?: ['artist_name' => '', 'website_url' => '', 'review_url' => '', 'logo_path' => '', 'venmo_handle' => '', 'minimum_tip_dollars' => 10, 'suggested_request_dollars' => 10, 'price_step_dollars' => 1];
 }
 
 function setmaxx_public_venmo_url(string $handle, int $amountDollars, string $note): string {
@@ -284,19 +289,22 @@ if ($tablesReady && $linkToken !== '' && setmaxx_public_table_exists($pdo, 'setm
 }
 
 if ($tablesReady && $publicUserId > 0) {
-    if (isset($_GET['tip'])) {
-        $messages[] = 'Thank you. Your tip was sent to the performer.';
-    } elseif (isset($_GET['canceled'])) {
-        $errors[] = 'Payment was canceled.';
-    } elseif (isset($_GET['paid'])) {
-        $messages[] = 'Payment received. Your request is being sent to the performer.';
-    }
-
     try {
         $publicProfile = setmaxx_public_profile($pdo, $publicUserId);
     } catch (Throwable $e) {
-        $publicProfile = ['website_url' => '', 'review_url' => '', 'logo_path' => '', 'venmo_handle' => '', 'minimum_tip_dollars' => 10, 'suggested_request_dollars' => 10, 'price_step_dollars' => 1];
+        $publicProfile = ['artist_name' => '', 'website_url' => '', 'review_url' => '', 'logo_path' => '', 'venmo_handle' => '', 'minimum_tip_dollars' => 10, 'suggested_request_dollars' => 10, 'price_step_dollars' => 1];
     }
+    $savedArtistName = trim((string)($publicProfile['artist_name'] ?? ''));
+    $publicHostName = $savedArtistName !== '' ? $savedArtistName : (trim($publicDisplayName) !== '' ? trim($publicDisplayName) : 'the artist');
+
+    if (isset($_GET['tip'])) {
+        $messages[] = 'Thank you. Your tip was sent to ' . $publicHostName . '.';
+    } elseif (isset($_GET['canceled'])) {
+        $errors[] = 'Payment was canceled.';
+    } elseif (isset($_GET['paid'])) {
+        $messages[] = 'Payment received. Your request is being sent to ' . $publicHostName . '.';
+    }
+
     $sessionMinimumDollars = max(0, min(100, (int)($publicProfile['minimum_tip_dollars'] ?? 10)));
     $suggestedRequestDollars = max(0, min(100, (int)($publicProfile['suggested_request_dollars'] ?? 10)));
     $priceStepDollars = (int)($publicProfile['price_step_dollars'] ?? 1);
@@ -392,7 +400,7 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
                         $suggestionName !== '' ? mb_substr($suggestionName, 0, 190) : null,
                         $suggestionNote !== '' ? mb_substr($suggestionNote, 0, 255) : null,
                     ]);
-                    $messages[] = 'Suggestion sent to the performer.';
+                    $messages[] = 'Suggestion sent to ' . $publicHostName . '.';
                 } catch (Throwable $e) {
                     $errors[] = 'The suggestion could not be sent right now.';
                 }
@@ -437,8 +445,8 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
                             'price_data' => [
                                 'currency' => 'usd',
                                 'product_data' => [
-                                    'name' => 'Tip for ' . (string)($publicDisplayName ?: 'the performer'),
-                                    'description' => 'Set Maxx performer tip',
+                                    'name' => 'Tip for ' . $publicHostName,
+                                    'description' => 'Set Maxx artist tip',
                                 ],
                                 'unit_amount' => $amountCents,
                             ],
@@ -457,13 +465,13 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
 
                     if (!setmaxx_public_user_uses_direct_platform_tips($performerUserId)) {
                         if (!setmaxx_public_table_exists($pdo, 'setmaxx_connect_accounts')) {
-                            $errors[] = 'Tips are not ready for this performer yet.';
+                            $errors[] = 'Tips are not ready for this artist yet.';
                         } else {
                             $connectStmt = $pdo->prepare("SELECT stripe_account_id, charges_enabled, payouts_enabled, details_submitted FROM setmaxx_connect_accounts WHERE user_id = ? LIMIT 1");
                             $connectStmt->execute([$performerUserId]);
                             $connectAccount = $connectStmt->fetch(PDO::FETCH_ASSOC) ?: null;
                             if (!$connectAccount || empty($connectAccount['charges_enabled']) || empty($connectAccount['payouts_enabled']) || empty($connectAccount['details_submitted'])) {
-                                $errors[] = 'Tips are not ready for this performer yet.';
+                                $errors[] = 'Tips are not ready for this artist yet.';
                             }
                         }
                     }
@@ -576,14 +584,14 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
 
                 if (!setmaxx_public_user_uses_direct_platform_tips($performerUserId)) {
                     if (!setmaxx_public_table_exists($pdo, 'setmaxx_connect_accounts')) {
-                        $errors[] = 'Paid requests are not ready for this performer yet.';
+                        $errors[] = 'Paid requests are not ready for this artist yet.';
                     } else {
                         $connectStmt = $pdo->prepare("SELECT stripe_account_id, charges_enabled, payouts_enabled, details_submitted FROM setmaxx_connect_accounts WHERE user_id = ? LIMIT 1");
                         $connectStmt->execute([$performerUserId]);
                         $connectAccount = $connectStmt->fetch(PDO::FETCH_ASSOC) ?: null;
 
                         if (!$connectAccount || empty($connectAccount['charges_enabled']) || empty($connectAccount['payouts_enabled']) || empty($connectAccount['details_submitted'])) {
-                            $errors[] = 'Paid requests are not ready for this performer yet.';
+                            $errors[] = 'Paid requests are not ready for this artist yet.';
                         }
                     }
                 }
@@ -614,7 +622,7 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
                     $requestNote !== '' ? $requestNote : null,
                     $requestAmountDollars * 100,
                 ]);
-                $messages[] = 'Request sent to the performer.';
+                $messages[] = 'Request sent to ' . $publicHostName . '.';
             } catch (Throwable $e) {
                 $errors[] = 'That song has already been requested for this gig.';
             }
@@ -718,7 +726,7 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
           <?php endif; ?>
           <div>
             <div style="display:inline-flex; padding:.3rem .7rem; border-radius:999px; background:rgba(140,107,255,.16); color:#efe7ff; font-weight:600;">Requests are taking five</div>
-            <h1 style="margin:.8rem 0 .35rem;"><?= e($publicDisplayName !== '' ? $publicDisplayName : 'The performer') ?></h1>
+            <h1 style="margin:.8rem 0 .35rem;"><?= e($publicHostName) ?></h1>
             <p class="song-meta" style="max-width:620px;">The request list is closed right now, but the show energy is still welcome. Drop a tip, leave a song idea for a future set, or keep in touch below.</p>
             <?php if (!empty($publicProfile['website_url']) || !empty($publicProfile['review_url'])): ?>
               <div class="public-quick-links">
@@ -732,7 +740,7 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
         <details class="action-card">
           <summary class="action-summary">
             <span class="action-summary-text">
-              <span>Tip the performer</span>
+              <span>Tip <?= e($publicHostName) ?></span>
               <span class="action-summary-hint">Open to choose an amount and payment method.</span>
             </span>
             <span class="action-chevron" aria-hidden="true">&darr;</span>
@@ -806,9 +814,9 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
             <img class="public-logo" src="<?= e(base_url((string)$publicProfile['logo_path'])) ?>" alt="">
           <?php endif; ?>
           <div>
-          <div style="display:inline-flex; padding:.3rem .7rem; border-radius:999px; background:rgba(140,107,255,.16); color:#efe7ff; font-weight:600;">Live song requests</div>
+          <div style="display:inline-flex; padding:.3rem .7rem; border-radius:999px; background:rgba(140,107,255,.16); color:#efe7ff; font-weight:600;">Live requests for <?= e($publicHostName) ?></div>
           <h1 style="margin:.8rem 0 .35rem;"><?= e($session['title']) ?></h1>
-          <div class="song-meta"><?= e((string)($session['venue_name'] ?: 'Tonight\'s show')) ?> &middot; hosted by <?= e((string)($session['display_name'] ?: 'the performer')) ?></div>
+          <div class="song-meta"><?= e((string)($session['venue_name'] ?: 'Tonight\'s show')) ?> &middot; hosted by <?= e($publicHostName) ?></div>
           <?php if (!empty($publicProfile['website_url']) || !empty($publicProfile['review_url'])): ?>
             <div class="public-quick-links">
               <?php if (!empty($publicProfile['website_url'])): ?><a class="public-mini-button" href="<?= e((string)$publicProfile['website_url']) ?>" target="_blank" rel="noopener">Website</a><?php endif; ?>
@@ -828,7 +836,7 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
       <details class="action-card">
         <summary class="action-summary">
           <span class="action-summary-text">
-            <span>Tip the performer</span>
+            <span>Tip <?= e($publicHostName) ?></span>
             <span class="action-summary-hint">Open to choose an amount and payment method.</span>
           </span>
           <span class="action-chevron" aria-hidden="true">&darr;</span>

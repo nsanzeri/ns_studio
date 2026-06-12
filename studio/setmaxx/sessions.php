@@ -7,6 +7,7 @@ function setmaxx_ensure_public_profile_table(PDO $pdo): void {
 		CREATE TABLE IF NOT EXISTS `setmaxx_public_profiles` (
 		  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
 		  `user_id` int(10) unsigned NOT NULL,
+		  `artist_name` varchar(190) DEFAULT NULL,
 		  `website_url` varchar(255) DEFAULT NULL,
 		  `review_url` varchar(255) DEFAULT NULL,
 		  `logo_path` varchar(255) DEFAULT NULL,
@@ -31,6 +32,9 @@ function setmaxx_profile_column_exists(PDO $pdo, string $columnName): bool {
 
 function setmaxx_ensure_public_profile_pricing_columns(PDO $pdo): void {
 	setmaxx_ensure_public_profile_table($pdo);
+	if (!setmaxx_profile_column_exists($pdo, 'artist_name')) {
+		$pdo->exec("ALTER TABLE setmaxx_public_profiles ADD COLUMN artist_name varchar(190) DEFAULT NULL AFTER user_id");
+	}
 	if (!setmaxx_profile_column_exists($pdo, 'venmo_handle')) {
 		$pdo->exec("ALTER TABLE setmaxx_public_profiles ADD COLUMN venmo_handle varchar(80) DEFAULT NULL AFTER logo_path");
 	}
@@ -63,6 +67,12 @@ function setmaxx_clean_venmo_handle($value): ?string {
 	return preg_match('/^[A-Za-z0-9_.-]{3,80}$/', $handle) ? $handle : null;
 }
 
+function setmaxx_clean_public_text($value, int $maxLength = 190): ?string {
+	$text = trim(preg_replace('/\s+/', ' ', (string)$value) ?? '');
+	if ($text === '') return null;
+	return mb_substr($text, 0, $maxLength);
+}
+
 function setmaxx_clean_public_url($value): ?string {
 	$url = trim((string)$value);
 	if ($url === '') return null;
@@ -74,14 +84,14 @@ function setmaxx_clean_public_url($value): ?string {
 
 function setmaxx_public_profile(PDO $pdo, int $userId): array {
 	setmaxx_ensure_public_profile_pricing_columns($pdo);
-	$stmt = $pdo->prepare("SELECT website_url, review_url, logo_path, venmo_handle, minimum_tip_dollars, suggested_request_dollars, price_step_dollars FROM setmaxx_public_profiles WHERE user_id = ? LIMIT 1");
+	$stmt = $pdo->prepare("SELECT artist_name, website_url, review_url, logo_path, venmo_handle, minimum_tip_dollars, suggested_request_dollars, price_step_dollars FROM setmaxx_public_profiles WHERE user_id = ? LIMIT 1");
 	$stmt->execute([$userId]);
-	return $stmt->fetch(PDO::FETCH_ASSOC) ?: ['website_url' => '', 'review_url' => '', 'logo_path' => '', 'venmo_handle' => '', 'minimum_tip_dollars' => 10, 'suggested_request_dollars' => 10, 'price_step_dollars' => 1];
+	return $stmt->fetch(PDO::FETCH_ASSOC) ?: ['artist_name' => '', 'website_url' => '', 'review_url' => '', 'logo_path' => '', 'venmo_handle' => '', 'minimum_tip_dollars' => 10, 'suggested_request_dollars' => 10, 'price_step_dollars' => 1];
 }
 
 $stablePublicUrl = '';
 $stableQrUrl = '';
-$publicProfile = ['website_url' => '', 'review_url' => '', 'logo_path' => ''];
+$publicProfile = ['artist_name' => '', 'website_url' => '', 'review_url' => '', 'logo_path' => ''];
 if ($tablesReady) {
 	try {
 		setmaxx_ensure_session_venmo_column($pdo);
@@ -126,6 +136,7 @@ if ($tablesReady && is_post()) {
 			}
 			if ($action === 'save_public_profile') {
 				setmaxx_ensure_public_profile_pricing_columns($pdo);
+				$artistName = setmaxx_clean_public_text($_POST['artist_name'] ?? '', 190);
 				$websiteUrl = setmaxx_clean_public_url($_POST['website_url'] ?? '');
 				$reviewUrl = setmaxx_clean_public_url($_POST['review_url'] ?? '');
 				$venmoHandle = setmaxx_clean_venmo_handle($_POST['venmo_handle'] ?? '');
@@ -160,10 +171,10 @@ if ($tablesReady && is_post()) {
 				}
 				
 				$pdo->prepare(
-					"INSERT INTO setmaxx_public_profiles (user_id, website_url, review_url, logo_path, venmo_handle, minimum_tip_dollars, suggested_request_dollars, price_step_dollars)
-					 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-					 ON DUPLICATE KEY UPDATE website_url = VALUES(website_url), review_url = VALUES(review_url), logo_path = VALUES(logo_path), venmo_handle = VALUES(venmo_handle), minimum_tip_dollars = VALUES(minimum_tip_dollars), suggested_request_dollars = VALUES(suggested_request_dollars), price_step_dollars = VALUES(price_step_dollars)"
-				)->execute([$userId, $websiteUrl, $reviewUrl, $logoPath !== '' ? $logoPath : null, $venmoHandle, $minimumTipDollars, $suggestedRequestDollars, $priceStepDollars]);
+					"INSERT INTO setmaxx_public_profiles (user_id, artist_name, website_url, review_url, logo_path, venmo_handle, minimum_tip_dollars, suggested_request_dollars, price_step_dollars)
+					 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+					 ON DUPLICATE KEY UPDATE artist_name = VALUES(artist_name), website_url = VALUES(website_url), review_url = VALUES(review_url), logo_path = VALUES(logo_path), venmo_handle = VALUES(venmo_handle), minimum_tip_dollars = VALUES(minimum_tip_dollars), suggested_request_dollars = VALUES(suggested_request_dollars), price_step_dollars = VALUES(price_step_dollars)"
+				)->execute([$userId, $artistName, $websiteUrl, $reviewUrl, $logoPath !== '' ? $logoPath : null, $venmoHandle, $minimumTipDollars, $suggestedRequestDollars, $priceStepDollars]);
 				$publicProfile = setmaxx_public_profile($pdo, $userId);
 				$messages[] = 'Public page settings saved.';
 			}
@@ -271,12 +282,12 @@ setmaxx_page_head('Set Maxx | Gig Sessions');
       <input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>">
       <input type="hidden" name="action" value="save_public_profile">
       <div class="setmaxx-form-grid">
-        <div class="setmaxx-field"><label for="website_url">Performer website</label><input class="setmaxx-input" id="website_url" name="website_url" placeholder="https://your-site.com" value="<?= e((string)($publicProfile['website_url'] ?? '')) ?>"></div>
-        <div class="setmaxx-field"><label for="review_url">Review link</label><input class="setmaxx-input" id="review_url" name="review_url" placeholder="Google review page" value="<?= e((string)($publicProfile['review_url'] ?? '')) ?>"></div>
+        <div class="setmaxx-field"><label for="artist_name">Public artist or band name</label><input class="setmaxx-input" id="artist_name" name="artist_name" placeholder="Your stage name or band name" value="<?= e((string)($publicProfile['artist_name'] ?? '')) ?>"></div>
+        <div class="setmaxx-field"><label for="website_url">Artist website</label><input class="setmaxx-input" id="website_url" name="website_url" placeholder="https://your-site.com" value="<?= e((string)($publicProfile['website_url'] ?? '')) ?>"></div>
       </div>
       <div class="setmaxx-form-grid">
+        <div class="setmaxx-field"><label for="review_url">Review link</label><input class="setmaxx-input" id="review_url" name="review_url" placeholder="Google review page" value="<?= e((string)($publicProfile['review_url'] ?? '')) ?>"></div>
         <div class="setmaxx-field"><label for="venmo_handle">Venmo handle</label><input class="setmaxx-input" id="venmo_handle" name="venmo_handle" placeholder="@your-venmo" value="<?= e((string)($publicProfile['venmo_handle'] ?? '')) ?>"></div>
-        <div class="setmaxx-field"><label>Venmo tracking</label><div class="setmaxx-help">Add a Venmo handle to show Venmo on public request pages. Set Maxx records those amounts separately as Venmo recorded.</div></div>
       </div>
       <div class="setmaxx-form-grid">
         <div class="setmaxx-field">
@@ -399,6 +410,7 @@ setmaxx_page_head('Set Maxx | Gig Sessions');
         <button class="setmaxx-dialog-close" type="button" id="setmaxxPublicSettingsHelpClose" aria-label="Close">&times;</button>
       </div>
       <ul class="setmaxx-format-list">
+        <li>Public artist or band name is what fans see on the request page. It can be different from the account name you use to log in.</li>
         <li>The website and review links appear on the public request page so fans can find you again.</li>
         <li>The Venmo handle is saved globally. Leave it blank if you do not want Venmo shown publicly.</li>
         <li>Lowest paid amount is the minimum a fan can choose for a paid request.  For instance, this could be 0, 5 or 10 dollars.  If not 0 that means there will be no free request option for that session.</li>

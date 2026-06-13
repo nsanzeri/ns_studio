@@ -57,7 +57,7 @@ if (!$calendar) {
     exit;
 }
 
-$icalUrl = (string)$calendar['ics_url'];
+$icalUrl = rss_normalize_ical_url((string)$calendar['ics_url']);
 $userTimezone = $_SESSION['detected_timezone']
     ?? ($_SESSION['timezone'] ?? null)
     ?? ($calendar['timezone'] ?? null)
@@ -76,6 +76,14 @@ try {
     echo json_encode([
         'success' => false,
         'error' => 'Invalid date range',
+    ]);
+    exit;
+}
+
+if (!filter_var($icalUrl, FILTER_VALIDATE_URL) || !in_array(strtolower((string)parse_url($icalUrl, PHP_URL_SCHEME)), ['http', 'https'], true)) {
+    echo json_encode([
+        'success' => false,
+        'error' => 'Calendar URL must start with http, https, or webcal.',
     ]);
     exit;
 }

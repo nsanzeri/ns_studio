@@ -38,6 +38,22 @@ function is_post(): bool {
   return strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST';
 }
 
+if (!function_exists('rss_normalize_ical_url')) {
+	function rss_normalize_ical_url(?string $url): string
+	{
+		$url = trim((string)$url);
+		if ($url === '') {
+			return '';
+		}
+
+		if (stripos($url, 'webcal://') === 0) {
+			return 'https://' . substr($url, 9);
+		}
+
+		return $url;
+	}
+}
+
 if (!function_exists('sync_user_entitlements')) {
 	function sync_user_entitlements(PDO $pdo, int $userId): void
 	{

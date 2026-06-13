@@ -240,7 +240,12 @@ function finance_fetch_calendar_events(array $calendar, string $startDate, strin
     $rangeStart = new DateTime($startDate, $tz);
     $rangeEnd = (new DateTime($endDate, $tz))->setTime(23, 59, 59);
 
-    $ch = curl_init((string)$calendar['ics_url']);
+    $icalUrl = rss_normalize_ical_url((string)$calendar['ics_url']);
+    if (!filter_var($icalUrl, FILTER_VALIDATE_URL) || !in_array(strtolower((string)parse_url($icalUrl, PHP_URL_SCHEME)), ['http', 'https'], true)) {
+        throw new RuntimeException('Calendar URL must start with http, https, or webcal.');
+    }
+
+    $ch = curl_init($icalUrl);
     curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_FOLLOWLOCATION => true, CURLOPT_TIMEOUT => 20, CURLOPT_SSL_VERIFYPEER => true, CURLOPT_SSL_VERIFYHOST => 2]);
     $raw = curl_exec($ch);
     if ($raw === false) {

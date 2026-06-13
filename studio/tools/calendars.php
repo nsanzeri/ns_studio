@@ -81,7 +81,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 	if ($action === 'create' || $action === 'update') {
 		$calendarId = (int)($_POST['calendar_id'] ?? 0);
 		$name = trim((string)($_POST['name'] ?? ''));
-		$icsUrl = trim((string)($_POST['ics_url'] ?? ''));
+		$icsUrl = rss_normalize_ical_url($_POST['ics_url'] ?? '');
 		$color = normalize_hex_color($_POST['color'] ?? '');
 		$timezone = normalize_timezone($_POST['timezone'] ?? '');
 		$isActive = isset($_POST['is_active']) ? 1 : 0;
@@ -92,8 +92,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 		
 		if ($icsUrl === '') {
 			$errors[] = 'Please enter an iCal URL.';
-		} elseif (!filter_var($icsUrl, FILTER_VALIDATE_URL)) {
-			$errors[] = 'Please enter a valid URL.';
+		} elseif (!filter_var($icsUrl, FILTER_VALIDATE_URL) || !in_array(strtolower((string)parse_url($icsUrl, PHP_URL_SCHEME)), ['http', 'https'], true)) {
+			$errors[] = 'Please enter a valid iCal URL.';
 		}
 		
 		if (trim((string)($_POST['color'] ?? '')) !== '' && $color === null) {

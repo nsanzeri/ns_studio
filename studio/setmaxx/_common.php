@@ -12,8 +12,8 @@ $user = Auth::currentUser($pdo);
 $userId = (int)($user['id'] ?? 0);
 $isProUser = rss_current_user_is_pro($pdo);
 $upgradeUrl = rss_tool_upgrade_url();
-$sessionLinkBase = base_url('/setmaxx/public.php?token=');
-$stableSessionLinkBase = base_url('/setmaxx/public.php?link=');
+$sessionLinkBase = base_url('/request.php?token=');
+$stableSessionLinkBase = base_url('/request.php?link=');
 $messages = [];
 $errors = [];
 

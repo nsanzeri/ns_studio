@@ -27,6 +27,15 @@ function setmaxx_public_absolute_url(string $path): string {
     return $scheme . '://' . $host . '/' . ltrim($path, '/');
 }
 
+function setmaxx_public_return_path(string $suffix = ''): string {
+    global $linkToken, $token;
+    $query = $linkToken !== ''
+        ? 'link=' . rawurlencode($linkToken)
+        : 'token=' . rawurlencode($token);
+
+    return base_url('/request.php?' . $query . $suffix);
+}
+
 function setmaxx_public_tables_ready(PDO $pdo): bool {
     foreach (['setmaxx_songs', 'setmaxx_gig_sessions', 'setmaxx_requests'] as $tableName) {
         $stmt = $pdo->prepare("SELECT 1 FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ? LIMIT 1");
@@ -467,8 +476,8 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
                             ],
                             'quantity' => 1,
                         ]],
-                        'success_url' => setmaxx_public_absolute_url(base_url('/setmaxx/public.php?' . ($linkToken !== '' ? 'link=' . rawurlencode($linkToken) : 'token=' . rawurlencode($token)) . '&tip=1')),
-                        'cancel_url' => setmaxx_public_absolute_url(base_url('/setmaxx/public.php?' . ($linkToken !== '' ? 'link=' . rawurlencode($linkToken) : 'token=' . rawurlencode($token)) . '&canceled=1')),
+                        'success_url' => setmaxx_public_absolute_url(setmaxx_public_return_path('&tip=1')),
+                        'cancel_url' => setmaxx_public_absolute_url(setmaxx_public_return_path('&canceled=1')),
                         'metadata' => [
                             'kind' => 'setmaxx_general_tip',
                             'gig_session_id' => $session ? (string)(int)$session['id'] : '',
@@ -585,8 +594,8 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
                         ],
                         'quantity' => 1,
                     ]],
-                    'success_url' => setmaxx_public_absolute_url(base_url('/setmaxx/public.php?' . ($linkToken !== '' ? 'link=' . rawurlencode($linkToken) : 'token=' . rawurlencode($token)) . '&paid=1')),
-                    'cancel_url' => setmaxx_public_absolute_url(base_url('/setmaxx/public.php?' . ($linkToken !== '' ? 'link=' . rawurlencode($linkToken) : 'token=' . rawurlencode($token)) . '&canceled=1')),
+                    'success_url' => setmaxx_public_absolute_url(setmaxx_public_return_path('&paid=1')),
+                    'cancel_url' => setmaxx_public_absolute_url(setmaxx_public_return_path('&canceled=1')),
                     'metadata' => [
                         'kind' => 'setmaxx_tip',
                         'gig_session_id' => (string)(int)$session['id'],

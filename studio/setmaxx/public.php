@@ -236,6 +236,53 @@ function setmaxx_public_price_options(int $minimumDollars, int $stepDollars, int
     return array_values(array_unique(array_filter($options, fn($amount) => $amount >= $minimumDollars && $amount <= $maxDollars)));
 }
 
+function setmaxx_public_request_badge_amounts(int $minimumDollars, int $suggestedDollars, int $stepDollars): array {
+    $minimumDollars = max(5, min(100, $minimumDollars));
+    $suggestedDollars = max($minimumDollars, min(100, $suggestedDollars));
+    $options = [$suggestedDollars];
+
+    foreach ([20] as $amount) {
+        if ($amount >= $minimumDollars && $amount <= 100 && !in_array($amount, $options, true)) {
+            $options[] = $amount;
+        }
+    }
+
+    foreach (setmaxx_public_price_options($minimumDollars, $stepDollars) as $amount) {
+        if (count($options) >= 2) {
+            break;
+        }
+        if ($amount >= $minimumDollars && $amount <= 100 && !in_array($amount, $options, true)) {
+            $options[] = $amount;
+        }
+    }
+
+    return array_slice($options, 0, 2);
+}
+
+function setmaxx_public_tip_badge_amounts(int $minimumDollars): array {
+    $minimumDollars = max(5, min(100, $minimumDollars));
+    $options = [];
+
+    foreach ([10, 20] as $amount) {
+        if ($amount >= $minimumDollars && $amount <= 100) {
+            $options[] = $amount;
+        }
+    }
+
+    if (!$options) {
+        $options[] = $minimumDollars;
+    } elseif (!in_array($minimumDollars, $options, true) && $minimumDollars > 10) {
+        array_unshift($options, $minimumDollars);
+    }
+
+    return array_slice(array_values(array_unique($options)), 0, 2);
+}
+
+function setmaxx_public_default_tip_amount(int $minimumDollars): int {
+    $minimumDollars = max(5, min(100, $minimumDollars));
+    return 20 >= $minimumDollars ? 20 : $minimumDollars;
+}
+
 function setmaxx_public_tip_fee_percent(): int {
     return 0;
 }
@@ -699,11 +746,18 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
     .song-chevron, .action-chevron { flex:0 0 auto; color:rgba(255,255,255,.62); font-size:1.15rem; transition:transform .18s ease; }
     .song-card[open] .song-chevron, .action-card[open] .action-chevron { transform:rotate(180deg); }
     .song-request-panel { padding:.75rem .8rem .85rem; }
-    .request-form { display:grid; grid-template-columns:105px minmax(120px, 1fr) minmax(150px, 1.2fr) auto; gap:.5rem; align-items:center; }
+    .request-form { display:grid; grid-template-columns:minmax(190px, .9fr) minmax(120px, 1fr) minmax(150px, 1.2fr) auto; gap:.5rem; align-items:center; }
     .request-input, .request-select { width:100%; padding:.52rem .62rem; border-radius:10px; border:1px solid rgba(255,255,255,.1); background:rgba(255,255,255,.05); color:#fff; font:inherit; font-size:.9rem; }
     .request-select option { background:#151323; color:#fff; }
     .request-input::placeholder { color:rgba(255,255,255,.52); }
     .request-submit { padding:.54rem .85rem; white-space:nowrap; }
+    .amount-picker { display:flex; gap:.38rem; align-items:center; flex-wrap:wrap; }
+    .amount-badge { min-height:38px; padding:.48rem .72rem; border-radius:999px; border:1px solid rgba(255,255,255,.14); background:rgba(255,255,255,.055); color:#fff; font:inherit; font-weight:700; cursor:pointer; }
+    .amount-badge.active { background:linear-gradient(135deg,#f8db74,#d4af37); border-color:rgba(248,219,116,.72); color:#15110a; box-shadow:0 8px 20px rgba(212,175,55,.18); }
+    .amount-badge-no-tip { min-height:30px; padding:.32rem .62rem; font-size:.78rem; font-weight:600; opacity:.82; }
+    .amount-other-input { width:92px; min-height:38px; padding:.48rem .62rem; border-radius:999px; border:1px solid rgba(255,255,255,.14); background:rgba(255,255,255,.065); color:#fff; font:inherit; font-weight:700; }
+    .amount-free-row { flex-basis:100%; margin-top:.1rem; }
+    .amount-other-input[hidden], .request-payment-buttons[hidden], .request-free-actions[hidden] { display:none; }
     .show-status-strip { display:flex; gap:.45rem; flex-wrap:wrap; align-items:center; margin-top:.85rem; color:rgba(255,255,255,.72); font-size:.82rem; line-height:1.35; }
     .show-status-pill { display:inline-flex; align-items:center; min-height:24px; padding:.2rem .55rem; border-radius:999px; background:rgba(140,107,255,.14); border:1px solid rgba(140,107,255,.22); color:#efe7ff; font-weight:600; white-space:nowrap; }
     .show-status-note { color:rgba(255,255,255,.62); }
@@ -718,7 +772,7 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
     .action-panel { padding:1rem; }
     .suggestion-form { display:grid; grid-template-columns:minmax(160px, 1fr) minmax(140px, .9fr) minmax(120px, .8fr) minmax(180px, 1.2fr) auto; gap:.55rem; align-items:center; }
     .mailing-form { display:grid; grid-template-columns:minmax(180px, 1fr) minmax(140px, .75fr) auto; gap:.55rem; align-items:center; }
-    .tip-form { display:grid; grid-template-columns:110px minmax(130px, 1fr) minmax(180px, 1.3fr) auto; gap:.55rem; align-items:center; }
+    .tip-form { display:grid; grid-template-columns:minmax(190px, .9fr) minmax(130px, 1fr) minmax(180px, 1.3fr) auto; gap:.55rem; align-items:center; }
     .payment-buttons { display:flex; gap:.45rem; flex-wrap:wrap; }
     .payment-buttons .btn { white-space:nowrap; }
     .alert { border-radius:16px; padding:.95rem 1rem; margin-bottom:1rem; }
@@ -773,11 +827,21 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
             <form method="post" class="tip-form" action="">
               <input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>">
               <input type="hidden" name="action" value="general_tip">
-              <select class="request-select" name="tip_amount_dollars" aria-label="Tip amount">
-                <?php foreach (setmaxx_public_price_options(max(5, (int)($publicProfile['minimum_tip_dollars'] ?? 5)), $priceStepDollars) as $tipAmount): ?>
-                  <option value="<?= $tipAmount ?>">$<?= $tipAmount ?></option>
+              <?php
+                $tipMinimumDollars = max(5, (int)($publicProfile['minimum_tip_dollars'] ?? 5));
+                $defaultTipDollars = setmaxx_public_default_tip_amount($tipMinimumDollars);
+                $tipAmounts = setmaxx_public_tip_badge_amounts($tipMinimumDollars);
+                if (!in_array($defaultTipDollars, $tipAmounts, true)) $tipAmounts[] = $defaultTipDollars;
+                sort($tipAmounts, SORT_NUMERIC);
+              ?>
+              <input type="hidden" name="tip_amount_dollars" value="<?= (int)$defaultTipDollars ?>">
+              <div class="amount-picker tip-amount-picker" role="group" aria-label="Tip amount">
+                <?php foreach ($tipAmounts as $tipAmount): ?>
+                  <button class="amount-badge <?= $tipAmount === $defaultTipDollars ? 'active' : '' ?>" type="button" data-amount="<?= (int)$tipAmount ?>">$<?= (int)$tipAmount ?></button>
                 <?php endforeach; ?>
-              </select>
+                <button class="amount-badge" type="button" data-amount="other">Other</button>
+                <input class="amount-other-input" type="number" min="<?= (int)$tipMinimumDollars ?>" max="100" step="<?= (int)$priceStepDollars ?>" inputmode="numeric" placeholder="$" hidden>
+              </div>
               <input class="request-input" name="tipper_name" placeholder="Your name">
               <input class="request-input" name="tip_note" placeholder="Optional note">
               <div class="payment-buttons">
@@ -869,11 +933,21 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
           <form method="post" class="tip-form" action="">
             <input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>">
             <input type="hidden" name="action" value="general_tip">
-            <select class="request-select" name="tip_amount_dollars" aria-label="Tip amount">
-              <?php foreach (setmaxx_public_price_options(max(5, (int)($publicProfile['minimum_tip_dollars'] ?? 5)), $priceStepDollars) as $tipAmount): ?>
-                <option value="<?= $tipAmount ?>">$<?= $tipAmount ?></option>
+            <?php
+              $tipMinimumDollars = max(5, (int)($publicProfile['minimum_tip_dollars'] ?? 5));
+              $defaultTipDollars = setmaxx_public_default_tip_amount($tipMinimumDollars);
+              $tipAmounts = setmaxx_public_tip_badge_amounts($tipMinimumDollars);
+              if (!in_array($defaultTipDollars, $tipAmounts, true)) $tipAmounts[] = $defaultTipDollars;
+              sort($tipAmounts, SORT_NUMERIC);
+            ?>
+            <input type="hidden" name="tip_amount_dollars" value="<?= (int)$defaultTipDollars ?>">
+            <div class="amount-picker tip-amount-picker" role="group" aria-label="Tip amount">
+              <?php foreach ($tipAmounts as $tipAmount): ?>
+                <button class="amount-badge <?= $tipAmount === $defaultTipDollars ? 'active' : '' ?>" type="button" data-amount="<?= (int)$tipAmount ?>">$<?= (int)$tipAmount ?></button>
               <?php endforeach; ?>
-            </select>
+              <button class="amount-badge" type="button" data-amount="other">Other</button>
+              <input class="amount-other-input" type="number" min="<?= (int)$tipMinimumDollars ?>" max="100" step="<?= (int)$priceStepDollars ?>" inputmode="numeric" placeholder="$" hidden>
+            </div>
             <input class="request-input" name="tipper_name" placeholder="Your name">
             <input class="request-input" name="tip_note" placeholder="Optional note">
             <div class="payment-buttons">
@@ -955,14 +1029,9 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
             $freeRequestAllowed = $songMinimumDollars <= 0 && $sessionMinimumDollars <= 0;
             $suggestedDollars = $suggestedRequestDollars > 0 ? $suggestedRequestDollars : $minimumDollars;
             $suggestedDollars = max($minimumDollars, min(100, $suggestedDollars));
-            $requestAmounts = setmaxx_public_price_options($minimumDollars, $priceStepDollars);
-            if (!in_array($suggestedDollars, $requestAmounts, true)) {
-              $requestAmounts[] = $suggestedDollars;
-              sort($requestAmounts, SORT_NUMERIC);
-            }
-            if (!in_array($minimumDollars, $requestAmounts, true)) {
-              array_unshift($requestAmounts, $minimumDollars);
-            }
+            $requestAmounts = setmaxx_public_request_badge_amounts($minimumDollars, $suggestedDollars, $priceStepDollars);
+            $defaultAmount = $requestAmounts[0] ?? $minimumDollars;
+            $otherMinDollars = max(5, $minimumDollars);
           ?>
           <?php if ($locked): ?>
             <div class="song-card locked" data-letter="<?= e($letter) ?>" data-title-letter="<?= e($letter) ?>" data-artist-letter="<?= e($artistLetter) ?>" data-title="<?= e(strtolower((string)$song['title'])) ?>" data-artist="<?= e(strtolower($artistSort)) ?>">
@@ -988,19 +1057,25 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
                   <input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>">
                   <input type="hidden" name="action" value="request_song">
                   <input type="hidden" name="song_id" value="<?= (int)$song['id'] ?>">
-                  <select class="request-select" name="request_amount_dollars" aria-label="Request amount">
+                  <input type="hidden" name="request_amount_dollars" value="<?= (int)$defaultAmount ?>">
+                  <div class="amount-picker" role="group" aria-label="Request amount">
                     <?php foreach ($requestAmounts as $amount): ?>
-                      <option value="<?= $amount ?>" <?= $amount === $suggestedDollars ? 'selected' : '' ?>>$<?= $amount ?></option>
+                      <button class="amount-badge <?= $amount === $defaultAmount ? 'active' : '' ?>" type="button" data-amount="<?= (int)$amount ?>">$<?= (int)$amount ?></button>
                     <?php endforeach; ?>
+                    <button class="amount-badge" type="button" data-amount="other">Other</button>
+                    <input class="amount-other-input" type="number" min="<?= (int)$otherMinDollars ?>" max="100" step="<?= (int)$priceStepDollars ?>" inputmode="numeric" placeholder="$" hidden>
                     <?php if ($freeRequestAllowed): ?>
-                      <option value="0">$0 free request</option>
+                      <span class="amount-free-row"><button class="amount-badge amount-badge-no-tip" type="button" data-amount="0">No tip</button></span>
                     <?php endif; ?>
-                  </select>
+                  </div>
                   <input class="request-input" name="requester_name" placeholder="First name is enough.">
                   <input class="request-input" name="request_note" placeholder="Optional note">
-                  <div class="payment-buttons">
+                  <div class="payment-buttons request-payment-buttons" <?= $defaultAmount === 0 ? 'hidden' : '' ?>>
                     <button class="btn btn-primary request-submit" type="submit" name="payment_method" value="stripe">Request with card</button>
                     <?php if ($venmoAvailable): ?><button class="btn btn-outline request-submit" type="submit" name="payment_method" value="venmo">Request with Venmo</button><?php endif; ?>
+                  </div>
+                  <div class="payment-buttons request-free-actions" <?= $defaultAmount === 0 ? '' : 'hidden' ?>>
+                    <button class="btn btn-primary request-submit" type="submit" name="payment_method" value="free">Send request</button>
                   </div>
                 </form>
               </div>
@@ -1060,6 +1135,53 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
         fillRequesterNames(name);
       }
     });
+  });
+
+  document.querySelectorAll('.request-form, .tip-form').forEach(function(form) {
+    const amountInput = form.querySelector('input[name="request_amount_dollars"], input[name="tip_amount_dollars"]');
+    const badges = Array.from(form.querySelectorAll('.amount-badge'));
+    const otherInput = form.querySelector('.amount-other-input');
+    const paidActions = form.querySelector('.request-payment-buttons');
+    const freeActions = form.querySelector('.request-free-actions');
+    if (!amountInput || !badges.length) return;
+
+    function setAmount(value, focusOther) {
+      badges.forEach(function(badge) {
+        badge.classList.toggle('active', badge.getAttribute('data-amount') === String(value));
+      });
+
+      if (value === 'other') {
+        if (otherInput) {
+          otherInput.hidden = false;
+          const current = parseInt(otherInput.value || otherInput.min || '5', 10);
+          amountInput.value = String(Math.max(parseInt(otherInput.min || '5', 10), Math.min(100, current)));
+          if (focusOther) otherInput.focus();
+        }
+      } else {
+        if (otherInput) otherInput.hidden = true;
+        amountInput.value = String(value);
+      }
+
+      const isFree = parseInt(amountInput.value || '0', 10) === 0;
+      if (paidActions) paidActions.hidden = isFree;
+      if (freeActions) freeActions.hidden = !isFree;
+    }
+
+    badges.forEach(function(badge) {
+      badge.addEventListener('click', function() {
+        setAmount(badge.getAttribute('data-amount') || '0', true);
+      });
+    });
+
+    if (otherInput) {
+      otherInput.addEventListener('input', function() {
+        const min = parseInt(otherInput.min || '5', 10);
+        const value = Math.max(min, Math.min(100, parseInt(otherInput.value || String(min), 10)));
+        amountInput.value = String(value);
+        if (paidActions) paidActions.hidden = false;
+        if (freeActions) freeActions.hidden = true;
+      });
+    }
   });
 
   function cardLetter(card) {

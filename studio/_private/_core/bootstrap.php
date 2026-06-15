@@ -188,6 +188,7 @@ set_error_handler(function (int $severity, string $message, string $file, int $l
 			require __DIR__ . '/Auth.php';
 			
 			$pdo = db($config);
+			Auth::attemptRememberLogin($pdo, $config);
 			
 			// Detect studio app base path (works for /studio locally or in production)
 			$scriptName = $_SERVER['SCRIPT_NAME'] ?? ''; // e.g. /ns_studio/studio/tools/index.php

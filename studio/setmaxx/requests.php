@@ -277,17 +277,6 @@ setmaxx_page_head('Set Maxx | Request Dashboard');
       <p class="setmaxx-help">Start a live session and this page will watch for requests quietly.</p>
     <?php endif; ?>
   </div>
-  <div class="setmaxx-card setmaxx-notification-card" style="margin-bottom:1rem;">
-    <div>
-      <div class="setmaxx-pill">Optional</div>
-      <h2 style="margin:.5rem 0 .35rem;">Request notifications</h2>
-      <p class="setmaxx-help" id="setmaxxPushHelp" style="margin:0;">Enable device notifications so new requests can pop up even when this page is not front and center.</p>
-    </div>
-    <div class="setmaxx-actions">
-      <button class="btn btn-outline" type="button" id="setmaxxPushDisableBtn" hidden>Disable on this device</button>
-      <button class="btn btn-primary" type="button" id="setmaxxPushEnableBtn">Enable notifications</button>
-    </div>
-  </div>
   <?php if (!$tablesReady): ?><?php setmaxx_install_notice(); ?><?php else: ?>
   <section class="setmaxx-grid">
     <div class="setmaxx-card">
@@ -404,7 +393,6 @@ setmaxx_page_head('Set Maxx | Request Dashboard');
   .setmaxx-mini-link { color:#efe7ff; font-size:.84rem; text-decoration:none; }
   .setmaxx-mini-link:hover { text-decoration:underline; }
   .setmaxx-dashboard-hero { display:flex; justify-content:space-between; align-items:flex-end; gap:1rem; flex-wrap:wrap; }
-  .setmaxx-notification-card { display:flex; align-items:center; justify-content:space-between; gap:1rem; flex-wrap:wrap; }
   .setmaxx-public-link-inline { display:flex; align-items:center; gap:.55rem; flex-wrap:wrap; margin-top:.8rem; color:rgba(255,255,255,.72); font-size:.88rem; }
   .setmaxx-public-link-inline span { font-weight:700; color:#efe7ff; }
   .setmaxx-public-link-inline code { word-break:break-all; color:rgba(255,255,255,.86); }
@@ -419,132 +407,6 @@ setmaxx_page_head('Set Maxx | Request Dashboard');
     100% { box-shadow:none; background:rgba(126,255,191,.09); }
   }
 </style>
-<script>
-(function() {
-  const enableBtn = document.getElementById('setmaxxPushEnableBtn');
-  const disableBtn = document.getElementById('setmaxxPushDisableBtn');
-  const help = document.getElementById('setmaxxPushHelp');
-  const endpoint = <?= json_encode(base_url('/setmaxx/push.php')) ?>;
-  const swUrl = <?= json_encode(base_url('/sw.js')) ?>;
-  const csrf = <?= json_encode(csrf_token()) ?>;
-
-  if (!enableBtn || !help) return;
-
-  function setHelp(text) {
-    help.textContent = text;
-  }
-
-  function setEnabledUi(enabled) {
-    enableBtn.hidden = enabled;
-    if (disableBtn) disableBtn.hidden = !enabled;
-  }
-
-  function urlBase64ToUint8Array(base64String) {
-    const padding = '='.repeat((4 - base64String.length % 4) % 4);
-    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
-    const rawData = window.atob(base64);
-    const outputArray = new Uint8Array(rawData.length);
-    for (let i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i);
-    return outputArray;
-  }
-
-  async function registrationAndSubscription() {
-    const registration = await navigator.serviceWorker.register(swUrl);
-    const subscription = await registration.pushManager.getSubscription();
-    return { registration, subscription };
-  }
-
-  async function getPublicKey() {
-    const response = await fetch(endpoint + '?action=key', { credentials: 'same-origin', cache: 'no-store' });
-    const data = await response.json();
-    if (!data || !data.success || !data.publicKey) throw new Error('Missing push key.');
-    return data.publicKey;
-  }
-
-  async function saveSubscription(subscription) {
-    const response = await fetch(endpoint + '?action=subscribe', {
-      method: 'POST',
-      credentials: 'same-origin',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
-        _csrf: csrf,
-        subscription: JSON.stringify(subscription)
-      })
-    });
-    const data = await response.json();
-    if (!data || !data.success) throw new Error((data && data.error) || 'Could not save notification setup.');
-    return data;
-  }
-
-  async function disableSubscription(subscription) {
-    if (!subscription) return;
-    await fetch(endpoint + '?action=unsubscribe', {
-      method: 'POST',
-      credentials: 'same-origin',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({ _csrf: csrf, endpoint: subscription.endpoint || '' })
-    });
-    await subscription.unsubscribe();
-  }
-
-  if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) {
-    enableBtn.disabled = true;
-    setHelp('This browser does not support web push notifications. On iPhone, add Ready Set Shows to the Home Screen and use iOS 16.4 or newer.');
-    return;
-  }
-
-  registrationAndSubscription().then(function(result) {
-    if (result.subscription) {
-      setEnabledUi(true);
-      setHelp('Notifications are enabled on this device.');
-    } else if (Notification.permission === 'denied') {
-      enableBtn.disabled = true;
-      setHelp('Notifications are blocked for this site. Re-enable them in your browser or device settings.');
-    }
-  }).catch(function() {});
-
-  enableBtn.addEventListener('click', async function() {
-    enableBtn.disabled = true;
-    setHelp('Setting up notifications...');
-    try {
-      const permission = await Notification.requestPermission();
-      if (permission !== 'granted') {
-        setHelp('Notifications were not enabled. You can try again anytime.');
-        return;
-      }
-      const publicKey = await getPublicKey();
-      const result = await registrationAndSubscription();
-      const subscription = result.subscription || await result.registration.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(publicKey)
-      });
-      await saveSubscription(subscription);
-      setEnabledUi(true);
-      setHelp('Notifications are enabled on this device.');
-    } catch (error) {
-      setHelp('Notification setup is not available right now.');
-    } finally {
-      enableBtn.disabled = false;
-    }
-  });
-
-  if (disableBtn) {
-    disableBtn.addEventListener('click', async function() {
-      disableBtn.disabled = true;
-      try {
-        const result = await registrationAndSubscription();
-        await disableSubscription(result.subscription);
-        setEnabledUi(false);
-        setHelp('Notifications are disabled on this device.');
-      } catch (error) {
-        setHelp('Could not disable notifications right now.');
-      } finally {
-        disableBtn.disabled = false;
-      }
-    });
-  }
-})();
-</script>
 <?php if ($liveSession): ?>
 <script>
 (function() {

@@ -160,8 +160,12 @@ function rss_push_disable_subscription(PDO $pdo, int $userId, string $endpoint):
     $stmt->execute([$userId, hash('sha256', $endpoint)]);
 }
 
-function rss_push_send_to_user(PDO $pdo, int $userId, array $payload): void {
-    if ($userId <= 0 || !rss_push_table_exists($pdo, 'setmaxx_push_subscriptions')) return;
+function rss_push_send_to_user(PDO $pdo, int $userId, array $payload): array {
+    $stats = ['attempted' => 0, 'sent' => 0, 'expired' => 0, 'failed' => 0, 'message' => ''];
+    if ($userId <= 0 || !rss_push_table_exists($pdo, 'setmaxx_push_subscriptions')) {
+        $stats['message'] = 'No subscription table is available.';
+        return $stats;
+    }
 
     try {
         $keys = rss_push_vapid_keys($pdo);
@@ -176,12 +180,19 @@ function rss_push_send_to_user(PDO $pdo, int $userId, array $payload): void {
         $stmt = $pdo->prepare("SELECT * FROM setmaxx_push_subscriptions WHERE user_id = ? AND is_enabled = 1");
         $stmt->execute([$userId]);
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        if (!$rows) return;
+        if (!$rows) {
+            $stats['message'] = 'No enabled devices are subscribed.';
+            return $stats;
+        }
 
         $json = json_encode($payload, JSON_UNESCAPED_SLASHES);
-        if (!$json) return;
+        if (!$json) {
+            $stats['message'] = 'Notification payload could not be encoded.';
+            return $stats;
+        }
 
         foreach ($rows as $row) {
+            $stats['attempted']++;
             $subscription = Subscription::create([
                 'endpoint' => (string)$row['endpoint'],
                 'publicKey' => (string)$row['public_key'],
@@ -190,14 +201,23 @@ function rss_push_send_to_user(PDO $pdo, int $userId, array $payload): void {
             ]);
             $report = $webPush->sendOneNotification($subscription, $json);
             if ($report->isSuccess()) {
+                $stats['sent']++;
                 $pdo->prepare("UPDATE setmaxx_push_subscriptions SET last_used_at = NOW() WHERE id = ?")->execute([(int)$row['id']]);
             } elseif ($report->isSubscriptionExpired()) {
+                $stats['expired']++;
                 $pdo->prepare("UPDATE setmaxx_push_subscriptions SET is_enabled = 0, updated_at = NOW() WHERE id = ?")->execute([(int)$row['id']]);
+            } else {
+                $stats['failed']++;
+                error_log('Web push delivery failed for subscription ' . (int)$row['id'] . ': ' . $report->getReason());
             }
         }
     } catch (Throwable $e) {
+        $stats['failed']++;
+        $stats['message'] = $e->getMessage();
         error_log('Web push send failed: ' . $e->getMessage());
     }
+
+    return $stats;
 }
 
 function rss_push_notify_setmaxx_request(PDO $pdo, int $requestId): void {
@@ -220,13 +240,13 @@ function rss_push_notify_setmaxx_request(PDO $pdo, int $requestId): void {
     $title = trim((string)($row['title'] ?? 'Song request'));
     $artist = trim((string)($row['artist'] ?? ''));
     $amount = $amountCents > 0 ? '$' . number_format($amountCents / 100, 0) : 'No tip';
+    $body = trim($title . ($artist !== '' ? ' - ' . $artist : '') . ' - ' . $amount . ($requester !== '' ? ' from ' . $requester : ''));
 
     rss_push_send_to_user($pdo, (int)$row['user_id'], [
         'title' => 'New SetMaxx request',
         'body' => trim($title . ($artist !== '' ? ' - ' . $artist : '') . ' · ' . $amount . ($requester !== '' ? ' from ' . $requester : '')),
-        'body' => trim($title . ($artist !== '' ? ' - ' . $artist : '') . ' - ' . $amount . ($requester !== '' ? ' from ' . $requester : '')),
+        'body' => $body,
         'url' => base_url('/setmaxx/requests.php'),
         'tag' => 'setmaxx-request-' . (int)$row['id'],
-        'badge' => base_url('/icons/rss-badge.png'),
     ]);
 }

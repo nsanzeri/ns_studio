@@ -240,10 +240,12 @@ function rss_push_notify_setmaxx_request(PDO $pdo, int $requestId): void {
     $title = trim((string)($row['title'] ?? 'Song request'));
     $artist = trim((string)($row['artist'] ?? ''));
     $amount = $amountCents > 0 ? '$' . number_format($amountCents / 100, 0) : 'No tip';
+    $notificationTitle = mb_substr('Request: ' . $title, 0, 80);
     $body = trim($title . ($artist !== '' ? ' - ' . $artist : '') . ' - ' . $amount . ($requester !== '' ? ' from ' . $requester : ''));
 
     rss_push_send_to_user($pdo, (int)$row['user_id'], [
         'title' => 'New SetMaxx request',
+        'title' => $notificationTitle,
         'body' => trim($title . ($artist !== '' ? ' - ' . $artist : '') . ' · ' . $amount . ($requester !== '' ? ' from ' . $requester : '')),
         'body' => $body,
         'url' => base_url('/setmaxx/requests.php'),

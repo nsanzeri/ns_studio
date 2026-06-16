@@ -117,7 +117,7 @@ if ($tablesReady && is_post()) {
 				$title = trim((string)($_POST['session_title'] ?? ''));
 				$venue = trim((string)($_POST['venue_name'] ?? ''));
 				$goLive = isset($_POST['go_live']) ? 1 : 0;
-				if ($title === '') throw new RuntimeException('Session title is required.');
+				if ($title === '') throw new RuntimeException('Show title is required.');
 				$baseSlug = strtolower(trim(preg_replace('/[^a-z0-9]+/i', '-', $title), '-')) ?: 'gig';
 				$sessionSlug = $baseSlug . '-' . substr(bin2hex(random_bytes(4)), 0, 8);
 				$publicToken = bin2hex(random_bytes(16));
@@ -231,31 +231,31 @@ if ($tablesReady) {
 	$sessionsStmt->execute([$userId]);
 	$sessions = $sessionsStmt->fetchAll(PDO::FETCH_ASSOC);
 }
-setmaxx_page_head('Set Maxx | Gig Sessions');
+setmaxx_page_head('Set Maxx | Show Setup');
 ?>
 <main class="container setmaxx-shell">
   <?php setmaxx_flash($messages, $errors); ?>
   <div class="setmaxx-card" style="margin-bottom:1rem;">
-    <div class="setmaxx-pill">Gig Sessions</div>
-    <h1 style="margin:.8rem 0 .35rem;">Create request pages for each show</h1>
-    <p class="setmaxx-help">Only one session can be live at a time. Going live automatically closes any other live session.</p>
+    <div class="setmaxx-pill">Show setup</div>
+    <h1 style="margin:.8rem 0 .35rem;">Configure and create a request page for your next show</h1>
+    <p class="setmaxx-help">Set up the public request page, QR link, notifications, and pricing before you go live.</p>
   </div>
   <?php if (!$tablesReady): ?><?php setmaxx_install_notice(); ?><?php else: ?>
   <section class="setmaxx-grid">
     <div class="setmaxx-card">
       <div class="setmaxx-section-head">
-        <h2>New session</h2>
+        <h2>Next show</h2>
         <button class="setmaxx-help-button" type="button" id="setmaxxNewSessionHelpBtn" aria-label="Show new session help" aria-haspopup="dialog">?</button>
       </div>
       <form method="post" class="setmaxx-stack" action="">
         <input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>">
         <input type="hidden" name="action" value="create_session">
         <div class="setmaxx-form-grid">
-          <div class="setmaxx-field"><label for="session_title">Session title</label><input class="setmaxx-input" id="session_title" name="session_title" placeholder="Friday at Moretti's" required></div>
+          <div class="setmaxx-field"><label for="session_title">Show title</label><input class="setmaxx-input" id="session_title" name="session_title" placeholder="Friday at Moretti's" required></div>
           <div class="setmaxx-field"><label for="venue_name">Venue</label><input class="setmaxx-input" id="venue_name" name="venue_name" placeholder="Moretti's Rosemont"></div>
         </div>
         <label style="display:flex; gap:.6rem; align-items:center;"><input type="checkbox" name="go_live" value="1" checked><span class="setmaxx-help">Make this the live request page now</span></label>
-        <div class="setmaxx-actions"><button class="btn btn-primary" type="submit" <?= $isProUser ? '' : 'disabled' ?>>Create session</button></div>
+        <div class="setmaxx-actions"><button class="btn btn-primary" type="submit" <?= $isProUser ? '' : 'disabled' ?>>Create request page</button></div>
       </form>
     </div>
     <div class="setmaxx-card">
@@ -340,27 +340,27 @@ setmaxx_page_head('Set Maxx | Gig Sessions');
   </div>
   <div class="setmaxx-card" style="margin-top:1rem;">
     <div class="setmaxx-section-head">
-      <h2>Sessions</h2>
-      <button class="setmaxx-help-button" type="button" id="setmaxxSessionsHelpBtn" aria-label="Show sessions list help" aria-haspopup="dialog">?</button>
+      <h2>Current session</h2>
+      <button class="setmaxx-help-button" type="button" id="setmaxxSessionsHelpBtn" aria-label="Show current session help" aria-haspopup="dialog">?</button>
     </div>
     <div class="setmaxx-actions" style="margin-bottom:1rem;">
       <a class="btn btn-outline" href="<?= e(base_url('/setmaxx/history.php')) ?>">View history</a>
     </div>
     <div class="setmaxx-list">
       <?php if (!$sessions): ?>
-        <div class="setmaxx-row"><div class="setmaxx-meta">No live or draft sessions right now.</div></div>
+        <div class="setmaxx-row"><div class="setmaxx-meta">No current or draft request page right now.</div></div>
       <?php else: foreach ($sessions as $session): ?>
-        <div class="setmaxx-row">
-          <div style="min-width:0; flex:1;">
-            <div style="display:flex; gap:.6rem; align-items:center; flex-wrap:wrap;"><div style="font-weight:600;"><?= e($session['title']) ?></div><?= setmaxx_status_pill((string)$session['status']) ?></div>
+        <div class="setmaxx-row setmaxx-session-row">
+          <div class="setmaxx-session-main">
+            <div class="setmaxx-session-title-row"><div style="font-weight:600;"><?= e($session['title']) ?></div><?= setmaxx_status_pill((string)$session['status']) ?></div>
             <div class="setmaxx-meta"><?= e((string)($session['venue_name'] ?: 'Venue not set')) ?></div>
             <?php if (($session['status'] ?? '') === 'live' && $stablePublicUrl): ?>
-              <div class="setmaxx-link-box" style="margin-top:.7rem;"><strong>Live public page</strong><code><?= e($stablePublicUrl) ?></code><a class="btn btn-outline" href="<?= e($stablePublicUrl) ?>" target="_blank" rel="noopener">Open</a></div>
+              <div class="setmaxx-link-box setmaxx-session-link"><strong>Live public page</strong><code><?= e($stablePublicUrl) ?></code><a class="btn btn-outline" href="<?= e($stablePublicUrl) ?>" target="_blank" rel="noopener">Open</a></div>
             <?php else: ?>
               <div style="margin-top:.7rem;"><a class="btn btn-outline" href="<?= e(base_url('/setmaxx/session.php?id=' . (int)$session['id'])) ?>">Open history</a></div>
             <?php endif; ?>
           </div>
-          <div class="setmaxx-actions">
+          <div class="setmaxx-actions setmaxx-session-actions">
             <?php if (($session['status'] ?? '') !== 'live'): ?>
               <form method="post" action=""><input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>"><input type="hidden" name="action" value="session_status"><input type="hidden" name="session_id" value="<?= (int)$session['id'] ?>"><input type="hidden" name="new_status" value="live"><button class="btn btn-outline" type="submit" <?= $isProUser ? '' : 'disabled' ?>>Go live</button></form>
             <?php else: ?>
@@ -381,17 +381,17 @@ setmaxx_page_head('Set Maxx | Gig Sessions');
     <div class="setmaxx-dialog-inner">
       <div class="setmaxx-dialog-head">
         <div>
-          <div class="setmaxx-pill">Session help</div>
-          <h2 class="setmaxx-dialog-title" id="setmaxxNewSessionHelpTitle">Creating a session</h2>
+          <div class="setmaxx-pill">Show setup help</div>
+          <h2 class="setmaxx-dialog-title" id="setmaxxNewSessionHelpTitle">Creating a request page</h2>
         </div>
         <button class="setmaxx-dialog-close" type="button" id="setmaxxNewSessionHelpClose" aria-label="Close">&times;</button>
       </div>
       <ul class="setmaxx-format-list">
-        <li>A session is the request page for one show, date, room, or event.</li>
-        <li>The session title shows up on the public request page and also helps you recognize the show later.</li>
+        <li>A request page is for one show, date, room, or event.</li>
+        <li>The show title appears on the public request page and helps you recognize the show later.</li>
         <li>The venue also appears on your public request page and also appears in your session list and request history.</li>
-        <li>If "Make this live" is checked, this session immediately becomes the public request page.</li>
-        <li>Only one session can be live at a time. Going live automatically closes any other live session.</li>
+        <li>If "Make this live" is checked, this show immediately becomes the public request page.</li>
+        <li>Only one request page can be live at a time. Going live automatically closes any other live page.</li>
         <li>Venmo is controlled by the global Venmo handle in Public page settings.</li>
       </ul>
     </div>
@@ -438,17 +438,17 @@ setmaxx_page_head('Set Maxx | Gig Sessions');
     <div class="setmaxx-dialog-inner">
       <div class="setmaxx-dialog-head">
         <div>
-          <div class="setmaxx-pill">Sessions help</div>
-          <h2 class="setmaxx-dialog-title" id="setmaxxSessionsHelpTitle">Managing sessions</h2>
+          <div class="setmaxx-pill">Current session help</div>
+          <h2 class="setmaxx-dialog-title" id="setmaxxSessionsHelpTitle">Managing the current request page</h2>
         </div>
         <button class="setmaxx-dialog-close" type="button" id="setmaxxSessionsHelpClose" aria-label="Close">&times;</button>
       </div>
       <ul class="setmaxx-format-list">
-        <li>Live sessions are currently receiving public requests through the permanent QR link.</li>
-        <li>Draft sessions can be made live with "Go live." That closes any other live session.</li>
-        <li>Close ends the active request page and preserves the session history.</li>
-        <li>Closed sessions move to History so this page stays focused on the next show.</li>
-        <li>Delete removes the session and its attached requests, so use it only for mistakes or test sessions.</li>
+        <li>The live request page is currently receiving public requests through the permanent QR link.</li>
+        <li>Draft request pages can be made live with "Go live." That closes any other live page.</li>
+        <li>Close ends the active request page and preserves the show history.</li>
+        <li>Closed shows move to History so this page stays focused on the next show.</li>
+        <li>Delete removes the request page and its attached requests, so use it only for mistakes or tests.</li>
       </ul>
     </div>
   </dialog>
@@ -477,6 +477,13 @@ setmaxx_page_head('Set Maxx | Gig Sessions');
   .setmaxx-qr-img { width:180px; max-width:100%; border-radius:14px; background:#fff; padding:.45rem; }
   .setmaxx-notification-card { align-content:start; }
   .setmaxx-notification-head { margin:.5rem 0 .35rem; }
+  .setmaxx-session-row { display:grid; grid-template-columns:minmax(0, 1fr); gap:.85rem; }
+  .setmaxx-session-main { min-width:0; }
+  .setmaxx-session-title-row { display:flex; gap:.6rem; align-items:center; flex-wrap:wrap; }
+  .setmaxx-session-link { margin-top:.7rem; width:100%; align-items:flex-start; }
+  .setmaxx-session-link code { display:block; flex:1 1 240px; min-width:0; overflow-wrap:anywhere; word-break:break-word; }
+  .setmaxx-session-actions { justify-content:flex-start; padding-top:.7rem; border-top:1px solid rgba(255,255,255,.08); }
+  .setmaxx-session-actions form { margin:0; }
   .setmaxx-profile-logo-preview { width:58px; height:58px; object-fit:contain; border-radius:12px; background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.1); padding:.35rem; }
   .setmaxx-section-head { display:flex; align-items:center; gap:.65rem; margin-bottom:1rem; }
   .setmaxx-section-head h2 { margin:0; }

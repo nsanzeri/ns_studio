@@ -244,6 +244,14 @@ function rss_push_notify_setmaxx_request(PDO $pdo, int $requestId): void {
     $body = trim($title . ($artist !== '' ? ' - ' . $artist : '') . ' - ' . $amount . ($requester !== '' ? ' from ' . $requester : ''));
 
     rss_push_send_to_user($pdo, (int)$row['user_id'], [
+        'title' => $notificationTitle,
+        'body' => $body,
+        'url' => base_url('/setmaxx/requests.php'),
+        'tag' => 'setmaxx-request-' . (int)$row['id'],
+    ]);
+    return;
+
+    rss_push_send_to_user($pdo, (int)$row['user_id'], [
         'title' => 'New SetMaxx request',
         'title' => $notificationTitle,
         'body' => trim($title . ($artist !== '' ? ' - ' . $artist : '') . ' · ' . $amount . ($requester !== '' ? ' from ' . $requester : '')),

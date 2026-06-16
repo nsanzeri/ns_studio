@@ -85,19 +85,19 @@ if (!$isProUser) {
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
   <style>
     .tools-shell{
-      padding: 2rem 0 4rem;
+      padding: 1.25rem 0 4rem;
     }
 
     .tools-topbar{
       display:flex;
       justify-content:space-between;
-      align-items:flex-end;
+      align-items:center;
       gap:1.25rem;
-      margin-bottom:1.25rem;
+      margin-bottom:1rem;
     }
 
     .tools-topbar h1{
-      margin:0 0 .35rem;
+      margin:0;
     }
 
     .tools-topbar p{
@@ -166,9 +166,16 @@ if (!$isProUser) {
       gap:1rem;
     }
 
+    .date-range-grid{
+      display:grid;
+      grid-template-columns:repeat(2, minmax(0, 1fr));
+      gap:.75rem;
+    }
+
     .tools-field{
       display:grid;
       gap:.45rem;
+      min-width:0;
     }
 
     .tools-field label{
@@ -180,6 +187,7 @@ if (!$isProUser) {
     .tools-input,
     .tools-select{
       width:100%;
+      min-width:0;
       padding:.85rem .95rem;
       border-radius:14px;
       border:1px solid rgba(255,255,255,.1);
@@ -214,15 +222,17 @@ if (!$isProUser) {
 
     .day-grid{
       display:grid;
-      grid-template-columns:repeat(2, minmax(0, 1fr));
-      gap:.65rem;
+      grid-template-columns:repeat(auto-fit, minmax(74px, 1fr));
+      gap:.5rem;
     }
 
     .day-chip{
       display:flex;
       align-items:center;
-      gap:.55rem;
-      padding:.75rem .8rem;
+      justify-content:center;
+      gap:.4rem;
+      min-height:44px;
+      padding:.55rem .5rem;
       border-radius:14px;
       background:rgba(255,255,255,.04);
       border:1px solid rgba(255,255,255,.06);
@@ -273,8 +283,15 @@ if (!$isProUser) {
 
     .result-toolbar{
       display:flex;
-      flex-wrap:wrap;
-      gap:.6rem;
+      flex-wrap:nowrap;
+      gap:.45rem;
+    }
+
+    .result-toolbar .btn{
+      min-height:40px;
+      padding:.65rem .85rem;
+      font-size:.84rem;
+      white-space:nowrap;
     }
 
     .empty-state{
@@ -382,12 +399,68 @@ if (!$isProUser) {
       }
 
       .tools-topbar{
-        flex-direction:column;
-        align-items:flex-start;
+        gap:.75rem;
       }
 
       .results-header{
         flex-direction:column;
+      }
+    }
+
+    @media (max-width: 520px){
+      .tools-shell{
+        padding-top:.9rem;
+      }
+
+      .tools-card{
+        padding:1rem;
+        border-radius:18px;
+      }
+
+      .tools-topbar{
+        margin-bottom:.75rem;
+      }
+
+      .tools-topbar h1{
+        font-size:2rem;
+      }
+
+      .tools-input,
+      .tools-select{
+        padding:.75rem .7rem;
+        font-size:.92rem;
+      }
+
+      .date-range-grid{
+        gap:.55rem;
+      }
+
+      .tools-check{
+        padding:.65rem .7rem;
+      }
+
+      .day-grid{
+        grid-template-columns:repeat(4, minmax(0, 1fr));
+      }
+
+      .day-chip{
+        border-radius:12px;
+        font-size:.86rem;
+      }
+
+      .result-toolbar{
+        width:100%;
+        display:grid;
+        grid-template-columns:repeat(3, minmax(0, 1fr));
+        gap:.4rem;
+      }
+
+      .result-toolbar .btn{
+        width:100%;
+        justify-content:center;
+        padding:.62rem .35rem;
+        font-size:.76rem;
+        letter-spacing:.08em;
       }
     }
   </style>
@@ -400,12 +473,7 @@ if (!$isProUser) {
 
     <div class="tools-topbar">
       <div>
-        <p class="eyebrow">Ready Set Shows</p>
-        <h1>Calendar Tools</h1>
-        <p>Check shared availability, print useful date views, and keep your booking workflow moving.</p>
-      </div>
-      <div class="tools-muted">
-        Signed in as <?= e($user['email'] ?? 'your account') ?>
+        <h1>Availability</h1>
       </div>
     </div>
     <?php if (!$isProUser): ?>
@@ -423,23 +491,21 @@ if (!$isProUser) {
     <div class="tools-layout">
       <aside class="tools-stack">
         <section class="tools-card">
-          <h2>Check Availability</h2>
-          <p class="tools-muted" style="margin-top:-.25rem; margin-bottom:1rem;">
-            Pick your calendars, choose a date range, and see which dates are truly open.
-          </p>
           <form id="availabilityForm" method="get" action="<?= e(base_url('/tools/index.php')) ?>">
             <div class="tools-stack">
-              <div class="tools-field">
-                <label for="date_from">Date From</label>
-                <input class="tools-input" type="date" id="date_from" name="date_from" value="<?= e($dateFrom) ?>">
-              </div>
+              <div class="date-range-grid">
+                <div class="tools-field">
+                  <label for="date_from">From</label>
+                  <input class="tools-input" type="date" id="date_from" name="date_from" value="<?= e($dateFrom) ?>">
+                </div>
 
-              <div class="tools-field">
-                <label for="date_to">Date To</label>
-                <input class="tools-input" type="date" id="date_to" name="date_to" value="<?= e($dateTo) ?>">
-                <?php if (!$isProUser): ?>
-                  <p class="pro-locked-note">Free accounts can view the next month. Upgrade to Pro to choose a custom date range.</p>
-                <?php endif; ?>
+                <div class="tools-field">
+                  <label for="date_to">To</label>
+                  <input class="tools-input" type="date" id="date_to" name="date_to" value="<?= e($dateTo) ?>">
+                  <?php if (!$isProUser): ?>
+                    <p class="pro-locked-note">Free accounts can view the next month. Upgrade to Pro to choose a custom date range.</p>
+                  <?php endif; ?>
+                </div>
               </div>
 
               <div class="tools-field">
@@ -482,13 +548,13 @@ if (!$isProUser) {
                 <div class="day-grid">
                   <?php
                     $days = [
-                      'sun' => 'Sunday',
-                      'mon' => 'Monday',
-                      'tue' => 'Tuesday',
-                      'wed' => 'Wednesday',
-                      'thu' => 'Thursday',
-                      'fri' => 'Friday',
-                      'sat' => 'Saturday',
+                      'sun' => 'Sun',
+                      'mon' => 'Mon',
+                      'tue' => 'Tue',
+                      'wed' => 'Wed',
+                      'thu' => 'Thu',
+                      'fri' => 'Fri',
+                      'sat' => 'Sat',
                     ];
                     foreach ($days as $value => $label):
                   ?>
@@ -1009,11 +1075,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const form = document.getElementById("availabilityForm");
   if (form) {
     form.addEventListener("submit", findAvailableDates);
-  }
-
-  const hasCalendars = <?= $hasCalendars ? 'true' : 'false' ?>;
-  if (hasCalendars) {
-    findAvailableDates();
   }
 
   // 🔒 Apply Pro locks cleanly

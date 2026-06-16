@@ -5,6 +5,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/../_private/_core/bootstrap.php';
 require_once __DIR__ . '/../_private/config/stripe.php';
 require_once __DIR__ . '/../_private/_core/email.php';
+require_once __DIR__ . '/../_private/_core/push_notifications.php';
 
 $payload = file_get_contents('php://input');
 $sig     = $_SERVER['HTTP_STRIPE_SIGNATURE'] ?? '';
@@ -574,6 +575,10 @@ if (!function_exists('handle_setmaxx_tip_checkout')) {
             $amountCents,
             $paymentIntentId,
         ]);
+
+        $requestStmt = $pdo->prepare("SELECT id FROM setmaxx_requests WHERE stripe_payment_intent_id = ? LIMIT 1");
+        $requestStmt->execute([$paymentIntentId]);
+        rss_push_notify_setmaxx_request($pdo, (int)($requestStmt->fetchColumn() ?: 0));
     }
 }
 

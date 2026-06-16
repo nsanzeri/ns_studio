@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../_private/_core/bootstrap.php';
+require_once __DIR__ . '/../_private/_core/push_notifications.php';
 
 $token = trim((string)($_GET['token'] ?? ''));
 $linkToken = trim((string)($_GET['link'] ?? ''));
@@ -614,6 +615,7 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
                         $requestNote !== '' ? $requestNote : null,
                         $requestAmountDollars * 100,
                     ]);
+                    rss_push_notify_setmaxx_request($pdo, (int)$pdo->lastInsertId());
                     $songLabel = trim((string)$song['title']);
                     $note = 'SetMaxx request: ' . $songLabel;
                     header('Location: ' . setmaxx_public_venmo_url($venmoHandle, $requestAmountDollars, $note));
@@ -693,6 +695,7 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
                     $requestNote !== '' ? $requestNote : null,
                     $requestAmountDollars * 100,
                 ]);
+                rss_push_notify_setmaxx_request($pdo, (int)$pdo->lastInsertId());
                 $messages[] = 'Request sent to ' . $publicHostName . '.';
             } catch (Throwable $e) {
                 $errors[] = 'That song has already been requested for this gig.';

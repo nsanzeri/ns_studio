@@ -13,6 +13,10 @@ self.addEventListener('push', function(event) {
   const options = {
     body: data.body || 'New activity',
     tag: data.tag || 'ready-set-shows',
+    renotify: true,
+    actions: [
+      { action: 'open', title: 'Open requests' }
+    ],
     data: { url: data.url || fallbackUrl },
   };
 

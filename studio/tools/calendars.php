@@ -282,26 +282,29 @@ $commonTimezones = [
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
   <style>
-    .tools-shell{padding:2rem 0 4rem;}
-    .tools-topbar{display:flex;justify-content:space-between;align-items:flex-end;gap:1.25rem;margin-bottom:1.25rem;}
-    .tools-topbar h1{margin:0 0 .35rem;}
+    .tools-shell{padding:1.25rem 0 4rem;}
+    .tools-topbar{display:flex;justify-content:space-between;align-items:center;gap:1.25rem;margin-bottom:1rem;}
+    .tools-topbar h1{margin:0;}
     .tools-topbar p{margin:0;color:rgba(255,255,255,.74);}
     .tools-subnav{display:flex;flex-wrap:wrap;gap:.75rem;margin-bottom:1.5rem;padding:.9rem;border-radius:18px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);}
     .tools-subnav a{display:inline-flex;align-items:center;gap:.5rem;padding:.7rem .95rem;border-radius:999px;text-decoration:none;color:rgba(255,255,255,.82);background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06);transition:.2s ease;}
     .tools-subnav a:hover,.tools-subnav a.active{color:#111;background:#d4af37;border-color:#d4af37;}
-    .tools-layout{display:grid;grid-template-columns:420px minmax(0,1fr);gap:1.5rem;align-items:start;}
-    .tools-card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:22px;padding:1.35rem;box-shadow:0 16px 34px rgba(0,0,0,.18);}
+    .tools-layout{display:grid;grid-template-columns:380px minmax(0,1fr);gap:1.5rem;align-items:start;min-width:0;}
+    .tools-card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:22px;padding:1.35rem;box-shadow:0 16px 34px rgba(0,0,0,.18);min-width:0;}
     .tools-card h2,.tools-card h3{margin-top:0;margin-bottom:.8rem;}
     .tools-muted{color:rgba(255,255,255,.72);}
     .tools-stack{display:grid;gap:1rem;}
-    .tools-field{display:grid;gap:.45rem;}
+    .tools-field{display:grid;gap:.45rem;min-width:0;}
     .tools-field label{font-size:.95rem;font-weight:500;color:#fff;}
-    .tools-input,.tools-select,.tools-textarea{width:100%;padding:.85rem .95rem;border-radius:14px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);color:#fff;font:inherit;}
+    .tools-label-row{display:flex;align-items:center;justify-content:space-between;gap:.75rem;}
+    .tools-input,.tools-select,.tools-textarea{width:100%;min-width:0;padding:.85rem .95rem;border-radius:14px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);color:#fff;font:inherit;}
     .tools-input::placeholder,.tools-textarea::placeholder{color:rgba(255,255,255,.45);}
     .tools-check{display:flex;align-items:center;gap:.7rem;padding:.75rem .85rem;border-radius:14px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06);}
     .tools-check input{accent-color:#d4af37;}
     .tools-actions{display:flex;flex-wrap:wrap;gap:.75rem;}
     .tools-actions .btn{justify-content:center;}
+    .help-icon-button{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:999px;border:1px solid rgba(212,175,55,.45);background:rgba(212,175,55,.12);color:#f2d67c;cursor:pointer;font-size:.9rem;flex:0 0 auto;}
+    .help-icon-button:hover{background:#d4af37;color:#111;}
     .flash,.error-box{padding:1rem 1.1rem;border-radius:16px;margin-bottom:1rem;}
     .flash{background:rgba(93,201,126,.12);border:1px solid rgba(93,201,126,.28);color:#9af0b3;}
     .error-box{background:rgba(255,107,107,.1);border:1px solid rgba(255,107,107,.25);color:#ffb3b3;}
@@ -389,14 +392,28 @@ $commonTimezones = [
     .upgrade-modal[hidden]{display:none;}
     .upgrade-modal{position:fixed;inset:0;z-index:9999;}
     .upgrade-modal-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);}
-    .upgrade-modal-card{position:relative;z-index:2;width:min(560px, calc(100% - 2rem));margin:8vh auto 0;padding:1.5rem;border-radius:22px;background:#111;border:1px solid rgba(255,255,255,.1);box-shadow:0 24px 60px rgba(0,0,0,.4);}
+    .upgrade-modal-card{position:relative;z-index:2;width:min(560px, calc(100% - 2rem));max-height:84vh;overflow:auto;margin:8vh auto 0;padding:1.5rem;border-radius:22px;background:#111;border:1px solid rgba(255,255,255,.1);box-shadow:0 24px 60px rgba(0,0,0,.4);}
     .upgrade-modal-close{position:absolute;top:.85rem;right:.95rem;background:none;border:none;color:#fff;font-size:1.8rem;cursor:pointer;}
 
     @media (max-width: 980px){
       .tools-layout{grid-template-columns:1fr;}
-      .tools-topbar{flex-direction:column;align-items:flex-start;}
+      .tools-topbar{gap:.75rem;}
       .calendar-row{grid-template-columns:1fr;}
       .calendar-actions{min-width:0;}
+    }
+
+    @media (max-width: 520px){
+      .tools-shell{padding-top:.9rem;}
+      .tools-card{padding:1rem;border-radius:18px;}
+      .tools-topbar{margin-bottom:.75rem;}
+      .tools-topbar h1{font-size:2rem;}
+      .tools-input,.tools-select,.tools-textarea{padding:.75rem .7rem;font-size:.92rem;}
+      .tools-actions{display:grid;grid-template-columns:1fr;gap:.6rem;}
+      .tools-actions .btn{width:100%;}
+      .calendar-row{padding:.9rem;border-radius:16px;}
+      .calendar-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.4rem;}
+      .calendar-actions .btn{padding:.62rem .35rem;font-size:.72rem;letter-spacing:0;text-transform:none;}
+      .upgrade-modal-card{width:calc(100% - 1rem);margin:5vh auto 0;padding:1rem;}
     }
   </style>
 </head>
@@ -407,12 +424,7 @@ $commonTimezones = [
   <div class="container">
     <div class="tools-topbar">
       <div>
-        <p class="eyebrow">Ready Set Shows</p>
-        <h1>Manage Calendars</h1>
-        <p>Connect the iCal feeds you want to use for availability checks, print views, and exports.</p>
-      </div>
-      <div class="tools-muted">
-        Signed in as <?= e($user['email'] ?? '') ?>
+        <h1>Calendars</h1>
       </div>
     </div>
 
@@ -440,12 +452,6 @@ $commonTimezones = [
 
     <div class="tools-layout">
       <section class="tools-card">
-        <p class="eyebrow"><?= $editingCalendar ? 'Edit Calendar' : 'Add Calendar' ?></p>
-        <h2><?= $editingCalendar ? 'Update this calendar feed' : 'Add a new iCal feed' ?></h2>
-        <p class="tools-muted" style="margin-top:-.25rem;margin-bottom:1rem;">
-          Paste an iCal URL from Google Calendar, Apple Calendar, Outlook, or another calendar service that provides ICS feeds.
-        </p>
-
         <?php if (!$isProUser): ?>
           <p class="small-note" style="margin-top:-.25rem;margin-bottom:1rem;">
             Free accounts can connect one calendar. Upgrade to Pro to add more.
@@ -474,7 +480,12 @@ $commonTimezones = [
             </div>
 
             <div class="tools-field">
-              <label for="ics_url">iCal URL</label>
+              <div class="tools-label-row">
+                <label for="ics_url">iCal URL</label>
+                <button class="help-icon-button open-ical-help" type="button" aria-label="Where do I find my iCal URL?">
+                  <i class="fa-regular fa-circle-question"></i>
+                </button>
+              </div>
               <input
                 class="tools-input"
                 type="url"
@@ -547,7 +558,7 @@ $commonTimezones = [
           <div class="empty-state">
             <h3 style="margin-top:0;">No calendars connected yet</h3>
             <p class="tools-muted" style="margin-bottom:0;">
-              Add your first iCal feed on the left to get started. <a href="#" id="openIcalHelp" class="ical-help-link">(Where do I find this?)</a>
+              Add your first iCal feed to get started.
             </p>
           </div>
         <?php else: ?>
@@ -707,7 +718,7 @@ document.addEventListener('DOMContentLoaded', () => {
   })();
   
   $(function () {
-  $('#openIcalHelp').on('click', function (e) {
+  $('.open-ical-help').on('click', function (e) {
     e.preventDefault();
     $('#icalHelpModal').prop('hidden', false);
   });
@@ -731,9 +742,9 @@ document.addEventListener('DOMContentLoaded', () => {
     <button type="button" class="upgrade-modal-close" id="closeIcalHelpModal" aria-label="Close">&times;</button>
 
     <p class="eyebrow">Calendar Help</p>
-    <h2 id="icalHelpTitle">Where do I find my iCal link?</h2>
+    <h2 id="icalHelpTitle">Where do I find my iCal URL?</h2>
     <p class="tools-muted" style="margin-bottom:1rem;">
-      You can connect your calendar by copying its iCal/ICS link.
+      Look for an iCal, ICS, subscription, or published calendar link. It should usually begin with https://.
     </p>
 
     <h3 style="margin-bottom:.5rem;">Google Calendar</h3>
@@ -754,8 +765,24 @@ document.addEventListener('DOMContentLoaded', () => {
       <li>Copy the calendar link</li>
     </ol>
 
+    <h3 style="margin-bottom:.5rem;">Outlook / Microsoft 365</h3>
+    <ol style="margin:0 0 1rem 1.1rem; color:rgba(255,255,255,.82); line-height:1.8;">
+      <li>Open Outlook Calendar in a browser</li>
+      <li>Go to <strong>Settings</strong>, then <strong>Calendar</strong></li>
+      <li>Open <strong>Shared calendars</strong></li>
+      <li>Publish the calendar with the detail level you want</li>
+      <li>Copy the <strong>ICS</strong> link, not the HTML link</li>
+    </ol>
+
+    <h3 style="margin-bottom:.5rem;">Other calendar apps</h3>
+    <ol style="margin:0 0 1rem 1.1rem; color:rgba(255,255,255,.82); line-height:1.8;">
+      <li>Look for settings named <strong>Share</strong>, <strong>Publish</strong>, <strong>Integrate</strong>, or <strong>Export</strong></li>
+      <li>Choose an iCal, ICS, or subscription link</li>
+      <li>Paste the link here so Ready Set Shows can read events from it</li>
+    </ol>
+
     <p class="small-note" style="margin-top:1rem;">
-      Paste that link into your calendar connection page and we’ll read the events from it.
+      Paste that link into the iCal URL field and Ready Set Shows will read the events from it.
     </p>
   </div>
 </div>

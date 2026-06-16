@@ -275,7 +275,10 @@ setmaxx_page_head('Set Maxx | Gig Sessions');
     <div class="setmaxx-card setmaxx-notification-card">
       <div>
         <div class="setmaxx-pill">Show setup</div>
-        <h2 style="margin:.5rem 0 .35rem;">Request notifications</h2>
+        <div class="setmaxx-section-head setmaxx-notification-head">
+          <h2>Request notifications</h2>
+          <button class="setmaxx-help-button" type="button" id="setmaxxNotificationsHelpBtn" aria-label="Show notification setup help" aria-haspopup="dialog">?</button>
+        </div>
         <p class="setmaxx-help" id="setmaxxPushHelp" style="margin:0;">Enable notifications on the phone you use during the show so new requests can pop up while other apps are open.</p>
       </div>
       <div class="setmaxx-actions">
@@ -449,12 +452,31 @@ setmaxx_page_head('Set Maxx | Gig Sessions');
       </ul>
     </div>
   </dialog>
+  <dialog class="setmaxx-dialog" id="setmaxxNotificationsHelpDialog" aria-labelledby="setmaxxNotificationsHelpTitle">
+    <div class="setmaxx-dialog-inner">
+      <div class="setmaxx-dialog-head">
+        <div>
+          <div class="setmaxx-pill">Notification help</div>
+          <h2 class="setmaxx-dialog-title" id="setmaxxNotificationsHelpTitle">Phone notification setup</h2>
+        </div>
+        <button class="setmaxx-dialog-close" type="button" id="setmaxxNotificationsHelpClose" aria-label="Close">&times;</button>
+      </div>
+      <ul class="setmaxx-format-list">
+        <li>Android usually works from Chrome after you tap Enable notifications and allow the site notification prompt.</li>
+        <li>If Android only shows a tiny icon or labels it as possible spam, open Android Settings, then Apps, Chrome, Notifications, and make sure readysetshows.com is allowed and not set to Silent.</li>
+        <li>iPhone web notifications usually need Safari, iOS 16.4 or newer, and the site added to the Home Screen before notifications behave like app alerts.</li>
+        <li>Enable notifications on the actual phone you will use during the show. Each device has to be enabled separately.</li>
+        <li>Browser notifications cannot fully force a large pop-up over every app. The phone still controls quiet mode, focus mode, battery restrictions, and notification style.</li>
+      </ul>
+    </div>
+  </dialog>
   <?php endif; ?>
 </main>
 <style>
   .setmaxx-qr-wrap { display:grid; gap:.9rem; margin:1rem 0; }
   .setmaxx-qr-img { width:180px; max-width:100%; border-radius:14px; background:#fff; padding:.45rem; }
   .setmaxx-notification-card { align-content:start; }
+  .setmaxx-notification-head { margin:.5rem 0 .35rem; }
   .setmaxx-profile-logo-preview { width:58px; height:58px; object-fit:contain; border-radius:12px; background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.1); padding:.35rem; }
   .setmaxx-section-head { display:flex; align-items:center; gap:.65rem; margin-bottom:1rem; }
   .setmaxx-section-head h2 { margin:0; }
@@ -627,6 +649,7 @@ setmaxx_page_head('Set Maxx | Gig Sessions');
   setupDialog('setmaxxQrHelpBtn', 'setmaxxQrHelpDialog', 'setmaxxQrHelpClose');
   setupDialog('setmaxxPublicSettingsHelpBtn', 'setmaxxPublicSettingsHelpDialog', 'setmaxxPublicSettingsHelpClose');
   setupDialog('setmaxxSessionsHelpBtn', 'setmaxxSessionsHelpDialog', 'setmaxxSessionsHelpClose');
+  setupDialog('setmaxxNotificationsHelpBtn', 'setmaxxNotificationsHelpDialog', 'setmaxxNotificationsHelpClose');
 })();
 </script>
 <?php setmaxx_page_foot(); ?>

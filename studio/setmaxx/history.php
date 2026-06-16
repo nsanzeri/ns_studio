@@ -26,6 +26,52 @@ function setmaxx_history_ensure_suggestions_table(PDO $pdo): void {
 $closedSessions = [];
 $closedSuggestions = [];
 
+if ($tablesReady && is_post()) {
+    if (!csrf_verify($_POST['_csrf'] ?? null)) {
+        $errors[] = 'Your session expired. Refresh the page and try again.';
+    } elseif (!$isProUser) {
+        $errors[] = 'Set Maxx is included with the paid tools plan. Upgrade to continue.';
+    } else {
+        $action = (string)($_POST['action'] ?? '');
+        try {
+            if ($action === 'delete_closed_session') {
+                $sessionId = (int)($_POST['session_id'] ?? 0);
+                if ($sessionId <= 0) throw new RuntimeException('Invalid session delete request.');
+
+                $pdo->beginTransaction();
+
+                $ownStmt = $pdo->prepare("SELECT id, title FROM setmaxx_gig_sessions WHERE id = ? AND user_id = ? AND status = 'closed' LIMIT 1");
+                $ownStmt->execute([$sessionId, $userId]);
+                $sessionToDelete = $ownStmt->fetch(PDO::FETCH_ASSOC);
+                if (!$sessionToDelete) {
+                    throw new RuntimeException('Closed session not found.');
+                }
+
+                $pdo->prepare("DELETE r FROM setmaxx_requests r JOIN setmaxx_gig_sessions gs ON gs.id = r.gig_session_id WHERE r.gig_session_id = ? AND gs.user_id = ?")->execute([$sessionId, $userId]);
+
+                if (setmaxx_table_exists($pdo, 'setmaxx_song_suggestions')) {
+                    $pdo->prepare("DELETE ss FROM setmaxx_song_suggestions ss JOIN setmaxx_gig_sessions gs ON gs.id = ss.gig_session_id WHERE ss.gig_session_id = ? AND gs.user_id = ?")->execute([$sessionId, $userId]);
+                }
+
+                if (setmaxx_table_exists($pdo, 'setmaxx_general_tips')) {
+                    $pdo->prepare("DELETE gt FROM setmaxx_general_tips gt JOIN setmaxx_gig_sessions gs ON gs.id = gt.gig_session_id WHERE gt.gig_session_id = ? AND gs.user_id = ?")->execute([$sessionId, $userId]);
+                }
+
+                if (setmaxx_table_exists($pdo, 'setmaxx_mailing_list_signups')) {
+                    $pdo->prepare("UPDATE setmaxx_mailing_list_signups SET gig_session_id = NULL WHERE gig_session_id = ? AND user_id = ?")->execute([$sessionId, $userId]);
+                }
+
+                $pdo->prepare("DELETE FROM setmaxx_gig_sessions WHERE id = ? AND user_id = ? AND status = 'closed'")->execute([$sessionId, $userId]);
+                $pdo->commit();
+                $messages[] = 'Closed session deleted.';
+            }
+        } catch (Throwable $e) {
+            if ($pdo->inTransaction()) $pdo->rollBack();
+            $errors[] = $e->getMessage();
+        }
+    }
+}
+
 if ($tablesReady) {
     try {
         setmaxx_history_ensure_suggestions_table($pdo);
@@ -111,7 +157,15 @@ setmaxx_page_head('Set Maxx | History');
                   &middot; <?= (int)$session['suggestion_count'] ?> suggestion<?= (int)$session['suggestion_count'] === 1 ? '' : 's' ?>
                 </div>
               </div>
-              <a class="btn btn-outline" href="<?= e(base_url('/setmaxx/session.php?id=' . (int)$session['id'])) ?>">Open history</a>
+              <div class="setmaxx-actions">
+                <a class="btn btn-outline" href="<?= e(base_url('/setmaxx/session.php?id=' . (int)$session['id'])) ?>">Open history</a>
+                <form method="post" action="" onsubmit="return confirm('Delete this closed session and its requests, tips, and suggestions? This cannot be undone.');">
+                  <input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>">
+                  <input type="hidden" name="action" value="delete_closed_session">
+                  <input type="hidden" name="session_id" value="<?= (int)$session['id'] ?>">
+                  <button class="btn btn-outline" style="border-color:rgba(255,120,120,.45); color:#ffb3b3;" type="submit" <?= $isProUser ? '' : 'disabled' ?>>Delete</button>
+                </form>
+              </div>
             </div>
           <?php endforeach; endif; ?>
         </div>

@@ -23,28 +23,6 @@ function setmaxx_requests_ensure_suggestions_table(PDO $pdo): void {
     ");
 }
 
-function setmaxx_requests_ensure_mailing_list_table(PDO $pdo): void {
-    if (setmaxx_table_exists($pdo, 'setmaxx_mailing_list_signups')) return;
-    $pdo->exec("
-        CREATE TABLE IF NOT EXISTS `setmaxx_mailing_list_signups` (
-          `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-          `gig_session_id` bigint(20) unsigned DEFAULT NULL,
-          `user_id` int(10) unsigned NOT NULL,
-          `email` varchar(190) NOT NULL,
-          `first_name` varchar(100) DEFAULT NULL,
-          `source` varchar(80) NOT NULL DEFAULT 'setmaxx_public_page',
-          `created_at` datetime NOT NULL DEFAULT current_timestamp(),
-          `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
-          PRIMARY KEY (`id`),
-          UNIQUE KEY `uq_setmaxx_mailing_user_email` (`user_id`,`email`),
-          KEY `idx_setmaxx_mailing_user_created` (`user_id`,`created_at`),
-          KEY `idx_setmaxx_mailing_session` (`gig_session_id`,`created_at`),
-          CONSTRAINT `fk_setmaxx_mailing_session` FOREIGN KEY (`gig_session_id`) REFERENCES `setmaxx_gig_sessions` (`id`) ON DELETE SET NULL,
-          CONSTRAINT `fk_setmaxx_mailing_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
-    ");
-}
-
 function setmaxx_requests_column_exists(PDO $pdo, string $tableName, string $columnName): bool {
     $stmt = $pdo->prepare("SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = ? AND column_name = ? LIMIT 1");
     $stmt->execute([$tableName, $columnName]);
@@ -112,47 +90,15 @@ $liveSession = null;
 $requests = [];
 $suggestions = [];
 $generalTips = [];
-$mailingSignups = [];
 $suggestionsReady = false;
 $generalTipsReady = false;
-$mailingReady = false;
 if ($tablesReady) {
     try {
         setmaxx_requests_ensure_suggestions_table($pdo);
         setmaxx_requests_ensure_payment_method_columns($pdo);
-        setmaxx_requests_ensure_mailing_list_table($pdo);
         $suggestionsReady = true;
-        $mailingReady = true;
     } catch (Throwable $e) {
         $errors[] = 'Song suggestions could not be loaded right now.';
-    }
-
-    if ($mailingReady && isset($_GET['export_mailing'])) {
-        $exportStmt = $pdo->prepare(
-            "SELECT m.email, m.first_name, m.source, m.created_at, m.updated_at, gs.title AS session_title, gs.venue_name
-             FROM setmaxx_mailing_list_signups m
-             LEFT JOIN setmaxx_gig_sessions gs ON gs.id = m.gig_session_id
-             WHERE m.user_id = ?
-             ORDER BY m.created_at DESC"
-        );
-        $exportStmt->execute([$userId]);
-        header('Content-Type: text/csv; charset=utf-8');
-        header('Content-Disposition: attachment; filename="setmaxx-mailing-list.csv"');
-        $out = fopen('php://output', 'w');
-        fputcsv($out, ['email', 'first_name', 'source', 'session_title', 'venue_name', 'created_at', 'updated_at']);
-        foreach ($exportStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
-            fputcsv($out, [
-                (string)$row['email'],
-                (string)($row['first_name'] ?? ''),
-                (string)($row['source'] ?? ''),
-                (string)($row['session_title'] ?? ''),
-                (string)($row['venue_name'] ?? ''),
-                (string)$row['created_at'],
-                (string)$row['updated_at'],
-            ]);
-        }
-        fclose($out);
-        exit;
     }
 
     if (!setmaxx_table_exists($pdo, 'setmaxx_general_tips')) {
@@ -229,18 +175,6 @@ if ($tablesReady) {
         }
         $suggestions = $suggestStmt->fetchAll(PDO::FETCH_ASSOC);
     }
-    if ($mailingReady) {
-        $mailingStmt = $pdo->prepare(
-            "SELECT m.email, m.first_name, m.created_at, gs.title AS session_title
-             FROM setmaxx_mailing_list_signups m
-             LEFT JOIN setmaxx_gig_sessions gs ON gs.id = m.gig_session_id
-             WHERE m.user_id = ?
-             ORDER BY m.created_at DESC
-             LIMIT 10"
-        );
-        $mailingStmt->execute([$userId]);
-        $mailingSignups = $mailingStmt->fetchAll(PDO::FETCH_ASSOC);
-    }
 }
 
 if ($tablesReady && isset($_GET['poll']) && $_GET['poll'] === 'live') {
@@ -290,15 +224,15 @@ setmaxx_page_head('Set Maxx | Request Dashboard');
             <div class="setmaxx-row"><div class="setmaxx-meta">No requests yet for this session.</div></div>
           <?php else: foreach ($requests as $request): ?>
             <div class="setmaxx-row setmaxx-request-row" data-request-id="<?= (int)$request['id'] ?>">
-              <div style="min-width:0; flex:1;">
-                <div style="display:flex; gap:.55rem; align-items:center; flex-wrap:wrap;"><div style="font-weight:600;"><?= e($request['title']) ?></div><a class="setmaxx-mini-link" href="<?= e(setmaxx_lyrics_url((string)$request['title'], (string)$request['artist'])) ?>" target="_blank" rel="noopener">Lyrics</a><span class="setmaxx-status <?= e((string)$request['status']) ?>"><?= e((string)$request['status']) ?></span><?php if (($request['payment_method'] ?? '') === 'venmo'): ?><span class="setmaxx-pill">Venmo recorded</span><?php endif; ?></div>
+              <div class="setmaxx-request-main">
+                <div class="setmaxx-request-title-row"><div style="font-weight:600;"><?= e($request['title']) ?></div><a class="setmaxx-mini-link" href="<?= e(setmaxx_lyrics_url((string)$request['title'], (string)$request['artist'])) ?>" target="_blank" rel="noopener">Lyrics</a><span class="setmaxx-status <?= e((string)$request['status']) ?>"><?= e((string)$request['status']) ?></span><?php if (($request['payment_method'] ?? '') === 'venmo'): ?><span class="setmaxx-pill">Venmo recorded</span><?php endif; ?></div>
                 <div class="setmaxx-meta"><?= e((string)($request['artist'] ?: 'Artist not set')) ?> &middot; from <?= e((string)($request['requester_name'] ?: 'Anonymous')) ?></div>
                 <?php if (!empty($request['request_note'])): ?><div class="setmaxx-help" style="margin-top:.35rem;">"<?= e((string)$request['request_note']) ?>"</div><?php endif; ?>
               </div>
-              <div>
+              <div class="setmaxx-request-controls">
                 <div class="setmaxx-request-amount"><?= e(setmaxx_money((int)$request['amount_cents'])) ?></div>
                 <?php if (($request['payment_method'] ?? '') === 'stripe'): ?><div class="setmaxx-meta">Stripe</div><?php endif; ?>
-                <div class="setmaxx-actions" style="justify-content:flex-end; margin-top:.45rem;">
+                <div class="setmaxx-actions setmaxx-request-actions">
                   <?php
                     $requestStatus = (string)$request['status'];
                     $requestActions = $requestStatus === 'pending'
@@ -329,31 +263,6 @@ setmaxx_page_head('Set Maxx | Request Dashboard');
               <?php if (!empty($tip['tip_note'])): ?><div class="setmaxx-help" style="margin-top:.35rem;">"<?= e((string)$tip['tip_note']) ?>"</div><?php endif; ?>
             </div>
             <div><div class="setmaxx-request-amount"><?= e(setmaxx_money((int)$tip['amount_cents'])) ?></div><div class="setmaxx-meta"><?= (($tip['payment_method'] ?? '') === 'venmo') ? 'Venmo recorded' : 'Stripe' ?></div></div>
-          </div>
-        <?php endforeach; endif; ?>
-      </div>
-    </div>
-    <div class="setmaxx-card">
-      <div style="display:flex; justify-content:space-between; gap:1rem; align-items:flex-start; flex-wrap:wrap;">
-        <div>
-          <h2 style="margin:0;">Mailing list</h2>
-          <p class="setmaxx-help" style="margin:.35rem 0 0;">Recent fans who joined from your Set Maxx public page.</p>
-        </div>
-        <a class="btn btn-outline" href="?export_mailing=1">Export CSV</a>
-      </div>
-      <div class="setmaxx-list" style="margin-top:1rem;">
-        <?php if (!$mailingSignups): ?>
-          <div class="setmaxx-row"><div class="setmaxx-meta">No mailing list signups yet.</div></div>
-        <?php else: foreach ($mailingSignups as $signup): ?>
-          <div class="setmaxx-row">
-            <div>
-              <div style="font-weight:600;"><?= e((string)($signup['first_name'] ?: 'New subscriber')) ?></div>
-              <div class="setmaxx-meta">
-                <?= e((string)$signup['email']) ?>
-                &middot; <?= e((string)($signup['session_title'] ?: 'Off-session link')) ?>
-              </div>
-            </div>
-            <div class="setmaxx-meta"><?= e(date('M j', strtotime((string)$signup['created_at']))) ?></div>
           </div>
         <?php endforeach; endif; ?>
       </div>
@@ -396,6 +305,11 @@ setmaxx_page_head('Set Maxx | Request Dashboard');
   .setmaxx-public-link-inline { display:flex; align-items:center; gap:.55rem; flex-wrap:wrap; margin-top:.8rem; color:rgba(255,255,255,.72); font-size:.88rem; }
   .setmaxx-public-link-inline span { font-weight:700; color:#efe7ff; }
   .setmaxx-public-link-inline code { word-break:break-all; color:rgba(255,255,255,.86); }
+  .setmaxx-request-row { display:grid; grid-template-columns:minmax(0, 1fr); gap:.85rem; }
+  .setmaxx-request-main { min-width:0; }
+  .setmaxx-request-title-row { display:flex; gap:.55rem; align-items:center; flex-wrap:wrap; }
+  .setmaxx-request-controls { display:flex; align-items:center; justify-content:space-between; gap:.75rem; flex-wrap:wrap; width:100%; padding-top:.7rem; border-top:1px solid rgba(255,255,255,.08); }
+  .setmaxx-request-actions { justify-content:flex-end; margin-top:0; margin-left:auto; }
   .setmaxx-live-alert { position:sticky; top: calc(76px + 2rem); z-index:20; display:none; align-items:center; justify-content:space-between; gap:1rem; margin-bottom:1rem; padding:.9rem 1rem; border-radius:16px; border:1px solid rgba(126,255,191,.32); background:rgba(28,95,68,.28); color:#eafff4; box-shadow:0 12px 30px rgba(0,0,0,.22); }
   .setmaxx-live-alert.visible { display:flex; }
   .setmaxx-live-alert strong { color:#fff; }
@@ -405,6 +319,10 @@ setmaxx_page_head('Set Maxx | Request Dashboard');
     0% { box-shadow:0 0 0 0 rgba(126,255,191,.45); background:rgba(126,255,191,.18); }
     70% { box-shadow:0 0 0 12px rgba(126,255,191,0); }
     100% { box-shadow:none; background:rgba(126,255,191,.09); }
+  }
+  @media (max-width: 560px) {
+    .setmaxx-request-controls { align-items:flex-start; }
+    .setmaxx-request-actions { width:100%; margin-left:0; justify-content:flex-start; }
   }
 </style>
 <?php if ($liveSession): ?>

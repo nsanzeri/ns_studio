@@ -23,8 +23,31 @@ function setmaxx_history_ensure_suggestions_table(PDO $pdo): void {
     ");
 }
 
+function setmaxx_history_ensure_mailing_list_table(PDO $pdo): void {
+    if (setmaxx_table_exists($pdo, 'setmaxx_mailing_list_signups')) return;
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS `setmaxx_mailing_list_signups` (
+          `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+          `gig_session_id` bigint(20) unsigned DEFAULT NULL,
+          `user_id` int(10) unsigned NOT NULL,
+          `email` varchar(190) NOT NULL,
+          `first_name` varchar(100) DEFAULT NULL,
+          `source` varchar(80) NOT NULL DEFAULT 'setmaxx_public_page',
+          `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+          `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+          PRIMARY KEY (`id`),
+          UNIQUE KEY `uq_setmaxx_mailing_user_email` (`user_id`,`email`),
+          KEY `idx_setmaxx_mailing_user_created` (`user_id`,`created_at`),
+          KEY `idx_setmaxx_mailing_session` (`gig_session_id`,`created_at`),
+          CONSTRAINT `fk_setmaxx_mailing_session` FOREIGN KEY (`gig_session_id`) REFERENCES `setmaxx_gig_sessions` (`id`) ON DELETE SET NULL,
+          CONSTRAINT `fk_setmaxx_mailing_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
+    ");
+}
+
 $closedSessions = [];
 $closedSuggestions = [];
+$mailingSignups = [];
 
 if ($tablesReady && is_post()) {
     if (!csrf_verify($_POST['_csrf'] ?? null)) {
@@ -75,6 +98,35 @@ if ($tablesReady && is_post()) {
 if ($tablesReady) {
     try {
         setmaxx_history_ensure_suggestions_table($pdo);
+        setmaxx_history_ensure_mailing_list_table($pdo);
+
+        if (isset($_GET['export_mailing'])) {
+            $exportStmt = $pdo->prepare(
+                "SELECT m.email, m.first_name, m.source, m.created_at, m.updated_at, gs.title AS session_title, gs.venue_name
+                 FROM setmaxx_mailing_list_signups m
+                 LEFT JOIN setmaxx_gig_sessions gs ON gs.id = m.gig_session_id
+                 WHERE m.user_id = ?
+                 ORDER BY m.created_at DESC"
+            );
+            $exportStmt->execute([$userId]);
+            header('Content-Type: text/csv; charset=utf-8');
+            header('Content-Disposition: attachment; filename="setmaxx-mailing-list.csv"');
+            $out = fopen('php://output', 'w');
+            fputcsv($out, ['email', 'first_name', 'source', 'session_title', 'venue_name', 'created_at', 'updated_at']);
+            foreach ($exportStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+                fputcsv($out, [
+                    (string)$row['email'],
+                    (string)($row['first_name'] ?? ''),
+                    (string)($row['source'] ?? ''),
+                    (string)($row['session_title'] ?? ''),
+                    (string)($row['venue_name'] ?? ''),
+                    (string)$row['created_at'],
+                    (string)$row['updated_at'],
+                ]);
+            }
+            fclose($out);
+            exit;
+        }
 
         $sessionsStmt = $pdo->prepare(
             "SELECT
@@ -116,6 +168,17 @@ if ($tablesReady) {
         );
         $suggestionsStmt->execute([$userId]);
         $closedSuggestions = $suggestionsStmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $mailingStmt = $pdo->prepare(
+            "SELECT m.email, m.first_name, m.created_at, gs.title AS session_title
+             FROM setmaxx_mailing_list_signups m
+             LEFT JOIN setmaxx_gig_sessions gs ON gs.id = m.gig_session_id
+             WHERE m.user_id = ?
+             ORDER BY m.created_at DESC
+             LIMIT 25"
+        );
+        $mailingStmt->execute([$userId]);
+        $mailingSignups = $mailingStmt->fetchAll(PDO::FETCH_ASSOC);
     } catch (Throwable $e) {
         $errors[] = 'History could not be loaded right now.';
     }
@@ -132,6 +195,7 @@ setmaxx_page_head('Set Maxx | History');
     <div class="setmaxx-actions" style="margin-top:1rem;">
       <a class="btn btn-outline" href="<?= e(base_url('/setmaxx/sessions.php')) ?>">Session setup</a>
       <a class="btn btn-outline" href="<?= e(base_url('/setmaxx/requests.php')) ?>">Request dashboard</a>
+      <a class="btn btn-outline" href="?export_mailing=1">Export mailing CSV</a>
     </div>
   </div>
 
@@ -166,6 +230,27 @@ setmaxx_page_head('Set Maxx | History');
                   <button class="btn btn-outline" style="border-color:rgba(255,120,120,.45); color:#ffb3b3;" type="submit" <?= $isProUser ? '' : 'disabled' ?>>Delete</button>
                 </form>
               </div>
+            </div>
+          <?php endforeach; endif; ?>
+        </div>
+      </div>
+
+      <div class="setmaxx-card" id="mailing-list">
+        <h2 style="margin-top:0;">Recent mailing list joins</h2>
+        <p class="setmaxx-help" style="margin-top:-.35rem;">Fans who joined from your SetMaxx public page.</p>
+        <div class="setmaxx-list">
+          <?php if (!$mailingSignups): ?>
+            <div class="setmaxx-row"><div class="setmaxx-meta">No mailing list signups yet.</div></div>
+          <?php else: foreach ($mailingSignups as $signup): ?>
+            <div class="setmaxx-row">
+              <div style="min-width:0; flex:1;">
+                <div style="font-weight:600;"><?= e((string)($signup['first_name'] ?: 'New subscriber')) ?></div>
+                <div class="setmaxx-meta">
+                  <?= e((string)$signup['email']) ?>
+                  &middot; <?= e((string)($signup['session_title'] ?: 'Off-session link')) ?>
+                </div>
+              </div>
+              <div class="setmaxx-meta"><?= e(date('M j, Y', strtotime((string)$signup['created_at']))) ?></div>
             </div>
           <?php endforeach; endif; ?>
         </div>

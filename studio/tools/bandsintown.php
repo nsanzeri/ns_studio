@@ -71,19 +71,20 @@ if (!$selectedCalendarId && $hasCalendars) {
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
     .tools-shell{
-      padding:2rem 0 4rem;
+      padding:1.25rem 0 4rem;
+      overflow-x:hidden;
     }
 
     .tools-topbar{
       display:flex;
       justify-content:space-between;
-      align-items:flex-end;
+      align-items:center;
       gap:1.25rem;
-      margin-bottom:1.25rem;
+      margin-bottom:1rem;
     }
 
     .tools-topbar h1{
-      margin:0 0 .35rem;
+      margin:0;
     }
 
     .tools-topbar p{
@@ -127,6 +128,7 @@ if (!$selectedCalendarId && $hasCalendars) {
       grid-template-columns:360px minmax(0, 1fr);
       gap:1.5rem;
       align-items:start;
+      min-width:0;
     }
 
     .tools-card{
@@ -135,6 +137,7 @@ if (!$selectedCalendarId && $hasCalendars) {
       border-radius:22px;
       padding:1.35rem;
       box-shadow:0 16px 34px rgba(0,0,0,.18);
+      min-width:0;
     }
 
     .tools-card h2,
@@ -152,9 +155,16 @@ if (!$selectedCalendarId && $hasCalendars) {
       gap:1rem;
     }
 
+    .date-range-grid{
+      display:grid;
+      grid-template-columns:repeat(2, minmax(0, 1fr));
+      gap:.75rem;
+    }
+
     .tools-field{
       display:grid;
       gap:.45rem;
+      min-width:0;
     }
 
     .tools-field label{
@@ -165,6 +175,7 @@ if (!$selectedCalendarId && $hasCalendars) {
 
     .tools-input{
       width:100%;
+      min-width:0;
       padding:.85rem .95rem;
       border-radius:14px;
       border:1px solid rgba(255,255,255,.1);
@@ -183,7 +194,7 @@ if (!$selectedCalendarId && $hasCalendars) {
       display:flex;
       align-items:center;
       gap:.7rem;
-      padding:.8rem .9rem;
+      padding:.75rem .85rem;
       border-radius:14px;
       background:rgba(255,255,255,.04);
       border:1px solid rgba(255,255,255,.06);
@@ -219,16 +230,28 @@ if (!$selectedCalendarId && $hasCalendars) {
       align-items:flex-start;
       gap:1rem;
       margin-bottom:1rem;
+      min-width:0;
+    }
+
+    .preview-header > div{
+      min-width:0;
+      max-width:100%;
     }
 
     .preview-toolbar{
       display:flex;
-      flex-wrap:wrap;
-      gap:.6rem;
+      flex-wrap:nowrap;
+      gap:.45rem;
+      min-width:0;
+      max-width:100%;
     }
 
     .preview-toolbar .btn{
       justify-content:center;
+      min-height:40px;
+      padding:.65rem .85rem;
+      font-size:.84rem;
+      white-space:nowrap;
     }
 
     .error-box{
@@ -246,6 +269,7 @@ if (!$selectedCalendarId && $hasCalendars) {
       border:1px solid rgba(255,255,255,.08);
       border-radius:18px;
       padding:1rem;
+      max-width:100%;
       overflow:auto;
     }
 
@@ -255,6 +279,10 @@ if (!$selectedCalendarId && $hasCalendars) {
       min-width:980px;
       color:#fff;
       font-size:.92rem;
+    }
+
+    .preview-table.is-empty{
+      min-width:0;
     }
 
     .preview-table th,
@@ -278,6 +306,7 @@ if (!$selectedCalendarId && $hasCalendars) {
     .preview-note{
       color:rgba(255,255,255,.72);
       margin-bottom:1rem;
+      overflow-wrap:anywhere;
     }
 
     .empty-state{
@@ -349,12 +378,86 @@ if (!$selectedCalendarId && $hasCalendars) {
       }
 
       .tools-topbar{
-        flex-direction:column;
-        align-items:flex-start;
+        gap:.75rem;
       }
 
       .preview-header{
         flex-direction:column;
+      }
+    }
+
+    @media (max-width:520px){
+      .tools-shell{
+        padding-top:.9rem;
+      }
+
+      .tools-card{
+        padding:1rem;
+        border-radius:18px;
+      }
+
+      .tools-layout,
+      .tools-card,
+      .tools-stack,
+      .preview-header{
+        width:100%;
+        max-width:100%;
+      }
+
+      .tools-topbar{
+        margin-bottom:.75rem;
+      }
+
+      .tools-topbar h1{
+        font-size:2rem;
+      }
+
+      .tools-input{
+        padding:.75rem .7rem;
+        font-size:.92rem;
+      }
+
+      .date-range-grid{
+        grid-template-columns:1fr;
+        gap:1rem;
+      }
+
+      .tools-radio{
+        padding:.65rem .7rem;
+      }
+
+      .pro-locked-note{
+        margin-top:.4rem;
+        font-size:.72rem;
+        line-height:1.35;
+      }
+
+      .preview-toolbar{
+        width:100%;
+        display:grid;
+        grid-template-columns:repeat(3, minmax(0, 1fr));
+        gap:.4rem;
+      }
+
+      .preview-toolbar .btn{
+        width:100%;
+        padding:.62rem .35rem;
+        font-size:.72rem;
+        letter-spacing:0;
+        text-transform:none;
+      }
+
+      .preview-note{
+        font-size:.86rem;
+      }
+
+      .preview-wrap{
+        padding:.75rem;
+      }
+
+      .preview-table.is-empty,
+      .preview-table:has(tbody:empty){
+        min-width:0;
       }
     }
   </style>
@@ -367,12 +470,7 @@ if (!$selectedCalendarId && $hasCalendars) {
 
     <div class="tools-topbar">
       <div>
-        <p class="eyebrow">Ready Set Shows</p>
-        <h1>Bands In Town Export</h1>
-        <p>Generate a Bands In Town-formatted CSV from the events in one selected calendar.</p>
-      </div>
-      <div class="tools-muted">
-        Signed in as <?= e($user['email'] ?? 'your account') ?>
+        <h1>Bands In Town</h1>
       </div>
     </div>
 
@@ -386,15 +484,10 @@ if (!$selectedCalendarId && $hasCalendars) {
     <div class="tools-layout">
       <aside class="tools-stack">
         <section class="tools-card">
-          <h2>Build Export</h2>
-          <p class="tools-muted" style="margin-top:-.25rem; margin-bottom:1rem;">
-            Choose one calendar, enter the artist name, and generate a CSV preview ready for Bands In Town.
-          </p>
-
           <form id="bitForm" method="get" action="<?= e(base_url('/tools/bandsintown.php')) ?>">
             <div class="tools-stack">
               <div class="tools-field">
-                <label for="artistName">Artist Name</label>
+                <label for="artistName">Artist</label>
                 <input
                   class="tools-input"
                   type="text"
@@ -405,17 +498,19 @@ if (!$selectedCalendarId && $hasCalendars) {
                 >
               </div>
 
-              <div class="tools-field">
-                <label for="startDate">Start Date</label>
-                <input class="tools-input" type="date" id="startDate" name="date_from" value="<?= e($dateFrom) ?>">
-              </div>
+              <div class="date-range-grid">
+                <div class="tools-field">
+                  <label for="startDate">Start</label>
+                  <input class="tools-input" type="date" id="startDate" name="date_from" value="<?= e($dateFrom) ?>">
+                </div>
 
-              <div class="tools-field">
-                <label for="endDate">End Date</label>
-                <input class="tools-input" type="date" id="endDate" name="date_to" value="<?= e($dateTo) ?>">
-                <?php if (!$isProUser): ?>
-                  <p class="pro-locked-note">Free accounts can preview the next month. Upgrade to Pro to choose a custom date range.</p>
-                <?php endif; ?>
+                <div class="tools-field">
+                  <label for="endDate">End</label>
+                  <input class="tools-input" type="date" id="endDate" name="date_to" value="<?= e($dateTo) ?>">
+                  <?php if (!$isProUser): ?>
+                    <p class="pro-locked-note">Free accounts can preview the next month. Upgrade to Pro to choose a custom date range.</p>
+                  <?php endif; ?>
+                </div>
               </div>
 
               <div class="tools-field">
@@ -453,7 +548,7 @@ if (!$selectedCalendarId && $hasCalendars) {
 
               <div class="tools-actions">
                 <button class="btn btn-primary" type="submit">
-                  <i class="fa-solid fa-wand-magic-sparkles"></i>&nbsp; Generate Preview
+                  <i class="fa-solid fa-wand-magic-sparkles"></i>&nbsp; Generate
                 </button>
 
                 <?php if (!$hasCalendars): ?>
@@ -480,13 +575,13 @@ if (!$selectedCalendarId && $hasCalendars) {
           <?php if ($hasCalendars): ?>
             <div class="preview-toolbar">
               <button class="btn btn-secondary" type="button" onclick="downloadCSV()">
-                <i class="fa-solid fa-download"></i>&nbsp; Download CSV
+                <i class="fa-solid fa-download"></i>&nbsp; Download
               </button>
               <button class="btn btn-secondary" type="button" onclick="copyCSV()">
-                <i class="fa-regular fa-copy"></i>&nbsp; Copy CSV
+                <i class="fa-regular fa-copy"></i>&nbsp; Copy
               </button>
               <button class="btn btn-secondary" type="button" onclick="openCSV()">
-                <i class="fa-regular fa-window-restore"></i>&nbsp; Open in New Window
+                <i class="fa-regular fa-window-restore"></i>&nbsp; Open
               </button>
             </div>
           <?php endif; ?>
@@ -519,7 +614,7 @@ if (!$selectedCalendarId && $hasCalendars) {
           </p>
 
           <div class="preview-wrap">
-            <table class="preview-table" id="previewTable">
+            <table class="preview-table is-empty" id="previewTable">
               <thead></thead>
               <tbody></tbody>
             </table>
@@ -839,8 +934,12 @@ function hideError() {
 }
 
 function renderPreview(headers, rows) {
+  const table = document.getElementById("previewTable");
   const thead = document.querySelector("#previewTable thead");
   const tbody = document.querySelector("#previewTable tbody");
+  if (table) {
+    table.classList.toggle("is-empty", !rows.length);
+  }
 
   let headHtml = "<tr>";
   headers.forEach(h => {
@@ -1019,10 +1118,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   installLockedDateRange(['startDate', 'endDate']);
   protectOutputElement(document.querySelector('.preview-wrap'));
-
-  if (document.querySelector("input[name='calendar_id']:checked")) {
-    generateBIT();
-  }
 });
 
 document.addEventListener("DOMContentLoaded", function () {

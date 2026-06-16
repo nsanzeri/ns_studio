@@ -81,19 +81,19 @@ if (!in_array($selectedFormat, ['newsletter', 'spreadsheet', 'print'], true)) {
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
     .tools-shell{
-      padding:2rem 0 4rem;
+      padding:1.25rem 0 4rem;
     }
 
     .tools-topbar{
       display:flex;
       justify-content:space-between;
-      align-items:flex-end;
+      align-items:center;
       gap:1.25rem;
-      margin-bottom:1.25rem;
+      margin-bottom:1rem;
     }
 
     .tools-topbar h1{
-      margin:0 0 .35rem;
+      margin:0;
     }
 
     .tools-topbar p{
@@ -162,9 +162,16 @@ if (!in_array($selectedFormat, ['newsletter', 'spreadsheet', 'print'], true)) {
       gap:1rem;
     }
 
+    .date-range-grid{
+      display:grid;
+      grid-template-columns:repeat(2, minmax(0, 1fr));
+      gap:.75rem;
+    }
+
     .tools-field{
       display:grid;
       gap:.45rem;
+      min-width:0;
     }
 
     .tools-field label{
@@ -175,6 +182,7 @@ if (!in_array($selectedFormat, ['newsletter', 'spreadsheet', 'print'], true)) {
 
     .tools-input{
       width:100%;
+      min-width:0;
       padding:.85rem .95rem;
       border-radius:14px;
       border:1px solid rgba(255,255,255,.1);
@@ -193,7 +201,7 @@ if (!in_array($selectedFormat, ['newsletter', 'spreadsheet', 'print'], true)) {
       display:flex;
       align-items:center;
       gap:.7rem;
-      padding:.8rem .9rem;
+      padding:.75rem .85rem;
       border-radius:14px;
       background:rgba(255,255,255,.04);
       border:1px solid rgba(255,255,255,.06);
@@ -215,14 +223,17 @@ if (!in_array($selectedFormat, ['newsletter', 'spreadsheet', 'print'], true)) {
 
     .format-box{
       display:grid;
-      gap:.65rem;
+      grid-template-columns:repeat(auto-fit, minmax(112px, 1fr));
+      gap:.5rem;
     }
 
     .format-option{
       display:flex;
       align-items:center;
-      gap:.7rem;
-      padding:.8rem .9rem;
+      justify-content:center;
+      gap:.45rem;
+      min-height:44px;
+      padding:.55rem .6rem;
       border-radius:14px;
       background:rgba(255,255,255,.04);
       border:1px solid rgba(255,255,255,.06);
@@ -253,12 +264,16 @@ if (!in_array($selectedFormat, ['newsletter', 'spreadsheet', 'print'], true)) {
 
     .preview-toolbar{
       display:flex;
-      flex-wrap:wrap;
-      gap:.6rem;
+      flex-wrap:nowrap;
+      gap:.45rem;
     }
 
     .preview-toolbar .btn{
       justify-content:center;
+      min-height:40px;
+      padding:.65rem .85rem;
+      font-size:.84rem;
+      white-space:nowrap;
     }
 
 	.output-wrap{
@@ -361,12 +376,73 @@ if (!in_array($selectedFormat, ['newsletter', 'spreadsheet', 'print'], true)) {
       }
 
       .tools-topbar{
-        flex-direction:column;
-        align-items:flex-start;
+        gap:.75rem;
       }
 
       .preview-header{
         flex-direction:column;
+      }
+    }
+
+    @media (max-width:520px){
+      .tools-shell{
+        padding-top:.9rem;
+      }
+
+      .tools-card{
+        padding:1rem;
+        border-radius:18px;
+      }
+
+      .tools-topbar{
+        margin-bottom:.75rem;
+      }
+
+      .tools-topbar h1{
+        font-size:2rem;
+      }
+
+      .tools-input{
+        padding:.75rem .7rem;
+        font-size:.92rem;
+      }
+
+      .date-range-grid{
+        gap:.55rem;
+      }
+
+      .tools-radio{
+        padding:.65rem .7rem;
+      }
+
+      .format-box{
+        grid-template-columns:repeat(3, minmax(0, 1fr));
+      }
+
+      .format-option{
+        border-radius:12px;
+        font-size:.76rem;
+        letter-spacing:.02em;
+        padding:.55rem .35rem;
+        text-align:center;
+      }
+
+      .preview-toolbar{
+        width:100%;
+        display:grid;
+        grid-template-columns:repeat(4, minmax(0, 1fr));
+        gap:.35rem;
+      }
+
+      .preview-toolbar .btn{
+        width:100%;
+        padding:.62rem .24rem;
+        font-size:.66rem;
+        letter-spacing:.06em;
+      }
+
+      .pretty-output{
+        min-height:260px;
       }
     }
 
@@ -428,12 +504,7 @@ if (!in_array($selectedFormat, ['newsletter', 'spreadsheet', 'print'], true)) {
 
     <div class="tools-topbar">
       <div>
-        <p class="eyebrow">Ready Set Shows</p>
-        <h1>Pretty Print Calendar Events</h1>
-        <p>Pull the actual contents of one calendar and format them for newsletters, printouts, or simple exports.</p>
-      </div>
-      <div class="tools-muted">
-        Signed in as <?= e($user['email'] ?? 'your account') ?>
+        <h1>Pretty Print</h1>
       </div>
     </div>
 
@@ -447,24 +518,21 @@ if (!in_array($selectedFormat, ['newsletter', 'spreadsheet', 'print'], true)) {
     <div class="tools-layout">
       <aside class="tools-stack">
         <section class="tools-card">
-          <h2>Pretty Print</h2>
-          <p class="tools-muted" style="margin-top:-.25rem; margin-bottom:1rem;">
-            Choose a calendar, set the date range, pick an output style, and generate formatted event text.
-          </p>
-
           <form id="prettyPrintForm" method="get" action="<?= e(base_url('/tools/pretty-print.php')) ?>">
             <div class="tools-stack">
-              <div class="tools-field">
-                <label for="startDate">Start Date</label>
-                <input class="tools-input" type="date" id="startDate" name="date_from" value="<?= e($dateFrom) ?>">
-              </div>
+              <div class="date-range-grid">
+                <div class="tools-field">
+                  <label for="startDate">Start</label>
+                  <input class="tools-input" type="date" id="startDate" name="date_from" value="<?= e($dateFrom) ?>">
+                </div>
 
-              <div class="tools-field">
-                <label for="endDate">End Date</label>
-                <input class="tools-input" type="date" id="endDate" name="date_to" value="<?= e($dateTo) ?>" <?= !$isProUser ? 'max="'. e($defaultDateTo) .'"' : '' ?>>
-                <?php if (!$isProUser): ?>
-                  <p class="pro-locked-note">Free accounts can choose any start date, but the end date is limited to one month from today. Upgrade to Pro to unlock a custom end date.</p>
-                <?php endif; ?>
+                <div class="tools-field">
+                  <label for="endDate">End</label>
+                  <input class="tools-input" type="date" id="endDate" name="date_to" value="<?= e($dateTo) ?>" <?= !$isProUser ? 'max="'. e($defaultDateTo) .'"' : '' ?>>
+                  <?php if (!$isProUser): ?>
+                    <p class="pro-locked-note">Free accounts can choose any start date, but the end date is limited to one month from today. Upgrade to Pro to unlock a custom end date.</p>
+                  <?php endif; ?>
+                </div>
               </div>
 
               <div class="tools-field">
@@ -509,11 +577,11 @@ if (!in_array($selectedFormat, ['newsletter', 'spreadsheet', 'print'], true)) {
                   </label>
                   <label class="format-option">
                     <input type="radio" name="format" value="spreadsheet" <?= $selectedFormat === 'spreadsheet' ? 'checked' : '' ?>>
-                    <span>Spreadsheet (CSV)</span>
+                    <span>CSV</span>
                   </label>
                   <label class="format-option">
                     <input type="radio" name="format" value="print" <?= $selectedFormat === 'print' ? 'checked' : '' ?>>
-                    <span>Print Format</span>
+                    <span>Print</span>
                   </label>
                 </div>
               </div>
@@ -550,10 +618,10 @@ if (!in_array($selectedFormat, ['newsletter', 'spreadsheet', 'print'], true)) {
                 <i class="fa-regular fa-copy"></i>&nbsp; Copy
               </button>
               <button class="btn btn-secondary" type="button" onclick="exportCSV()">
-                <i class="fa-solid fa-file-csv"></i>&nbsp; Export CSV
+                <i class="fa-solid fa-file-csv"></i>&nbsp; CSV
               </button>
               <button class="btn btn-secondary" type="button" onclick="exportTXT()">
-                <i class="fa-regular fa-file-lines"></i>&nbsp; Export TXT
+                <i class="fa-regular fa-file-lines"></i>&nbsp; TXT
               </button>
               <button class="btn btn-secondary" type="button" onclick="printOutput()">
                 <i class="fa-solid fa-print"></i>&nbsp; Print
@@ -982,10 +1050,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   lockFreeUserEndDate();
   protectOutputElement(output);
-
-  if (document.querySelector("input[name='calendar_id']:checked")) {
-    generatePrettyPrint();
-  }
 });
 
 document.addEventListener("DOMContentLoaded", function () {

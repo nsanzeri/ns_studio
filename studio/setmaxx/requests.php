@@ -23,6 +23,28 @@ function setmaxx_requests_ensure_suggestions_table(PDO $pdo): void {
     ");
 }
 
+function setmaxx_requests_ensure_mailing_list_table(PDO $pdo): void {
+    if (setmaxx_table_exists($pdo, 'setmaxx_mailing_list_signups')) return;
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS `setmaxx_mailing_list_signups` (
+          `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+          `gig_session_id` bigint(20) unsigned DEFAULT NULL,
+          `user_id` int(10) unsigned NOT NULL,
+          `email` varchar(190) NOT NULL,
+          `first_name` varchar(100) DEFAULT NULL,
+          `source` varchar(80) NOT NULL DEFAULT 'setmaxx_public_page',
+          `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+          `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+          PRIMARY KEY (`id`),
+          UNIQUE KEY `uq_setmaxx_mailing_user_email` (`user_id`,`email`),
+          KEY `idx_setmaxx_mailing_user_created` (`user_id`,`created_at`),
+          KEY `idx_setmaxx_mailing_session` (`gig_session_id`,`created_at`),
+          CONSTRAINT `fk_setmaxx_mailing_session` FOREIGN KEY (`gig_session_id`) REFERENCES `setmaxx_gig_sessions` (`id`) ON DELETE SET NULL,
+          CONSTRAINT `fk_setmaxx_mailing_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
+    ");
+}
+
 function setmaxx_requests_column_exists(PDO $pdo, string $tableName, string $columnName): bool {
     $stmt = $pdo->prepare("SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = ? AND column_name = ? LIMIT 1");
     $stmt->execute([$tableName, $columnName]);
@@ -90,15 +112,19 @@ $liveSession = null;
 $requests = [];
 $suggestions = [];
 $generalTips = [];
+$mailingSignups = [];
 $suggestionsReady = false;
 $generalTipsReady = false;
+$mailingListReady = false;
 if ($tablesReady) {
     try {
         setmaxx_requests_ensure_suggestions_table($pdo);
         setmaxx_requests_ensure_payment_method_columns($pdo);
+        setmaxx_requests_ensure_mailing_list_table($pdo);
         $suggestionsReady = true;
+        $mailingListReady = true;
     } catch (Throwable $e) {
-        $errors[] = 'Song suggestions could not be loaded right now.';
+        $errors[] = 'Current dashboard extras could not be loaded right now.';
     }
 
     if (!setmaxx_table_exists($pdo, 'setmaxx_general_tips')) {
@@ -144,6 +170,12 @@ if ($tablesReady) {
             $tipsStmt->execute([(int)$liveSession['id']]);
             $generalTips = $tipsStmt->fetchAll(PDO::FETCH_ASSOC);
         }
+
+        if ($mailingListReady) {
+            $mailingStmt = $pdo->prepare("SELECT id, email, first_name, created_at, updated_at FROM setmaxx_mailing_list_signups WHERE gig_session_id = ? AND user_id = ? ORDER BY updated_at DESC LIMIT 8");
+            $mailingStmt->execute([(int)$liveSession['id'], $userId]);
+            $mailingSignups = $mailingStmt->fetchAll(PDO::FETCH_ASSOC);
+        }
     } elseif ($generalTipsReady) {
         $tipsStmt = $pdo->prepare("SELECT tipper_name, tip_note, amount_cents, payment_method, created_at FROM setmaxx_general_tips WHERE user_id = ? AND status = 'paid' ORDER BY created_at DESC LIMIT 10");
         $tipsStmt->execute([$userId]);
@@ -185,6 +217,9 @@ if ($tablesReady && isset($_GET['poll']) && $_GET['poll'] === 'live') {
         'request_ids' => array_map('intval', array_column($requests, 'id')),
         'request_count' => count($requests),
         'latest_request_id' => $requests ? max(array_map('intval', array_column($requests, 'id'))) : null,
+        'mailing_signup_ids' => array_map('intval', array_column($mailingSignups, 'id')),
+        'mailing_signup_count' => count($mailingSignups),
+        'latest_mailing_signup_id' => $mailingSignups ? max(array_map('intval', array_column($mailingSignups, 'id'))) : null,
         'server_time' => date('c'),
     ]);
     exit;
@@ -250,6 +285,30 @@ setmaxx_page_head('Set Maxx | Request Dashboard');
           <?php endforeach; endif; ?>
         </div>
       <?php endif; ?>
+    </div>
+    <div class="setmaxx-card">
+      <div style="display:flex; justify-content:space-between; gap:1rem; align-items:flex-start; flex-wrap:wrap;">
+        <div>
+          <h2 style="margin:0;">Mailing list joins</h2>
+          <p class="setmaxx-help" style="margin:.35rem 0 0;">Fresh signups from the current session.</p>
+        </div>
+        <a class="btn btn-outline" href="<?= e(base_url('/setmaxx/history.php#mailing-list')) ?>">View history</a>
+      </div>
+      <div class="setmaxx-list">
+        <?php if (!$liveSession): ?>
+          <div class="setmaxx-row"><div class="setmaxx-meta">No live session right now.</div></div>
+        <?php elseif (!$mailingSignups): ?>
+          <div class="setmaxx-row"><div class="setmaxx-meta">No mailing list joins yet for this session.</div></div>
+        <?php else: foreach ($mailingSignups as $signup): ?>
+          <div class="setmaxx-row setmaxx-mailing-row" data-mailing-signup-id="<?= (int)$signup['id'] ?>">
+            <div>
+              <div style="font-weight:600;"><?= e((string)($signup['first_name'] ?: 'New fan')) ?></div>
+              <div class="setmaxx-meta"><?= e((string)$signup['email']) ?></div>
+            </div>
+            <div class="setmaxx-meta"><?= e(date('g:i A', strtotime((string)($signup['updated_at'] ?: $signup['created_at'])))) ?></div>
+          </div>
+        <?php endforeach; endif; ?>
+      </div>
     </div>
     <div class="setmaxx-card">
       <h2 style="margin-top:0;">General tips</h2>
@@ -330,11 +389,15 @@ setmaxx_page_head('Set Maxx | Request Dashboard');
 (function() {
   const liveSessionId = <?= json_encode((int)$liveSession['id']) ?>;
   const currentIds = <?= json_encode(array_map('intval', array_column($requests, 'id'))) ?>;
+  const currentMailingIds = <?= json_encode(array_map('intval', array_column($mailingSignups, 'id'))) ?>;
   const pollUrl = <?= json_encode(base_url('/setmaxx/requests.php?poll=live')) ?>;
   const knownKey = 'setmaxxKnownRequestIds:' + liveSessionId;
   const newKey = 'setmaxxNewRequestIds:' + liveSessionId;
+  const knownMailingKey = 'setmaxxKnownMailingSignupIds:' + liveSessionId;
+  const newMailingKey = 'setmaxxNewMailingSignupIds:' + liveSessionId;
   const pollMs = 5000;
   let knownIds = readIds(knownKey);
+  let knownMailingIds = readIds(knownMailingKey);
   let polling = false;
 
   function readIds(key) {
@@ -352,7 +415,7 @@ setmaxx_page_head('Set Maxx | Request Dashboard');
     } catch (error) {}
   }
 
-  function showAlert(count) {
+  function showAlert(count, type) {
     let alert = document.getElementById('setmaxxLiveAlert');
     if (!alert) {
       alert = document.createElement('div');
@@ -360,14 +423,20 @@ setmaxx_page_head('Set Maxx | Request Dashboard');
       alert.id = 'setmaxxLiveAlert';
       alert.setAttribute('role', 'status');
       alert.setAttribute('aria-live', 'polite');
-      alert.innerHTML = '<div><strong>New request in.</strong> <span></span></div><button type="button">Dismiss</button>';
+      alert.innerHTML = '<div><strong></strong> <span></span></div><button type="button">Dismiss</button>';
       const shell = document.querySelector('.setmaxx-shell');
       if (shell) shell.insertBefore(alert, shell.firstElementChild ? shell.firstElementChild.nextSibling : null);
       const close = alert.querySelector('button');
       if (close) close.addEventListener('click', function() { alert.classList.remove('visible'); });
     }
+    const heading = alert.querySelector('strong');
     const detail = alert.querySelector('span');
-    if (detail) detail.textContent = count > 1 ? count + ' fresh picks just landed.' : 'Fresh pick just landed.';
+    if (heading) heading.textContent = type === 'mailing' ? 'New mailing list join.' : 'New request in.';
+    if (detail) {
+      detail.textContent = type === 'mailing'
+        ? (count > 1 ? count + ' fresh signups just landed.' : 'Fresh signup just landed.')
+        : (count > 1 ? count + ' fresh picks just landed.' : 'Fresh pick just landed.');
+    }
     alert.classList.add('visible');
   }
 
@@ -382,8 +451,23 @@ setmaxx_page_head('Set Maxx | Request Dashboard');
         highlighted++;
       }
     });
-    if (highlighted > 0) showAlert(highlighted);
+    if (highlighted > 0) showAlert(highlighted, 'request');
     try { window.sessionStorage.removeItem(newKey); } catch (error) {}
+  }
+
+  function highlightStoredNewMailingSignups() {
+    const newIds = readIds(newMailingKey);
+    if (!newIds.length) return;
+    let highlighted = 0;
+    newIds.forEach(function(id) {
+      const row = document.querySelector('[data-mailing-signup-id="' + id + '"]');
+      if (row) {
+        row.classList.add('is-new-request');
+        highlighted++;
+      }
+    });
+    if (highlighted > 0) showAlert(highlighted, 'mailing');
+    try { window.sessionStorage.removeItem(newMailingKey); } catch (error) {}
   }
 
   function dashboardIsBusy() {
@@ -405,7 +489,17 @@ setmaxx_page_head('Set Maxx | Request Dashboard');
     writeIds(knownKey, knownIds);
   }
 
+  if (!knownMailingIds.length) {
+    knownMailingIds = currentMailingIds;
+    writeIds(knownMailingKey, knownMailingIds);
+  } else {
+    const mergedMailing = knownMailingIds.concat(currentMailingIds);
+    knownMailingIds = Array.from(new Set(mergedMailing));
+    writeIds(knownMailingKey, knownMailingIds);
+  }
+
   highlightStoredNewRequests();
+  highlightStoredNewMailingSignups();
 
   async function pollForRequests() {
     if (polling) return;
@@ -424,15 +518,20 @@ setmaxx_page_head('Set Maxx | Request Dashboard');
         return;
       }
       const incomingIds = Array.isArray(data.request_ids) ? data.request_ids.map(Number).filter(Boolean) : [];
+      const incomingMailingIds = Array.isArray(data.mailing_signup_ids) ? data.mailing_signup_ids.map(Number).filter(Boolean) : [];
       const known = new Set(readIds(knownKey));
+      const knownMailing = new Set(readIds(knownMailingKey));
       const newIds = incomingIds.filter(function(id) { return !known.has(id); });
-      if (newIds.length) {
+      const newMailingIds = incomingMailingIds.filter(function(id) { return !knownMailing.has(id); });
+      if (newIds.length || newMailingIds.length) {
         writeIds(newKey, newIds);
+        writeIds(newMailingKey, newMailingIds);
         if (!dashboardIsBusy()) {
           writeIds(knownKey, Array.from(new Set(Array.from(known).concat(incomingIds))));
+          writeIds(knownMailingKey, Array.from(new Set(Array.from(knownMailing).concat(incomingMailingIds))));
           window.location.reload();
         } else {
-          showAlert(newIds.length);
+          showAlert(newIds.length || newMailingIds.length, newMailingIds.length && !newIds.length ? 'mailing' : 'request');
         }
       }
     } catch (error) {

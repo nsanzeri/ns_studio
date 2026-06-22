@@ -13,6 +13,181 @@ $calStmt->execute([$userId]);
 $calendars = $calStmt->fetchAll(PDO::FETCH_ASSOC);
 if ($calendarId <= 0 && $calendars) $calendarId = (int)$calendars[0]['id'];
 
+function finance_import_normalize_header(string $value): string {
+    return preg_replace('/[^a-z0-9]+/', '', strtolower(trim($value))) ?? '';
+}
+
+function finance_import_header_map(array $header): array {
+    $aliases = [
+        'date' => ['date', 'eventdate', 'gigdate', 'start', 'startdate', 'starts', 'startsat'],
+        'title' => ['title', 'event', 'eventtitle', 'gigevent', 'gigname', 'gigtitle', 'name'],
+        'guarantee' => ['guarantee', 'guaranteed', 'guaranteedpay', 'fee', 'pay', 'basepay', 'guaranteeamount'],
+        'tips' => ['tips', 'tip', 'tipamount'],
+    ];
+    $map = [];
+    foreach ($header as $index => $label) {
+        $clean = finance_import_normalize_header((string)$label);
+        foreach ($aliases as $field => $fieldAliases) {
+            if (!isset($map[$field]) && in_array($clean, $fieldAliases, true)) {
+                $map[$field] = (int)$index;
+            }
+        }
+    }
+    return $map;
+}
+
+function finance_import_row_value(array $row, array $map, string $field): string {
+    if (!array_key_exists($field, $map)) return '';
+    return trim((string)($row[$map[$field]] ?? ''));
+}
+
+function finance_import_parse_date($value): ?DateTimeImmutable {
+    $raw = trim((string)$value);
+    if ($raw === '') return null;
+    if (is_numeric($raw) && (float)$raw > 20000 && (float)$raw < 80000) {
+        $days = (int)floor((float)$raw);
+        $seconds = (int)round((((float)$raw) - $days) * 86400);
+        return (new DateTimeImmutable('1899-12-30 00:00:00'))->modify("+{$days} days")->modify("+{$seconds} seconds");
+    }
+    try {
+        return new DateTimeImmutable($raw);
+    } catch (Throwable $e) {
+        return null;
+    }
+}
+
+function finance_import_csv_rows(string $path): array {
+    $rows = [];
+    $handle = fopen($path, 'r');
+    if (!$handle) throw new RuntimeException('The uploaded file could not be opened.');
+    $sample = (string)fgets($handle);
+    rewind($handle);
+    $delimiter = substr_count($sample, "\t") > substr_count($sample, ',') ? "\t" : ',';
+    while (($row = fgetcsv($handle, 0, $delimiter)) !== false) {
+        if (!$row || !array_filter($row, fn($value) => trim((string)$value) !== '')) continue;
+        if (isset($row[0])) $row[0] = preg_replace('/^\xEF\xBB\xBF/', '', (string)$row[0]);
+        $rows[] = $row;
+    }
+    fclose($handle);
+    return $rows;
+}
+
+function finance_import_xlsx_cell_value(SimpleXMLElement $cell, array $sharedStrings): string {
+    $type = (string)($cell['t'] ?? '');
+    if ($type === 'inlineStr') {
+        return trim((string)($cell->is->t ?? ''));
+    }
+    $value = trim((string)($cell->v ?? ''));
+    if ($type === 's') {
+        return (string)($sharedStrings[(int)$value] ?? '');
+    }
+    return $value;
+}
+
+function finance_import_xlsx_rows(string $path): array {
+    if (!class_exists('ZipArchive')) throw new RuntimeException('XLSX import is not available on this server. Save the file as CSV and try again.');
+    $zip = new ZipArchive();
+    if ($zip->open($path) !== true) throw new RuntimeException('The XLSX file could not be opened.');
+
+    $sharedStrings = [];
+    $sharedXml = $zip->getFromName('xl/sharedStrings.xml');
+    if ($sharedXml !== false) {
+        $xml = simplexml_load_string($sharedXml);
+        if ($xml) {
+            foreach ($xml->si as $item) {
+                $parts = [];
+                if (isset($item->t)) {
+                    $parts[] = (string)$item->t;
+                } else {
+                    foreach ($item->r as $run) $parts[] = (string)$run->t;
+                }
+                $sharedStrings[] = implode('', $parts);
+            }
+        }
+    }
+
+    $sheetXml = $zip->getFromName('xl/worksheets/sheet1.xml');
+    $zip->close();
+    if ($sheetXml === false) throw new RuntimeException('The first worksheet could not be read.');
+    $xml = simplexml_load_string($sheetXml);
+    if (!$xml) throw new RuntimeException('The first worksheet could not be parsed.');
+
+    $rows = [];
+    foreach ($xml->sheetData->row as $sheetRow) {
+        $row = [];
+        foreach ($sheetRow->c as $cell) {
+            $ref = (string)($cell['r'] ?? '');
+            $letters = preg_replace('/[^A-Z]/', '', strtoupper($ref)) ?: 'A';
+            $index = 0;
+            for ($i = 0; $i < strlen($letters); $i++) {
+                $index = ($index * 26) + (ord($letters[$i]) - 64);
+            }
+            $row[$index - 1] = finance_import_xlsx_cell_value($cell, $sharedStrings);
+        }
+        if (!$row || !array_filter($row, fn($value) => trim((string)$value) !== '')) continue;
+        ksort($row);
+        $rows[] = array_values($row);
+    }
+    return $rows;
+}
+
+function finance_import_uploaded_rows(array $file): array {
+    if (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) throw new RuntimeException('Choose a CSV or XLSX file to import.');
+    $name = strtolower((string)($file['name'] ?? ''));
+    $tmpPath = (string)($file['tmp_name'] ?? '');
+    if ($tmpPath === '' || !is_uploaded_file($tmpPath)) throw new RuntimeException('The uploaded file was not received.');
+    if ((int)($file['size'] ?? 0) > 5 * 1024 * 1024) throw new RuntimeException('Import files must be under 5 MB.');
+    if (preg_match('/\.xlsx$/', $name)) return finance_import_xlsx_rows($tmpPath);
+    if (preg_match('/\.(csv|tsv|txt)$/', $name)) return finance_import_csv_rows($tmpPath);
+    if (preg_match('/\.xls$/', $name)) throw new RuntimeException('Old .xls files are not supported yet. Save as CSV or XLSX and import that file.');
+    throw new RuntimeException('Use a CSV, TSV, or XLSX file.');
+}
+
+function finance_import_gig_records(PDO $pdo, int $userId, array $rows): array {
+    if (!$rows) throw new RuntimeException('The import file did not contain any rows.');
+    $headerMap = finance_import_header_map($rows[0]);
+    $hasHeader = isset($headerMap['date'], $headerMap['title']);
+    $map = $hasHeader ? $headerMap : ['date' => 0, 'title' => 1, 'guarantee' => 2, 'tips' => 3];
+    $dataRows = $hasHeader ? array_slice($rows, 1) : $rows;
+    $findExisting = $pdo->prepare("SELECT id FROM finance_gigs WHERE user_id = ? AND starts_at = ? AND title = ? LIMIT 1");
+    $insert = $pdo->prepare("
+        INSERT INTO finance_gigs
+          (user_id, title, starts_at, ends_at, guarantee_cents, tips_cents, imported_at)
+        VALUES (?, ?, ?, NULL, ?, ?, NOW())
+    ");
+    $update = $pdo->prepare("
+        UPDATE finance_gigs
+        SET guarantee_cents = ?, tips_cents = ?, imported_at = COALESCE(imported_at, NOW())
+        WHERE id = ? AND user_id = ?
+    ");
+    $imported = 0;
+    $updated = 0;
+    $skipped = 0;
+    foreach ($dataRows as $row) {
+        if (!is_array($row) || !array_filter($row, fn($value) => trim((string)$value) !== '')) continue;
+        $date = finance_import_parse_date(finance_import_row_value($row, $map, 'date'));
+        $title = finance_clean_text(finance_import_row_value($row, $map, 'title'));
+        if (!$date || $title === null) {
+            $skipped++;
+            continue;
+        }
+        $startsAt = $date->format('Y-m-d H:i:s');
+        $guaranteeCents = finance_parse_money(finance_import_row_value($row, $map, 'guarantee'));
+        $tipsCents = finance_parse_money(finance_import_row_value($row, $map, 'tips'));
+
+        $findExisting->execute([$userId, $startsAt, $title]);
+        $existingId = (int)($findExisting->fetchColumn() ?: 0);
+        if ($existingId > 0) {
+            $update->execute([$guaranteeCents, $tipsCents, $existingId, $userId]);
+            $updated++;
+        } else {
+            $insert->execute([$userId, $title, $startsAt, $guaranteeCents, $tipsCents]);
+            $imported++;
+        }
+    }
+    return ['imported' => $imported, 'updated' => $updated, 'skipped' => $skipped];
+}
+
 if (!empty($_SESSION['finance_messages']) && is_array($_SESSION['finance_messages'])) {
     $messages = array_merge($messages, $_SESSION['finance_messages']);
     unset($_SESSION['finance_messages']);
@@ -141,6 +316,16 @@ if ($financeReady && is_post()) {
                     $added += $insert->rowCount();
                 }
                 $messages[] = $added . ' calendar ' . ($added === 1 ? 'event' : 'events') . ' imported.';
+            } elseif ($action === 'import_spreadsheet') {
+                $rows = finance_import_uploaded_rows($_FILES['finance_import_file'] ?? []);
+                $pdo->beginTransaction();
+                $result = finance_import_gig_records($pdo, $userId, $rows);
+                $pdo->commit();
+                $parts = [];
+                if ($result['imported'] > 0) $parts[] = $result['imported'] . ' new ' . ($result['imported'] === 1 ? 'gig' : 'gigs');
+                if ($result['updated'] > 0) $parts[] = $result['updated'] . ' updated';
+                if ($result['skipped'] > 0) $parts[] = $result['skipped'] . ' skipped';
+                $messages[] = $parts ? 'Spreadsheet import finished: ' . implode(', ', $parts) . '.' : 'No importable rows were found.';
             }
         } catch (Throwable $e) {
             if ($pdo->inTransaction()) {
@@ -260,6 +445,28 @@ finance_page_head('Finance | Gig Ledger');
           <div style="margin-top:1rem;"><button class="btn btn-primary" type="submit">Import selected</button></div>
         </form>
       <?php endif; ?>
+    </section>
+
+    <section class="finance-card" style="margin-top:1rem;">
+      <h2 style="margin-top:0;">Import from spreadsheet</h2>
+      <form method="post" enctype="multipart/form-data" class="finance-stack" action="">
+        <input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>">
+        <input type="hidden" name="action" value="import_spreadsheet">
+        <input type="hidden" name="calendar_id" value="<?= (int)$calendarId ?>">
+        <input type="hidden" name="start" value="<?= e($startDate) ?>">
+        <input type="hidden" name="end" value="<?= e($endDate) ?>">
+        <div class="finance-two">
+          <div class="finance-field">
+            <label for="finance_import_file">Spreadsheet file</label>
+            <input class="finance-input" id="finance_import_file" name="finance_import_file" type="file" accept=".csv,.tsv,.txt,.xlsx,text/csv,text/tab-separated-values,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required>
+          </div>
+          <div class="finance-field">
+            <label>Columns</label>
+            <div class="finance-muted">Use headers: date, event title, guarantee, tips. Headerless files are read in that order.</div>
+          </div>
+        </div>
+        <div><button class="btn btn-primary" type="submit" <?= $isProUser ? '' : 'disabled' ?>>Import spreadsheet</button></div>
+      </form>
     </section>
 
     <form method="post" class="finance-card" style="margin-top:1rem;" action="">

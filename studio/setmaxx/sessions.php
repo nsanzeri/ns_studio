@@ -10,6 +10,7 @@ function setmaxx_ensure_public_profile_table(PDO $pdo): void {
 		  `artist_name` varchar(190) DEFAULT NULL,
 		  `website_url` varchar(255) DEFAULT NULL,
 		  `review_url` varchar(255) DEFAULT NULL,
+		  `booking_url` varchar(255) DEFAULT NULL,
 		  `logo_path` varchar(255) DEFAULT NULL,
 		  `venmo_handle` varchar(80) DEFAULT NULL,
 		  `minimum_tip_dollars` tinyint(3) unsigned NOT NULL DEFAULT 10,
@@ -37,6 +38,9 @@ function setmaxx_ensure_public_profile_pricing_columns(PDO $pdo): void {
 	}
 	if (!setmaxx_profile_column_exists($pdo, 'venmo_handle')) {
 		$pdo->exec("ALTER TABLE setmaxx_public_profiles ADD COLUMN venmo_handle varchar(80) DEFAULT NULL AFTER logo_path");
+	}
+	if (!setmaxx_profile_column_exists($pdo, 'booking_url')) {
+		$pdo->exec("ALTER TABLE setmaxx_public_profiles ADD COLUMN booking_url varchar(255) DEFAULT NULL AFTER review_url");
 	}
 	if (!setmaxx_profile_column_exists($pdo, 'minimum_tip_dollars')) {
 		$pdo->exec("ALTER TABLE setmaxx_public_profiles ADD COLUMN minimum_tip_dollars tinyint(3) unsigned NOT NULL DEFAULT 10 AFTER logo_path");
@@ -84,14 +88,14 @@ function setmaxx_clean_public_url($value): ?string {
 
 function setmaxx_public_profile(PDO $pdo, int $userId): array {
 	setmaxx_ensure_public_profile_pricing_columns($pdo);
-	$stmt = $pdo->prepare("SELECT artist_name, website_url, review_url, logo_path, venmo_handle, minimum_tip_dollars, suggested_request_dollars, price_step_dollars FROM setmaxx_public_profiles WHERE user_id = ? LIMIT 1");
+	$stmt = $pdo->prepare("SELECT artist_name, website_url, review_url, booking_url, logo_path, venmo_handle, minimum_tip_dollars, suggested_request_dollars, price_step_dollars FROM setmaxx_public_profiles WHERE user_id = ? LIMIT 1");
 	$stmt->execute([$userId]);
-	return $stmt->fetch(PDO::FETCH_ASSOC) ?: ['artist_name' => '', 'website_url' => '', 'review_url' => '', 'logo_path' => '', 'venmo_handle' => '', 'minimum_tip_dollars' => 10, 'suggested_request_dollars' => 10, 'price_step_dollars' => 1];
+	return $stmt->fetch(PDO::FETCH_ASSOC) ?: ['artist_name' => '', 'website_url' => '', 'review_url' => '', 'booking_url' => '', 'logo_path' => '', 'venmo_handle' => '', 'minimum_tip_dollars' => 10, 'suggested_request_dollars' => 10, 'price_step_dollars' => 1];
 }
 
 $stablePublicUrl = '';
 $stableQrUrl = '';
-$publicProfile = ['artist_name' => '', 'website_url' => '', 'review_url' => '', 'logo_path' => ''];
+$publicProfile = ['artist_name' => '', 'website_url' => '', 'review_url' => '', 'booking_url' => '', 'logo_path' => ''];
 if ($tablesReady) {
 	try {
 		setmaxx_ensure_session_venmo_column($pdo);
@@ -139,6 +143,7 @@ if ($tablesReady && is_post()) {
 				$artistName = setmaxx_clean_public_text($_POST['artist_name'] ?? '', 190);
 				$websiteUrl = setmaxx_clean_public_url($_POST['website_url'] ?? '');
 				$reviewUrl = setmaxx_clean_public_url($_POST['review_url'] ?? '');
+				$bookingUrl = setmaxx_clean_public_url($_POST['booking_url'] ?? '');
 				$venmoHandle = setmaxx_clean_venmo_handle($_POST['venmo_handle'] ?? '');
 				$minimumTipDollars = max(0, min(100, (int)($_POST['minimum_tip_dollars'] ?? 10)));
 				$suggestedRequestDollars = max(0, min(100, (int)($_POST['suggested_request_dollars'] ?? 10)));
@@ -148,6 +153,7 @@ if ($tablesReady && is_post()) {
 				
 				if (trim((string)($_POST['website_url'] ?? '')) !== '' && $websiteUrl === null) throw new RuntimeException('Website link is not valid.');
 				if (trim((string)($_POST['review_url'] ?? '')) !== '' && $reviewUrl === null) throw new RuntimeException('Review link is not valid.');
+				if (trim((string)($_POST['booking_url'] ?? '')) !== '' && $bookingUrl === null) throw new RuntimeException('Booking link is not valid.');
 				if (trim((string)($_POST['venmo_handle'] ?? '')) !== '' && $venmoHandle === null) throw new RuntimeException('Venmo handle can use letters, numbers, dots, underscores, or hyphens.');
 				
 				if (!empty($_FILES['logo_file']['tmp_name']) && is_uploaded_file($_FILES['logo_file']['tmp_name'])) {
@@ -171,10 +177,10 @@ if ($tablesReady && is_post()) {
 				}
 				
 				$pdo->prepare(
-					"INSERT INTO setmaxx_public_profiles (user_id, artist_name, website_url, review_url, logo_path, venmo_handle, minimum_tip_dollars, suggested_request_dollars, price_step_dollars)
-					 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-					 ON DUPLICATE KEY UPDATE artist_name = VALUES(artist_name), website_url = VALUES(website_url), review_url = VALUES(review_url), logo_path = VALUES(logo_path), venmo_handle = VALUES(venmo_handle), minimum_tip_dollars = VALUES(minimum_tip_dollars), suggested_request_dollars = VALUES(suggested_request_dollars), price_step_dollars = VALUES(price_step_dollars)"
-				)->execute([$userId, $artistName, $websiteUrl, $reviewUrl, $logoPath !== '' ? $logoPath : null, $venmoHandle, $minimumTipDollars, $suggestedRequestDollars, $priceStepDollars]);
+					"INSERT INTO setmaxx_public_profiles (user_id, artist_name, website_url, review_url, booking_url, logo_path, venmo_handle, minimum_tip_dollars, suggested_request_dollars, price_step_dollars)
+					 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+					 ON DUPLICATE KEY UPDATE artist_name = VALUES(artist_name), website_url = VALUES(website_url), review_url = VALUES(review_url), booking_url = VALUES(booking_url), logo_path = VALUES(logo_path), venmo_handle = VALUES(venmo_handle), minimum_tip_dollars = VALUES(minimum_tip_dollars), suggested_request_dollars = VALUES(suggested_request_dollars), price_step_dollars = VALUES(price_step_dollars)"
+				)->execute([$userId, $artistName, $websiteUrl, $reviewUrl, $bookingUrl, $logoPath !== '' ? $logoPath : null, $venmoHandle, $minimumTipDollars, $suggestedRequestDollars, $priceStepDollars]);
 				$publicProfile = setmaxx_public_profile($pdo, $userId);
 				$messages[] = 'Public page settings saved.';
 			}
@@ -301,7 +307,11 @@ setmaxx_page_head('Set Maxx | Show Setup');
       </div>
       <div class="setmaxx-form-grid">
         <div class="setmaxx-field"><label for="review_url">Review link</label><input class="setmaxx-input" id="review_url" name="review_url" placeholder="Google review page" value="<?= e((string)($publicProfile['review_url'] ?? '')) ?>"></div>
+        <div class="setmaxx-field"><label for="booking_url">Booking link</label><input class="setmaxx-input" id="booking_url" name="booking_url" placeholder="Your booking form or calendar link" value="<?= e((string)($publicProfile['booking_url'] ?? '')) ?>"></div>
+      </div>
+      <div class="setmaxx-form-grid">
         <div class="setmaxx-field"><label for="venmo_handle">Venmo handle</label><input class="setmaxx-input" id="venmo_handle" name="venmo_handle" placeholder="@your-venmo" value="<?= e((string)($publicProfile['venmo_handle'] ?? '')) ?>"></div>
+        <div class="setmaxx-field"><label>Booking badge</label><div class="setmaxx-help">Shown on the public request page only when a booking link is saved.</div></div>
       </div>
       <div class="setmaxx-form-grid">
         <div class="setmaxx-field">

@@ -65,6 +65,7 @@ CREATE TABLE IF NOT EXISTS `setmaxx_public_profiles` (
   `artist_name` varchar(190) DEFAULT NULL,
   `website_url` varchar(255) DEFAULT NULL,
   `review_url` varchar(255) DEFAULT NULL,
+  `booking_url` varchar(255) DEFAULT NULL,
   `logo_path` varchar(255) DEFAULT NULL,
   `venmo_handle` varchar(80) DEFAULT NULL,
   `minimum_tip_dollars` tinyint(3) unsigned NOT NULL DEFAULT 10,

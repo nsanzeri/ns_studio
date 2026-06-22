@@ -14,7 +14,7 @@ $songs = [];
 $lockedSongIds = [];
 $availableLetters = [];
 $songCount = 0;
-$publicProfile = ['artist_name' => '', 'website_url' => '', 'review_url' => '', 'logo_path' => '', 'venmo_handle' => '', 'minimum_tip_dollars' => 10, 'suggested_request_dollars' => 10, 'price_step_dollars' => 1];
+$publicProfile = ['artist_name' => '', 'website_url' => '', 'review_url' => '', 'booking_url' => '', 'logo_path' => '', 'venmo_handle' => '', 'minimum_tip_dollars' => 10, 'suggested_request_dollars' => 10, 'price_step_dollars' => 1];
 $publicHostName = 'the artist';
 $sessionMinimumDollars = 10;
 $priceStepDollars = 1;
@@ -107,6 +107,7 @@ function setmaxx_public_ensure_profile_table(PDO $pdo): void {
           `artist_name` varchar(190) DEFAULT NULL,
           `website_url` varchar(255) DEFAULT NULL,
           `review_url` varchar(255) DEFAULT NULL,
+          `booking_url` varchar(255) DEFAULT NULL,
           `logo_path` varchar(255) DEFAULT NULL,
           `venmo_handle` varchar(80) DEFAULT NULL,
           `minimum_tip_dollars` tinyint(3) unsigned NOT NULL DEFAULT 10,
@@ -134,6 +135,9 @@ function setmaxx_public_ensure_profile_pricing_columns(PDO $pdo): void {
     }
     if (!setmaxx_public_profile_column_exists($pdo, 'venmo_handle')) {
         $pdo->exec("ALTER TABLE setmaxx_public_profiles ADD COLUMN venmo_handle varchar(80) DEFAULT NULL AFTER logo_path");
+    }
+    if (!setmaxx_public_profile_column_exists($pdo, 'booking_url')) {
+        $pdo->exec("ALTER TABLE setmaxx_public_profiles ADD COLUMN booking_url varchar(255) DEFAULT NULL AFTER review_url");
     }
     if (!setmaxx_public_profile_column_exists($pdo, 'minimum_tip_dollars')) {
         $pdo->exec("ALTER TABLE setmaxx_public_profiles ADD COLUMN minimum_tip_dollars tinyint(3) unsigned NOT NULL DEFAULT 10 AFTER logo_path");
@@ -192,9 +196,9 @@ function setmaxx_public_ensure_general_tips_table(PDO $pdo): void {
 
 function setmaxx_public_profile(PDO $pdo, int $userId): array {
     setmaxx_public_ensure_profile_pricing_columns($pdo);
-    $stmt = $pdo->prepare("SELECT artist_name, website_url, review_url, logo_path, venmo_handle, minimum_tip_dollars, suggested_request_dollars, price_step_dollars FROM setmaxx_public_profiles WHERE user_id = ? LIMIT 1");
+    $stmt = $pdo->prepare("SELECT artist_name, website_url, review_url, booking_url, logo_path, venmo_handle, minimum_tip_dollars, suggested_request_dollars, price_step_dollars FROM setmaxx_public_profiles WHERE user_id = ? LIMIT 1");
     $stmt->execute([$userId]);
-    return $stmt->fetch(PDO::FETCH_ASSOC) ?: ['artist_name' => '', 'website_url' => '', 'review_url' => '', 'logo_path' => '', 'venmo_handle' => '', 'minimum_tip_dollars' => 10, 'suggested_request_dollars' => 10, 'price_step_dollars' => 1];
+    return $stmt->fetch(PDO::FETCH_ASSOC) ?: ['artist_name' => '', 'website_url' => '', 'review_url' => '', 'booking_url' => '', 'logo_path' => '', 'venmo_handle' => '', 'minimum_tip_dollars' => 10, 'suggested_request_dollars' => 10, 'price_step_dollars' => 1];
 }
 
 function setmaxx_public_user_name(PDO $pdo, int $userId): string {
@@ -361,7 +365,7 @@ if ($tablesReady && $publicUserId > 0) {
     try {
         $publicProfile = setmaxx_public_profile($pdo, $publicUserId);
     } catch (Throwable $e) {
-        $publicProfile = ['artist_name' => '', 'website_url' => '', 'review_url' => '', 'logo_path' => '', 'venmo_handle' => '', 'minimum_tip_dollars' => 10, 'suggested_request_dollars' => 10, 'price_step_dollars' => 1];
+        $publicProfile = ['artist_name' => '', 'website_url' => '', 'review_url' => '', 'booking_url' => '', 'logo_path' => '', 'venmo_handle' => '', 'minimum_tip_dollars' => 10, 'suggested_request_dollars' => 10, 'price_step_dollars' => 1];
     }
     $savedArtistName = trim((string)($publicProfile['artist_name'] ?? ''));
     if (trim($publicDisplayName) === '') {
@@ -765,8 +769,32 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
     .show-status-pill { display:inline-flex; align-items:center; min-height:24px; padding:.2rem .55rem; border-radius:999px; background:rgba(140,107,255,.14); border:1px solid rgba(140,107,255,.22); color:#efe7ff; font-weight:600; white-space:nowrap; }
     .show-status-note { color:rgba(255,255,255,.62); }
     .public-logo { width:64px; height:64px; object-fit:contain; border-radius:16px; background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.1); padding:.4rem; }
-    .public-quick-links { display:flex; gap:.5rem; flex-wrap:wrap; margin-top:.75rem; }
+    .public-hero { display:grid; grid-template-columns:auto minmax(0, 1fr); gap:.75rem 1rem; align-items:start; }
+    .public-hero-status { display:inline-flex; width:max-content; max-width:100%; padding:.3rem .7rem; border-radius:999px; background:rgba(140,107,255,.16); color:#efe7ff; font-weight:600; }
+    .public-hero-title, .public-hero-subtitle, .public-quick-links { grid-column:1 / -1; }
+    .public-hero-title { margin:.15rem 0 0; }
+    .public-hero-subtitle { margin:0; }
+    .public-quick-links { display:flex; gap:.5rem; flex-wrap:nowrap; margin-top:.15rem; }
     .public-mini-button { display:inline-flex; align-items:center; min-height:34px; padding:.4rem .75rem; border-radius:999px; border:1px solid rgba(255,255,255,.14); color:#fff; text-decoration:none; font-size:.86rem; background:rgba(255,255,255,.04); }
+    .public-action-bar { display:flex; gap:.45rem; flex-wrap:wrap; align-items:center; margin-top:1rem; }
+    .public-action-bar .action-card { margin-top:0; overflow:visible; background:transparent; border:0; border-radius:0; }
+    .public-action-bar .action-card[open] { position:relative; z-index:20; }
+    .public-action-bar .action-summary {
+      min-height:36px; padding:.42rem .72rem; border-radius:999px; border:1px solid rgba(255,255,255,.14);
+      background:rgba(255,255,255,.055); font-size:.86rem; gap:.45rem;
+    }
+    .public-action-bar .action-summary:hover, .public-action-bar .action-card[open] .action-summary, .public-mini-button:hover {
+      background:rgba(140,107,255,.2); border-color:rgba(140,107,255,.36);
+    }
+    .public-action-bar .action-summary-text { display:block; }
+    .public-action-bar .action-summary-hint { display:none; }
+    .public-action-bar .action-chevron { font-size:.92rem; }
+    .public-action-bar .action-card[open] .action-summary { border-bottom:1px solid rgba(140,107,255,.36); }
+    .public-action-bar .action-panel {
+      position:fixed; left:50%; top:50%; transform:translate(-50%, -50%); width:min(760px, calc(100vw - 1.5rem));
+      max-height:calc(100vh - 2rem); overflow:auto; padding:1rem; border-radius:18px;
+      background:rgba(21,19,35,.98); border:1px solid rgba(255,255,255,.12); box-shadow:0 24px 70px rgba(0,0,0,.46);
+    }
     .suggestion-card { margin-top:1rem; padding:1rem; border-radius:18px; background:rgba(255,255,255,.035); border:1px solid rgba(255,255,255,.07); }
     .action-card { margin-top:1rem; border-radius:18px; background:rgba(255,255,255,.035); border:1px solid rgba(255,255,255,.07); overflow:hidden; }
     .action-summary { padding:1rem; font-weight:600; }
@@ -801,27 +829,27 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
       <h1 style="margin-top:0;">Set Maxx is not installed yet.</h1>
     <?php elseif (!$session): ?>
       <?php if ($stableLinkFound && $publicUserId > 0): ?>
-        <div style="display:flex; gap:1rem; align-items:flex-start; flex-wrap:wrap;">
+        <div class="public-hero">
           <?php if (!empty($publicProfile['logo_path'])): ?>
             <img class="public-logo" src="<?= e(base_url((string)$publicProfile['logo_path'])) ?>" alt="">
           <?php endif; ?>
-          <div>
-            <div style="display:inline-flex; padding:.3rem .7rem; border-radius:999px; background:rgba(140,107,255,.16); color:#efe7ff; font-weight:600;">Requests are taking five</div>
-            <h1 style="margin:.8rem 0 .35rem;"><?= e($publicHostName) ?></h1>
-            <p class="song-meta" style="max-width:620px;">The request list is closed right now, but the show energy is still welcome. Drop a tip, leave a song idea for a future set, or keep in touch below.</p>
+          <div class="public-hero-status">Requests are taking five</div>
+          <h1 class="public-hero-title"><?= e($publicHostName) ?></h1>
+          <p class="song-meta public-hero-subtitle">The request list is closed right now, but the show energy is still welcome. Drop a tip, leave a song idea, or keep in touch below.</p>
             <?php if (!empty($publicProfile['website_url']) || !empty($publicProfile['review_url'])): ?>
               <div class="public-quick-links">
                 <?php if (!empty($publicProfile['website_url'])): ?><a class="public-mini-button" href="<?= e((string)$publicProfile['website_url']) ?>" target="_blank" rel="noopener">Website</a><?php endif; ?>
                 <?php if (!empty($publicProfile['review_url'])): ?><a class="public-mini-button" href="<?= e((string)$publicProfile['review_url']) ?>" target="_blank" rel="noopener">Leave a review</a><?php endif; ?>
               </div>
             <?php endif; ?>
-          </div>
         </div>
 
+        <div class="public-action-bar" aria-label="More ways to connect">
+        <?php if (!empty($publicProfile['booking_url'])): ?><a class="public-mini-button" href="<?= e((string)$publicProfile['booking_url']) ?>" target="_blank" rel="noopener">Book</a><?php endif; ?>
         <details class="action-card">
           <summary class="action-summary">
             <span class="action-summary-text">
-              <span>Tip <?= e($publicHostName) ?></span>
+              <span>Tip</span>
               <span class="action-summary-hint">Open to choose an amount and payment method.</span>
             </span>
             <span class="action-chevron" aria-hidden="true">&darr;</span>
@@ -858,7 +886,7 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
         <details class="action-card">
           <summary class="action-summary">
             <span class="action-summary-text">
-              <span>Join the list</span>
+              <span>Join list</span>
               <span class="action-summary-hint">Get show dates, music updates, and the occasional heads-up.</span>
             </span>
             <span class="action-chevron" aria-hidden="true">&darr;</span>
@@ -877,7 +905,7 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
         <details class="action-card">
           <summary class="action-summary">
             <span class="action-summary-text">
-              <span>Suggest a song for future shows</span>
+              <span>Suggest song</span>
               <span class="action-summary-hint">Open if you do not see the song you want.</span>
             </span>
             <span class="action-chevron" aria-hidden="true">&darr;</span>
@@ -894,40 +922,33 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
             </form>
           </div>
         </details>
+        </div>
       <?php else: ?>
         <h1 style="margin-top:0;">Request page not found.</h1>
         <p class="song-meta">This Set Maxx link is not active right now.</p>
       <?php endif; ?>
     <?php else: ?>
-      <div style="display:flex; justify-content:space-between; gap:1rem; align-items:flex-start; flex-wrap:wrap;">
-        <div style="display:flex; gap:1rem; align-items:flex-start;">
+      <div class="public-hero">
           <?php if (!empty($publicProfile['logo_path'])): ?>
             <img class="public-logo" src="<?= e(base_url((string)$publicProfile['logo_path'])) ?>" alt="">
           <?php endif; ?>
-          <div>
-          <div style="display:inline-flex; padding:.3rem .7rem; border-radius:999px; background:rgba(140,107,255,.16); color:#efe7ff; font-weight:600;">Live requests for <?= e($publicHostName) ?></div>
-          <h1 style="margin:.8rem 0 .35rem;"><?= e($session['title']) ?></h1>
-          <div class="song-meta"><?= e((string)($session['venue_name'] ?: 'Tonight\'s show')) ?> &middot; hosted by <?= e($publicHostName) ?></div>
+          <div class="public-hero-status">Live requests for <?= e($publicHostName) ?></div>
+          <h1 class="public-hero-title"><?= e($session['title']) ?></h1>
+          <div class="song-meta public-hero-subtitle"><?= e((string)($session['venue_name'] ?: 'Tonight\'s show')) ?> &middot; hosted by <?= e($publicHostName) ?></div>
           <?php if (!empty($publicProfile['website_url']) || !empty($publicProfile['review_url'])): ?>
             <div class="public-quick-links">
               <?php if (!empty($publicProfile['website_url'])): ?><a class="public-mini-button" href="<?= e((string)$publicProfile['website_url']) ?>" target="_blank" rel="noopener">Website</a><?php endif; ?>
               <?php if (!empty($publicProfile['review_url'])): ?><a class="public-mini-button" href="<?= e((string)$publicProfile['review_url']) ?>" target="_blank" rel="noopener">Leave a review</a><?php endif; ?>
             </div>
           <?php endif; ?>
-          </div>
-        </div>
       </div>
 
-      <div class="show-status-strip">
-        <span class="show-status-pill"><?= (int)$songCount ?> active <?= $songCount === 1 ? 'song' : 'songs' ?></span>
-        <span>Paid requests lock songs for tonight<?= $sessionMinimumDollars > 0 ? '.' : '; free requests keep them open.' ?></span>
-        <span class="show-status-note">Choose $<?= (int)max(5, $sessionMinimumDollars) ?>-$100<?= $sessionMinimumDollars > 0 ? '' : ' or $0 free' ?>.</span>
-      </div>
-
+      <div class="public-action-bar" aria-label="More ways to connect">
+      <?php if (!empty($publicProfile['booking_url'])): ?><a class="public-mini-button" href="<?= e((string)$publicProfile['booking_url']) ?>" target="_blank" rel="noopener">Book</a><?php endif; ?>
       <details class="action-card">
         <summary class="action-summary">
           <span class="action-summary-text">
-            <span>Tip <?= e($publicHostName) ?></span>
+            <span>Tip</span>
             <span class="action-summary-hint">Open to choose an amount and payment method.</span>
           </span>
           <span class="action-chevron" aria-hidden="true">&darr;</span>
@@ -964,7 +985,7 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
       <details class="action-card">
         <summary class="action-summary">
           <span class="action-summary-text">
-            <span>Join the list</span>
+            <span>Join list</span>
             <span class="action-summary-hint">Get show dates, music updates, and the occasional heads-up.</span>
           </span>
           <span class="action-chevron" aria-hidden="true">&darr;</span>
@@ -983,7 +1004,7 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
       <details class="action-card">
         <summary class="action-summary">
           <span class="action-summary-text">
-            <span>Suggest a song for future shows</span>
+            <span>Suggest song</span>
             <span class="action-summary-hint">Open if you do not see the song you want.</span>
           </span>
           <span class="action-chevron" aria-hidden="true">&darr;</span>
@@ -1000,8 +1021,12 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
           </form>
         </div>
       </details>
+      </div>
 
       <?php if ($songs): ?>
+        <div class="show-status-strip">
+          <span class="show-status-pill"><?= (int)$songCount ?> active <?= $songCount === 1 ? 'song' : 'songs' ?></span>
+        </div>
         <div class="alpha-menu" aria-label="Song alphabet filter">
           <input class="catalog-search" id="catalogSearch" type="search" placeholder="Search songs or artists" autocomplete="off" aria-label="Search songs or artists">
           <span class="alpha-label">Filter</span>
@@ -1097,6 +1122,7 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
   const buttons = Array.from(document.querySelectorAll('.alpha-button'));
   const sortButtons = Array.from(document.querySelectorAll('.sort-button'));
   const cards = Array.from(document.querySelectorAll('.song-card[data-letter]'));
+  const actionDetails = Array.from(document.querySelectorAll('.public-action-bar details.action-card'));
   const requestDetails = cards.filter(function(card) { return card.tagName.toLowerCase() === 'details'; });
   const requesterNameInputs = Array.from(document.querySelectorAll('input[name="requester_name"]'));
   const rememberedNameKey = 'setmaxxRequesterName';
@@ -1106,7 +1132,26 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
   let currentLetter = 'all';
   let currentSort = 'title';
   let currentSearch = '';
-  if (!buttons.length || !cards.length) return;
+
+  actionDetails.forEach(function(detail) {
+    detail.addEventListener('toggle', function() {
+      if (!detail.open) return;
+      actionDetails.forEach(function(otherDetail) {
+        if (otherDetail !== detail) otherDetail.open = false;
+      });
+    });
+  });
+
+  document.addEventListener('click', function(event) {
+    actionDetails.forEach(function(detail) {
+      if (detail.open && !detail.contains(event.target)) detail.open = false;
+    });
+  });
+
+  document.addEventListener('keydown', function(event) {
+    if (event.key !== 'Escape') return;
+    actionDetails.forEach(function(detail) { detail.open = false; });
+  });
 
   function rememberedRequesterName() {
     try {
@@ -1186,6 +1231,8 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
       });
     }
   });
+
+  if (!buttons.length || !cards.length || !grid) return;
 
   function cardLetter(card) {
     return card.getAttribute('data-' + currentSort + '-letter') || '#';

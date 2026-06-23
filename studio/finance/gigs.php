@@ -5,6 +5,13 @@ $defaultStart = (new DateTimeImmutable('first day of January this year'))->forma
 $defaultEnd = (new DateTimeImmutable('last day of December this year'))->format('Y-m-d');
 $startDate = trim((string)($_GET['start'] ?? $_POST['start'] ?? $defaultStart));
 $endDate = trim((string)($_GET['end'] ?? $_POST['end'] ?? $defaultEnd));
+$selectedYear = (int)($_GET['year'] ?? 0);
+if ($selectedYear >= 2000 && $selectedYear <= 2100) {
+    $startDate = sprintf('%04d-01-01', $selectedYear);
+    $endDate = sprintf('%04d-12-31', $selectedYear);
+} else {
+    $selectedYear = 0;
+}
 $calendarId = (int)($_GET['calendar_id'] ?? $_POST['calendar_id'] ?? 0);
 $previewEvents = [];
 
@@ -163,6 +170,7 @@ function finance_import_gig_records(PDO $pdo, int $userId, array $rows): array {
     $imported = 0;
     $updated = 0;
     $skipped = 0;
+    $years = [];
     foreach ($dataRows as $row) {
         if (!is_array($row) || !array_filter($row, fn($value) => trim((string)$value) !== '')) continue;
         $date = finance_import_parse_date(finance_import_row_value($row, $map, 'date'));
@@ -172,6 +180,7 @@ function finance_import_gig_records(PDO $pdo, int $userId, array $rows): array {
             continue;
         }
         $startsAt = $date->format('Y-m-d H:i:s');
+        $years[(int)$date->format('Y')] = true;
         $guaranteeCents = finance_parse_money(finance_import_row_value($row, $map, 'guarantee'));
         $tipsCents = finance_parse_money(finance_import_row_value($row, $map, 'tips'));
 
@@ -185,7 +194,7 @@ function finance_import_gig_records(PDO $pdo, int $userId, array $rows): array {
             $imported++;
         }
     }
-    return ['imported' => $imported, 'updated' => $updated, 'skipped' => $skipped];
+    return ['imported' => $imported, 'updated' => $updated, 'skipped' => $skipped, 'years' => array_keys($years)];
 }
 
 if (!empty($_SESSION['finance_messages']) && is_array($_SESSION['finance_messages'])) {
@@ -326,6 +335,11 @@ if ($financeReady && is_post()) {
                 if ($result['updated'] > 0) $parts[] = $result['updated'] . ' updated';
                 if ($result['skipped'] > 0) $parts[] = $result['skipped'] . ' skipped';
                 $messages[] = $parts ? 'Spreadsheet import finished: ' . implode(', ', $parts) . '.' : 'No importable rows were found.';
+                $importYears = array_values(array_unique(array_filter(array_map('intval', $result['years'] ?? []), fn($year) => $year >= 2000 && $year <= 2100)));
+                if (count($importYears) === 1) {
+                    $startDate = sprintf('%04d-01-01', $importYears[0]);
+                    $endDate = sprintf('%04d-12-31', $importYears[0]);
+                }
             }
         } catch (Throwable $e) {
             if ($pdo->inTransaction()) {
@@ -354,7 +368,24 @@ if ($financeReady && isset($_GET['preview']) && $calendarId > 0) {
 
 $gigs = [];
 $payoutsByGig = [];
+$availableYears = [];
 if ($financeReady) {
+    $yearStmt = $pdo->prepare("
+        SELECT DISTINCT YEAR(starts_at) AS gig_year
+        FROM finance_gigs
+        WHERE user_id = ?
+        ORDER BY gig_year DESC
+    ");
+    $yearStmt->execute([$userId]);
+    $availableYears = array_values(array_filter(array_map('intval', $yearStmt->fetchAll(PDO::FETCH_COLUMN)), fn($year) => $year > 0));
+    $currentYear = (int)date('Y');
+    foreach (range($currentYear + 1, 2020) as $year) {
+        if (!in_array($year, $availableYears, true)) $availableYears[] = $year;
+    }
+    if (!in_array($currentYear, $availableYears, true)) $availableYears[] = $currentYear;
+    if ($selectedYear > 0 && !in_array($selectedYear, $availableYears, true)) $availableYears[] = $selectedYear;
+    rsort($availableYears, SORT_NUMERIC);
+
     $stmt = $pdo->prepare("
         SELECT g.*,
                COALESCE(p.payout_cents, 0) AS payout_cents,
@@ -401,6 +432,33 @@ finance_page_head('Finance | Gig Ledger');
   <?php if (!$financeReady): ?>
     <?php finance_install_notice(); ?>
   <?php else: ?>
+    <section class="finance-card" style="margin-bottom:1rem;">
+      <h2 style="margin-top:0;">View year</h2>
+      <form method="get" class="finance-stack" action="">
+        <input type="hidden" name="calendar_id" value="<?= (int)$calendarId ?>">
+        <div class="finance-two">
+          <div class="finance-field">
+            <label for="year">Year</label>
+            <select class="finance-select" id="year" name="year">
+              <?php foreach ($availableYears as $year): ?>
+                <option value="<?= (int)$year ?>" <?= (int)substr($startDate, 0, 4) === (int)$year && $startDate === sprintf('%04d-01-01', $year) && $endDate === sprintf('%04d-12-31', $year) ? 'selected' : '' ?>><?= (int)$year ?></option>
+              <?php endforeach; ?>
+            </select>
+          </div>
+          <div class="finance-field">
+            <label>Showing</label>
+            <div class="finance-muted"><?= e($startDate) ?> through <?= e($endDate) ?></div>
+          </div>
+        </div>
+        <div><button class="btn btn-primary" type="submit">Show year</button></div>
+      </form>
+      <div class="finance-year-links" aria-label="Quick year links">
+        <?php foreach ($availableYears as $year): ?>
+          <a class="finance-year-link <?= (int)substr($startDate, 0, 4) === (int)$year && $startDate === sprintf('%04d-01-01', $year) && $endDate === sprintf('%04d-12-31', $year) ? 'active' : '' ?>" href="<?= e(base_url('/finance/gigs.php?calendar_id=' . (int)$calendarId . '&year=' . (int)$year)) ?>"><?= (int)$year ?></a>
+        <?php endforeach; ?>
+      </div>
+    </section>
+
     <section class="finance-card">
       <h2 style="margin-top:0;">Import from calendar</h2>
       <form method="get" class="finance-stack" action="">
@@ -486,13 +544,13 @@ finance_page_head('Finance | Gig Ledger');
         <p class="finance-muted">No imported gigs in this date range yet.</p>
       <?php else: ?>
         <div class="finance-table-wrap">
-          <table class="finance-table">
-            <thead><tr><th></th><th>Date</th><th>Event title</th><th>Guarantee</th><th>Tips</th><th>Taxable</th><th>Miles</th><th>Money out</th><th>Net</th><th>Notes</th></tr></thead>
+          <table class="finance-table finance-gig-ledger-table">
+            <thead><tr><th class="finance-select-col"><input class="finance-check" type="checkbox" data-finance-select-all aria-label="Select all gigs"></th><th class="finance-date-col">Date</th><th>Event title</th><th>Guarantee</th><th>Tips</th><th>Taxable</th><th>Miles</th><th>Money out</th><th>Net</th><th>Notes</th></tr></thead>
             <tbody>
               <?php foreach ($gigs as $gig): $gigId = (int)$gig['id']; $gigPayouts = $payoutsByGig[$gigId] ?? []; $payoutTotal = (int)($gig['payout_cents'] ?? 0); $net = (int)$gig['guarantee_cents'] + (int)$gig['tips_cents'] - $payoutTotal; ?>
                 <tr>
-                  <td><input type="checkbox" name="selected_gig_ids[]" value="<?= $gigId ?>"></td>
-                  <td><input class="finance-input" type="datetime-local" name="gigs[<?= $gigId ?>][starts_at]" value="<?= e((new DateTime((string)$gig['starts_at']))->format('Y-m-d\TH:i')) ?>"></td>
+                  <td class="finance-select-col"><input class="finance-check" type="checkbox" name="selected_gig_ids[]" value="<?= $gigId ?>"></td>
+                  <td class="finance-date-col"><input class="finance-input finance-date-input" type="date" name="gigs[<?= $gigId ?>][starts_at]" value="<?= e((new DateTime((string)$gig['starts_at']))->format('Y-m-d')) ?>"></td>
                   <td><input class="finance-input" name="gigs[<?= $gigId ?>][title]" value="<?= e($gig['title']) ?>"></td>
                   <td><input class="finance-input" name="gigs[<?= $gigId ?>][guarantee]" value="<?= e(number_format((int)$gig['guarantee_cents'] / 100, 2, '.', '')) ?>"></td>
                   <td><input class="finance-input" name="gigs[<?= $gigId ?>][tips]" value="<?= e(number_format((int)$gig['tips_cents'] / 100, 2, '.', '')) ?>"></td>
@@ -557,6 +615,14 @@ finance_page_head('Finance | Gig Ledger');
     </template>
     <script>
       document.addEventListener('click', function (event) {
+        var selectAll = event.target.closest('[data-finance-select-all]');
+        if (selectAll) {
+          document.querySelectorAll('input[name="selected_gig_ids[]"]').forEach(function (checkbox) {
+            checkbox.checked = selectAll.checked;
+          });
+          return;
+        }
+
         var openButton = event.target.closest('[data-finance-open-dialog]');
         if (openButton) {
           var dialog = document.getElementById(openButton.getAttribute('data-finance-open-dialog'));
@@ -590,6 +656,16 @@ finance_page_head('Finance | Gig Ledger');
           list.appendChild(clone);
           list.setAttribute('data-next-index', String(index + 1));
         }
+      });
+
+      document.addEventListener('change', function (event) {
+        if (!event.target.matches('input[name="selected_gig_ids[]"]')) return;
+        var checkboxes = Array.from(document.querySelectorAll('input[name="selected_gig_ids[]"]'));
+        var selectAll = document.querySelector('[data-finance-select-all]');
+        if (!selectAll || !checkboxes.length) return;
+        var checked = checkboxes.filter(function (checkbox) { return checkbox.checked; }).length;
+        selectAll.checked = checked === checkboxes.length;
+        selectAll.indeterminate = checked > 0 && checked < checkboxes.length;
       });
     </script>
   <?php endif; ?>

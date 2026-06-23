@@ -323,6 +323,15 @@ function finance_page_head(string $title): void { ?>
     .finance-table th { color:#f4d35e; font-size:.78rem; letter-spacing:.08em; text-transform:uppercase; }
     .finance-table input, .finance-table textarea { min-width:92px; }
     .finance-table textarea { min-width:160px; min-height:42px; resize:vertical; }
+    .finance-gig-ledger-table { min-width:900px; }
+    .finance-gig-ledger-table th, .finance-gig-ledger-table td { padding:.42rem .5rem; }
+    .finance-gig-ledger-table .finance-input, .finance-gig-ledger-table .finance-textarea, .finance-gig-ledger-table .finance-select { padding:.48rem .58rem; border-radius:10px; font-size:.92rem; }
+    .finance-gig-ledger-table .finance-textarea { min-height:34px; }
+    .finance-gig-ledger-table .finance-select-col { width:34px; min-width:34px; text-align:center; padding-left:.35rem; padding-right:.35rem; }
+    .finance-gig-ledger-table .finance-date-col { width:142px; min-width:142px; }
+    .finance-gig-ledger-table .finance-date-input { width:132px; min-width:132px; }
+    .finance-gig-ledger-table .finance-moneyout-cell { min-width:150px; }
+    .finance-gig-ledger-table .finance-moneyout-button { padding:.4rem .62rem; }
     .finance-check-cell { text-align:center; }
     .finance-check { min-width:0 !important; width:18px; height:18px; accent-color:#d4af37; }
     .finance-moneyout-cell { min-width:180px; }
@@ -341,10 +350,29 @@ function finance_page_head(string $title): void { ?>
     .finance-stat strong { display:block; font-size:1.55rem; color:#fff; }
     .finance-muted { color:rgba(255,255,255,.72); }
     .finance-pill { display:inline-flex; align-items:center; gap:.4rem; padding:.28rem .75rem; border-radius:999px; font-size:.84rem; font-weight:600; background: rgba(212,175,55,.16); color:#ffe28a; }
+    .finance-year-links { display:flex; gap:.45rem; flex-wrap:wrap; margin-top:1rem; }
+    .finance-year-link { display:inline-flex; align-items:center; min-height:34px; padding:.38rem .72rem; border-radius:999px; border:1px solid rgba(255,255,255,.14); color:#fff; text-decoration:none; background:rgba(255,255,255,.05); font-weight:600; }
+    .finance-year-link:hover, .finance-year-link.active { background:rgba(212,175,55,.18); border-color:rgba(212,175,55,.38); color:#ffe28a; }
+    .finance-overview-head { display:flex; justify-content:space-between; gap:1rem; align-items:flex-start; flex-wrap:wrap; }
+    .finance-range-actions { display:flex; gap:.45rem; flex-wrap:wrap; justify-content:flex-end; }
+    .finance-overview-total { margin-top:1rem; display:grid; gap:.15rem; }
+    .finance-overview-total span, .finance-stat-mini span { color:rgba(255,255,255,.66); font-size:.82rem; }
+    .finance-overview-total strong { font-size:1.65rem; color:#fff; }
+    .finance-chart-wrap { margin-top:1rem; border:1px solid rgba(255,255,255,.08); border-radius:16px; background:rgba(255,255,255,.025); padding:.8rem; }
+    .finance-income-chart { display:block; width:100%; height:auto; min-height:170px; }
+    .finance-chart-axis { stroke:rgba(255,255,255,.16); stroke-width:1; }
+    .finance-chart-area { fill:url(#financeIncomeFill); }
+    .finance-chart-line { fill:none; stroke:#55c8ff; stroke-width:4; stroke-linecap:round; stroke-linejoin:round; }
+    .finance-chart-labels { display:flex; justify-content:space-between; gap:.75rem; color:rgba(255,255,255,.6); font-size:.78rem; margin-top:.35rem; }
+    .finance-chart-empty { min-height:160px; display:grid; place-items:center; color:rgba(255,255,255,.68); }
+    .finance-overview-stats { display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:.75rem; margin-top:1rem; }
+    .finance-stat-mini { border:1px solid rgba(255,255,255,.08); border-radius:14px; padding:.85rem; background:rgba(255,255,255,.035); display:grid; gap:.2rem; }
+    .finance-stat-mini strong { color:#fff; font-size:1.12rem; }
     .alert { border-radius:16px; padding:.95rem 1rem; margin-bottom:1rem; }
     .alert-success { background:rgba(51,176,102,.16); border:1px solid rgba(51,176,102,.28); }
     .alert-error { background:rgba(199,64,64,.16); border:1px solid rgba(199,64,64,.28); }
-    @media (max-width: 980px) { .finance-grid, .finance-two { grid-template-columns:1fr; } }
+    @media (max-width: 980px) { .finance-grid, .finance-two { grid-template-columns:1fr; } .finance-overview-stats { grid-template-columns:repeat(2, minmax(0, 1fr)); } .finance-range-actions { justify-content:flex-start; } }
+    @media (max-width: 560px) { .finance-overview-stats { grid-template-columns:1fr; } }
   </style>
 </head>
 <body>

@@ -3,6 +3,8 @@ require_once __DIR__ . '/_common.php';
 
 $year = (int)($_GET['year'] ?? date('Y'));
 if ($year < 2000 || $year > ((int)date('Y') + 2)) $year = (int)date('Y');
+$range = (string)($_GET['range'] ?? 'year');
+if ($range !== 'all') $range = 'year';
 $previousYear = $year - 1;
 
 $summary = [
@@ -13,8 +15,41 @@ $summary = [
 $monthlyRows = [];
 $previousMonthlyRows = [];
 $memberRows = [];
+$availableYears = [];
+$overview = [
+    'gigs' => 0,
+    'guarantee_cents' => 0,
+    'tips_cents' => 0,
+    'gross_cents' => 0,
+    'active_months' => 0,
+];
+$chartRows = [];
+$chartLabels = [];
+$chartValues = [];
+$chartPoints = '';
+$chartAreaPoints = '';
+$chartMax = 0;
+$chartWidth = 900;
+$chartHeight = 220;
+$chartPadX = 34;
+$chartPadY = 22;
+$chartPlotWidth = $chartWidth - ($chartPadX * 2);
+$chartPlotHeight = $chartHeight - ($chartPadY * 2);
 
 if ($financeReady) {
+    $yearStmt = $pdo->prepare("
+        SELECT DISTINCT YEAR(starts_at) AS gig_year
+        FROM finance_gigs
+        WHERE user_id = ?
+        ORDER BY gig_year DESC
+    ");
+    $yearStmt->execute([$userId]);
+    $availableYears = array_values(array_filter(array_map('intval', $yearStmt->fetchAll(PDO::FETCH_COLUMN)), fn($value) => $value > 0));
+    if ($availableYears && !in_array($year, $availableYears, true)) {
+        $year = $availableYears[0];
+        $previousYear = $year - 1;
+    }
+
     $summarySql = "
         SELECT
           COUNT(*) AS gigs,
@@ -44,6 +79,7 @@ if ($financeReady) {
     $monthSql = "
         SELECT MONTH(g.starts_at) AS month_num,
                COUNT(*) AS gigs,
+               COALESCE(SUM(g.guarantee_cents), 0) AS guarantee_cents,
                COALESCE(SUM(g.guarantee_cents + g.tips_cents), 0) AS gross_cents,
                COALESCE(SUM(g.tips_cents), 0) AS tips_cents,
                COALESCE(SUM(g.guarantee_cents + g.tips_cents - COALESCE(p.payout_cents, 0)), 0) AS net_cents
@@ -78,12 +114,95 @@ if ($financeReady) {
     ");
     $memberStmt->execute([$userId, $year]);
     $memberRows = $memberStmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $overviewWhere = "g.user_id = ?";
+    $overviewParams = [$userId];
+    if ($range === 'year') {
+        $overviewWhere .= " AND YEAR(g.starts_at) = ?";
+        $overviewParams[] = $year;
+    }
+
+    $overviewStmt = $pdo->prepare("
+        SELECT
+          COUNT(*) AS gigs,
+          COALESCE(SUM(g.guarantee_cents), 0) AS guarantee_cents,
+          COALESCE(SUM(g.tips_cents), 0) AS tips_cents,
+          COALESCE(SUM(g.guarantee_cents + g.tips_cents), 0) AS gross_cents,
+          COUNT(DISTINCT DATE_FORMAT(g.starts_at, '%Y-%m')) AS active_months
+        FROM finance_gigs g
+        WHERE {$overviewWhere}
+    ");
+    $overviewStmt->execute($overviewParams);
+    $overview = array_map('intval', $overviewStmt->fetch(PDO::FETCH_ASSOC) ?: $overview);
+
+    $chartStmt = $pdo->prepare("
+        SELECT
+          YEAR(g.starts_at) AS year_num,
+          MONTH(g.starts_at) AS month_num,
+          COALESCE(SUM(g.guarantee_cents), 0) AS guarantee_cents,
+          COALESCE(SUM(g.tips_cents), 0) AS tips_cents,
+          COALESCE(SUM(g.guarantee_cents + g.tips_cents), 0) AS gross_cents
+        FROM finance_gigs g
+        WHERE {$overviewWhere}
+        GROUP BY YEAR(g.starts_at), MONTH(g.starts_at)
+        ORDER BY YEAR(g.starts_at), MONTH(g.starts_at)
+    ");
+    $chartStmt->execute($overviewParams);
+    $chartRows = $chartStmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
 $previousByMonth = [];
 foreach ($previousMonthlyRows as $row) {
     $previousByMonth[(int)$row['month_num']] = $row;
 }
+
+if ($range === 'year') {
+    $chartByMonth = [];
+    foreach ($chartRows as $row) $chartByMonth[(int)$row['month_num']] = $row;
+    $filledChartRows = [];
+    for ($month = 1; $month <= 12; $month++) {
+        $filledChartRows[] = $chartByMonth[$month] ?? [
+            'year_num' => $year,
+            'month_num' => $month,
+            'guarantee_cents' => 0,
+            'tips_cents' => 0,
+            'gross_cents' => 0,
+        ];
+    }
+    $chartRows = $filledChartRows;
+}
+
+foreach ($chartRows as $row) {
+    $month = (int)$row['month_num'];
+    $rowYear = (int)$row['year_num'];
+    $chartLabels[] = $range === 'all'
+        ? date('M Y', mktime(0, 0, 0, $month, 1, $rowYear))
+        : date('M', mktime(0, 0, 0, $month, 1));
+    $chartValues[] = (int)$row['gross_cents'];
+}
+
+$chartMax = max($chartValues ?: [0]);
+$pointCount = count($chartValues);
+if ($pointCount > 0) {
+    $points = [];
+    foreach ($chartValues as $index => $value) {
+        $x = $pointCount === 1 ? $chartPadX + ($chartPlotWidth / 2) : $chartPadX + (($chartPlotWidth / max(1, $pointCount - 1)) * $index);
+        $y = $chartPadY + ($chartPlotHeight - (($chartMax > 0 ? $value / $chartMax : 0) * $chartPlotHeight));
+        $points[] = round($x, 2) . ',' . round($y, 2);
+    }
+    $chartPoints = implode(' ', $points);
+    $chartAreaPoints = $chartPadX . ',' . ($chartHeight - $chartPadY) . ' ' . $chartPoints . ' ' . ($chartWidth - $chartPadX) . ',' . ($chartHeight - $chartPadY);
+}
+
+$activeMonths = max(1, (int)$overview['active_months']);
+$monthlyAverageGuarantee = (int)round((int)$overview['guarantee_cents'] / $activeMonths);
+$monthlyAverageTips = (int)round((int)$overview['tips_cents'] / $activeMonths);
+$monthlyAverageCombined = (int)round((int)$overview['gross_cents'] / $activeMonths);
+$gigCount = max(1, (int)$overview['gigs']);
+$gigAverageGuarantee = (int)round((int)$overview['guarantee_cents'] / $gigCount);
+$gigAverageTips = (int)round((int)$overview['tips_cents'] / $gigCount);
+$gigAverageCombined = (int)round((int)$overview['gross_cents'] / $gigCount);
+$overviewLabel = $range === 'all' ? 'All years' : (string)$year;
 
 finance_page_head('Finance | Ready Set Shows');
 ?>
@@ -98,6 +217,64 @@ finance_page_head('Finance | Ready Set Shows');
   <?php if (!$financeReady): ?>
     <?php finance_install_notice(); ?>
   <?php else: ?>
+    <section class="finance-card finance-overview-card" style="margin-bottom:1rem;">
+      <div class="finance-overview-head">
+        <div>
+          <h2 style="margin:0;">Income overview</h2>
+          <p class="finance-muted" style="margin:.35rem 0 0;"><?= e($overviewLabel) ?> guarantee plus tips, grouped by month.</p>
+        </div>
+        <div class="finance-range-actions" aria-label="Income range">
+          <a class="finance-year-link <?= $range === 'all' ? 'active' : '' ?>" href="<?= e(base_url('/finance/index.php?range=all')) ?>">All</a>
+          <?php foreach ($availableYears as $availableYear): ?>
+            <a class="finance-year-link <?= $range === 'year' && (int)$availableYear === (int)$year ? 'active' : '' ?>" href="<?= e(base_url('/finance/index.php?year=' . (int)$availableYear)) ?>"><?= (int)$availableYear ?></a>
+          <?php endforeach; ?>
+        </div>
+      </div>
+
+      <div class="finance-overview-total">
+        <span>Total income</span>
+        <strong><?= finance_money((int)$overview['gross_cents']) ?></strong>
+      </div>
+
+      <div class="finance-chart-wrap">
+        <?php if (!$chartValues || $chartMax <= 0): ?>
+          <div class="finance-chart-empty">No income rows for this range yet.</div>
+        <?php else: ?>
+          <svg class="finance-income-chart" viewBox="0 0 <?= (int)$chartWidth ?> <?= (int)$chartHeight ?>" role="img" aria-label="Total income chart">
+            <defs>
+              <linearGradient id="financeIncomeFill" x1="0" x2="0" y1="0" y2="1">
+                <stop offset="0%" stop-color="#55c8ff" stop-opacity=".34"></stop>
+                <stop offset="100%" stop-color="#55c8ff" stop-opacity=".04"></stop>
+              </linearGradient>
+            </defs>
+            <line x1="<?= (int)$chartPadX ?>" y1="<?= (int)($chartHeight - $chartPadY) ?>" x2="<?= (int)($chartWidth - $chartPadX) ?>" y2="<?= (int)($chartHeight - $chartPadY) ?>" class="finance-chart-axis"></line>
+            <polygon points="<?= e($chartAreaPoints) ?>" class="finance-chart-area"></polygon>
+            <polyline points="<?= e($chartPoints) ?>" class="finance-chart-line"></polyline>
+          </svg>
+          <div class="finance-chart-labels">
+            <?php
+              $labelIndexes = $chartLabels ? array_values(array_unique([0, (int)floor((count($chartLabels) - 1) / 2), count($chartLabels) - 1])) : [];
+              foreach ($labelIndexes as $labelIndex):
+            ?>
+              <span><?= e((string)($chartLabels[$labelIndex] ?? '')) ?></span>
+            <?php endforeach; ?>
+          </div>
+        <?php endif; ?>
+      </div>
+
+      <div class="finance-overview-stats">
+        <div class="finance-stat-mini"><span>Gig total</span><strong><?= (int)$overview['gigs'] ?></strong></div>
+        <div class="finance-stat-mini"><span>Tips total</span><strong><?= finance_money((int)$overview['tips_cents']) ?></strong></div>
+        <div class="finance-stat-mini"><span>Monthly avg guarantee</span><strong><?= finance_money($monthlyAverageGuarantee) ?></strong></div>
+        <div class="finance-stat-mini"><span>Monthly avg tips</span><strong><?= finance_money($monthlyAverageTips) ?></strong></div>
+        <div class="finance-stat-mini"><span>Monthly avg combined</span><strong><?= finance_money($monthlyAverageCombined) ?></strong></div>
+        <div class="finance-stat-mini"><span>Avg guarantee per gig</span><strong><?= finance_money($gigAverageGuarantee) ?></strong></div>
+        <div class="finance-stat-mini"><span>Avg tips per gig</span><strong><?= finance_money($gigAverageTips) ?></strong></div>
+        <div class="finance-stat-mini"><span>Avg combined per gig</span><strong><?= finance_money($gigAverageCombined) ?></strong></div>
+        <div class="finance-stat-mini"><span><?= $range === 'all' ? 'All-time total' : 'Yearly total' ?></span><strong><?= finance_money((int)$overview['gross_cents']) ?></strong></div>
+      </div>
+    </section>
+
     <section class="finance-grid" style="margin-bottom:1rem;">
       <?php foreach (['week' => 'This week', 'month' => 'This month', 'year' => (string)$year] as $key => $label): ?>
         <div class="finance-card finance-stat">
@@ -116,13 +293,13 @@ finance_page_head('Finance | Ready Set Shows');
         <?php else: ?>
           <div class="finance-table-wrap">
             <table class="finance-table" style="min-width:620px;">
-              <thead><tr><th>Month</th><th>Gigs</th><th>Gross</th><th>Tips</th><th>Net</th></tr></thead>
+              <thead><tr><th>Month</th><th>Gigs</th><th>Guarantee</th><th>Tips</th><th>Net</th></tr></thead>
               <tbody>
                 <?php foreach ($monthlyRows as $row): ?>
                   <tr>
                     <td><?= e(date('F', mktime(0, 0, 0, (int)$row['month_num'], 1))) ?></td>
                     <td><?= (int)$row['gigs'] ?></td>
-                    <td><?= finance_money((int)$row['gross_cents']) ?></td>
+                    <td><?= finance_money((int)$row['guarantee_cents']) ?></td>
                     <td><?= finance_money((int)$row['tips_cents']) ?></td>
                     <td><?= finance_money((int)$row['net_cents']) ?></td>
                   </tr>

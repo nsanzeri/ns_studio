@@ -70,7 +70,7 @@ function finance_import_csv_rows(string $path): array {
     $sample = (string)fgets($handle);
     rewind($handle);
     $delimiter = substr_count($sample, "\t") > substr_count($sample, ',') ? "\t" : ',';
-    while (($row = fgetcsv($handle, 0, $delimiter)) !== false) {
+    while (($row = fgetcsv($handle, 0, $delimiter, '"', '\\')) !== false) {
         if (!$row || !array_filter($row, fn($value) => trim((string)$value) !== '')) continue;
         if (isset($row[0])) $row[0] = preg_replace('/^\xEF\xBB\xBF/', '', (string)$row[0]);
         $rows[] = $row;

@@ -27,6 +27,16 @@ function setmaxx_table_exists(PDO $pdo, string $tableName): bool {
     return $cache[$key] = (bool)$stmt->fetchColumn();
 }
 
+function setmaxx_column_exists(PDO $pdo, string $tableName, string $columnName): bool {
+    static $cache = [];
+    $key = strtolower(trim($tableName)) . '.' . strtolower(trim($columnName));
+    if ($key === '.') return false;
+    if (array_key_exists($key, $cache)) return $cache[$key];
+    $stmt = $pdo->prepare("SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = ? AND column_name = ? LIMIT 1");
+    $stmt->execute([$tableName, $columnName]);
+    return $cache[$key] = (bool)$stmt->fetchColumn();
+}
+
 function setmaxx_tables_ready(PDO $pdo): bool {
     foreach (['setmaxx_songs', 'setmaxx_gig_sessions', 'setmaxx_requests'] as $tableName) {
         if (!setmaxx_table_exists($pdo, $tableName)) return false;

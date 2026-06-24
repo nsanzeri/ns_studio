@@ -424,9 +424,14 @@ finance_page_head('Finance | Gig Ledger');
 <main class="container finance-shell">
   <?php finance_flash($messages, $errors); ?>
   <section class="finance-card" style="margin-bottom:1rem;">
-    <div class="finance-pill">Finance</div>
-    <h1 style="margin:.8rem 0 .35rem;">Gig ledger</h1>
-    <p class="finance-muted" style="margin:0;">Bring in calendar events, then edit the money details like a working ledger.</p>
+    <div style="display:flex; justify-content:space-between; gap:1rem; align-items:flex-start; flex-wrap:wrap;">
+      <div>
+        <div class="finance-pill">Finance</div>
+        <h1 style="margin:.8rem 0 .35rem;">Gig ledger</h1>
+        <p class="finance-muted" style="margin:0;">Bring in calendar events, then edit the money details like a working ledger.</p>
+      </div>
+      <a class="btn btn-outline" href="<?= e(base_url('/finance/index.php')) ?>">View summary</a>
+    </div>
   </section>
 
   <?php if (!$financeReady): ?>

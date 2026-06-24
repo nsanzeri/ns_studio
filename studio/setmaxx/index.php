@@ -4,7 +4,7 @@ require_once __DIR__ . '/_common.php';
 $songCount = 0;
 $sessionCount = 0;
 $liveSession = null;
-$pendingCount = 0;
+$lifetimeDollarsCents = 0;
 $recentRequests = [];
 
 if ($tablesReady) {
@@ -16,15 +16,39 @@ if ($tablesReady) {
     $stmt->execute([$userId]);
     $sessionCount = (int)$stmt->fetchColumn();
 
+    if (setmaxx_column_exists($pdo, 'setmaxx_requests', 'payment_method')) {
+        $stmt = $pdo->prepare(
+            "SELECT COALESCE(SUM(r.amount_cents), 0)
+             FROM setmaxx_requests r
+             JOIN setmaxx_gig_sessions gs ON gs.id = r.gig_session_id
+             WHERE gs.user_id = ?
+               AND r.amount_cents > 0
+               AND r.status <> 'canceled'
+               AND (
+                    (r.payment_method = 'stripe' AND r.stripe_payment_intent_id IS NOT NULL AND r.stripe_payment_intent_id <> '')
+                    OR r.payment_method = 'venmo'
+               )"
+        );
+        $stmt->execute([$userId]);
+        $lifetimeDollarsCents += (int)$stmt->fetchColumn();
+    }
+
+    if (setmaxx_table_exists($pdo, 'setmaxx_general_tips') && setmaxx_column_exists($pdo, 'setmaxx_general_tips', 'payment_method')) {
+        $stmt = $pdo->prepare(
+            "SELECT COALESCE(SUM(amount_cents), 0)
+             FROM setmaxx_general_tips
+             WHERE user_id = ?
+               AND status = 'paid'"
+        );
+        $stmt->execute([$userId]);
+        $lifetimeDollarsCents += (int)$stmt->fetchColumn();
+    }
+
     $stmt = $pdo->prepare("SELECT id, title, venue_name, public_token, status, starts_at FROM setmaxx_gig_sessions WHERE user_id = ? AND status = 'live' ORDER BY created_at DESC LIMIT 1");
     $stmt->execute([$userId]);
     $liveSession = $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
 
     if ($liveSession) {
-        $stmt = $pdo->prepare("SELECT COUNT(*) FROM setmaxx_requests WHERE gig_session_id = ? AND status IN ('pending','queued')");
-        $stmt->execute([(int)$liveSession['id']]);
-        $pendingCount = (int)$stmt->fetchColumn();
-
         $recentStmt = $pdo->prepare(
             "SELECT r.id, r.requester_name, r.amount_cents, r.status, r.created_at, s.title, s.artist, gs.title AS session_title
              FROM setmaxx_requests r
@@ -47,25 +71,24 @@ setmaxx_page_head('Set Maxx | Dashboard');
 
   <section class="setmaxx-hero">
     <div class="setmaxx-card">
-      <div class="setmaxx-pill">Ready Set Shows module</div>
       <h1 style="margin:.8rem 0 .45rem;">Set Maxx</h1>
       <p class="setmaxx-help" style="font-size:1rem; margin:0 0 1rem;">Build your requestable song catalog, launch a live gig page, and control crowd requests without letting the room hijack the show.</p>
       <div class="setmaxx-actions">
-        <span class="setmaxx-pill"><?= $isProUser ? 'Included in your tools plan' : 'Paid tools plan required' ?></span>
         <?php if (!$isProUser): ?>
+          <span class="setmaxx-pill">Paid tools plan required</span>
           <a class="btn btn-primary" href="<?= e($upgradeUrl) ?>">Upgrade to unlock Set Maxx</a>
         <?php endif; ?>
       </div>
     </div>
     <div class="setmaxx-card">
-      <h2 style="margin-top:0;">Tonight at a glance</h2>
+      <h2 style="margin-top:0;">Show fuel</h2>
       <?php if (!$tablesReady): ?>
         <p class="setmaxx-help">Database setup is required before Set Maxx can run.</p>
       <?php else: ?>
         <div class="setmaxx-list">
           <div class="setmaxx-row"><strong><?= (int)$songCount ?></strong><span class="setmaxx-meta">songs in catalog</span></div>
           <div class="setmaxx-row"><strong><?= (int)$sessionCount ?></strong><span class="setmaxx-meta">gig sessions created</span></div>
-          <div class="setmaxx-row"><strong><?= (int)$pendingCount ?></strong><span class="setmaxx-meta">open requests in the live session</span></div>
+          <div class="setmaxx-row"><strong><?= e(setmaxx_money($lifetimeDollarsCents)) ?></strong><span class="setmaxx-meta">lifetime request and tip dollars</span></div>
         </div>
       <?php endif; ?>
     </div>

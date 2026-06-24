@@ -209,9 +209,13 @@ finance_page_head('Finance | Ready Set Shows');
 <main class="container finance-shell">
   <?php finance_flash($messages, $errors); ?>
   <section class="finance-card" style="margin-bottom:1rem;">
-    <div class="finance-pill">Ready Set Shows module</div>
-    <h1 style="margin:.8rem 0 .35rem;">Finance</h1>
-    <p class="finance-muted" style="margin:0;">Import gigs from your calendars, enrich the rows with pay details, and watch totals by week, month, and year.</p>
+    <div style="display:flex; justify-content:space-between; gap:1rem; align-items:flex-start; flex-wrap:wrap;">
+      <div>
+        <h1 style="margin:0 0 .35rem;">Finance</h1>
+        <p class="finance-muted" style="margin:0;">Import gigs from your calendars, enrich the rows with pay details, and watch totals by week, month, and year.</p>
+      </div>
+      <a class="btn btn-primary" href="<?= e(base_url('/finance/gigs.php')) ?>">Open gig ledger</a>
+    </div>
   </section>
 
   <?php if (!$financeReady): ?>
@@ -355,13 +359,6 @@ finance_page_head('Finance | Ready Set Shows');
       <?php endif; ?>
     </section>
 
-    <div class="finance-card" style="margin-top:1rem;">
-      <div class="finance-stack">
-        <h2 style="margin:0;">Gig ledger</h2>
-        <p class="finance-muted" style="margin:0;">Import upcoming or past calendar events, then fill in pay, tips, taxable status, mileage, and money-out rows.</p>
-        <div><a class="btn btn-primary" href="<?= e(base_url('/finance/gigs.php')) ?>">Open gig ledger</a></div>
-      </div>
-    </div>
   <?php endif; ?>
 </main>
 <?php finance_page_foot(); ?>

@@ -384,18 +384,14 @@ setmaxx_page_head('Set Maxx | Song Catalog');
               <th>Artist</th>
               <th>Lyrics</th>
               <th>Min $</th>
+              <th>Opener</th>
+              <th>Vocal</th>
               <th>Year</th>
               <th>Source genre</th>
               <th>Broad genre</th>
-              <th>Track</th>
               <th>Length</th>
-              <th>Medley</th>
-              <th>Medley name</th>
-              <th>Opener</th>
-              <th>Vocal</th>
               <th>Key</th>
               <th>Tempo</th>
-              <th>Family</th>
               <th>Instr.</th>
               <th>Notes</th>
             </tr>
@@ -417,13 +413,6 @@ setmaxx_page_head('Set Maxx | Song Catalog');
                 <td><input class="setmaxx-grid-input js-artist" name="songs[<?= $id ?>][artist]" value="<?= e((string)$song['artist']) ?>"></td>
                 <td><a class="setmaxx-mini-link" href="<?= e(setmaxx_lyrics_url((string)$song['title'], (string)$song['artist'])) ?>" target="_blank" rel="noopener">Lyrics</a></td>
                 <td><input class="setmaxx-grid-input" name="songs[<?= $id ?>][tip_dollars]" type="number" min="0" max="100" step="1" value="<?= e((string)(((int)$song['tip_amount_cents']) / 100)) ?>"></td>
-                <td><input class="setmaxx-grid-input js-year" name="songs[<?= $id ?>][release_year]" type="number" min="1800" max="<?= (int)date('Y') + 1 ?>" value="<?= e((string)$song['release_year']) ?>"></td>
-                <td><input class="setmaxx-grid-input js-genre" name="songs[<?= $id ?>][genre]" value="<?= e((string)$song['genre']) ?>"></td>
-                <td><input class="setmaxx-grid-input" name="songs[<?= $id ?>][broad_genre]" placeholder="Pop, Rock, Rap" value="<?= e((string)$song['broad_genre']) ?>"></td>
-                <td><input type="hidden" name="songs[<?= $id ?>][is_prerecorded]" value="0"><input class="js-prerecorded" type="checkbox" name="songs[<?= $id ?>][is_prerecorded]" value="1" <?= !empty($song['is_prerecorded']) ? 'checked' : '' ?>></td>
-                <td><input class="setmaxx-grid-input js-length" name="songs[<?= $id ?>][track_length]" placeholder="3:45" value="<?= e(setmaxx_seconds_to_length((int)($song['track_length_seconds'] ?? 0))) ?>"></td>
-                <td><input type="hidden" name="songs[<?= $id ?>][is_medley]" value="0"><input type="checkbox" name="songs[<?= $id ?>][is_medley]" value="1" <?= !empty($song['is_medley']) ? 'checked' : '' ?>></td>
-                <td><input class="setmaxx-grid-input" name="songs[<?= $id ?>][medley_name]" value="<?= e((string)$song['medley_name']) ?>"></td>
                 <td><input type="hidden" name="songs[<?= $id ?>][opening_song]" value="0"><input type="checkbox" name="songs[<?= $id ?>][opening_song]" value="1" <?= !empty($song['opening_song']) ? 'checked' : '' ?>></td>
                 <td>
                   <select class="setmaxx-grid-input" name="songs[<?= $id ?>][vocal_difficulty]">
@@ -433,11 +422,20 @@ setmaxx_page_head('Set Maxx | Song Catalog');
                     <option value="hard" <?= $song['vocal_difficulty'] === 'hard' ? 'selected' : '' ?>>Hard</option>
                   </select>
                 </td>
+                <td><input class="setmaxx-grid-input js-year" name="songs[<?= $id ?>][release_year]" type="number" min="1800" max="<?= (int)date('Y') + 1 ?>" value="<?= e((string)$song['release_year']) ?>"></td>
+                <td><input class="setmaxx-grid-input js-genre" name="songs[<?= $id ?>][genre]" value="<?= e((string)$song['genre']) ?>"></td>
+                <td><input class="setmaxx-grid-input" name="songs[<?= $id ?>][broad_genre]" placeholder="Pop, Rock, Rap" value="<?= e((string)$song['broad_genre']) ?>"></td>
+                <td><input class="setmaxx-grid-input js-length" name="songs[<?= $id ?>][track_length]" placeholder="3:45" value="<?= e(setmaxx_seconds_to_length((int)($song['track_length_seconds'] ?? 0))) ?>"></td>
                 <td><input class="setmaxx-grid-input" name="songs[<?= $id ?>][song_key]" value="<?= e((string)$song['song_key']) ?>"></td>
                 <td><input class="setmaxx-grid-input" name="songs[<?= $id ?>][tempo_bpm]" type="number" min="1" max="400" value="<?= e((string)$song['tempo_bpm']) ?>"></td>
-                <td><input type="hidden" name="songs[<?= $id ?>][family_friendly]" value="0"><input type="checkbox" name="songs[<?= $id ?>][family_friendly]" value="1" <?= !empty($song['family_friendly']) ? 'checked' : '' ?>></td>
                 <td><input type="hidden" name="songs[<?= $id ?>][instrumental]" value="0"><input type="checkbox" name="songs[<?= $id ?>][instrumental]" value="1" <?= !empty($song['instrumental']) ? 'checked' : '' ?>></td>
-                <td><textarea class="setmaxx-grid-notes" name="songs[<?= $id ?>][performance_notes]"><?= e((string)$song['performance_notes']) ?></textarea></td>
+                <td>
+                  <input class="js-prerecorded" type="hidden" name="songs[<?= $id ?>][is_prerecorded]" value="<?= !empty($song['is_prerecorded']) ? '1' : '0' ?>">
+                  <input type="hidden" name="songs[<?= $id ?>][is_medley]" value="<?= !empty($song['is_medley']) ? '1' : '0' ?>">
+                  <input type="hidden" name="songs[<?= $id ?>][medley_name]" value="<?= e((string)$song['medley_name']) ?>">
+                  <input type="hidden" name="songs[<?= $id ?>][family_friendly]" value="<?= !empty($song['family_friendly']) ? '1' : '0' ?>">
+                  <textarea class="setmaxx-grid-notes" name="songs[<?= $id ?>][performance_notes]"><?= e((string)$song['performance_notes']) ?></textarea>
+                </td>
               </tr>
             <?php endforeach; ?>
           </tbody>
@@ -479,8 +477,8 @@ ADDICTED TO LOVE - ROBERT PALMER</pre>
         <li><strong>Select rows</strong> to enrich or delete a specific group. With nothing selected, Enrich visible works on the current filtered view.</li>
         <li><strong>Active</strong> controls whether fans can request the song.</li>
         <li><strong>Min $</strong> is the minimum request amount for that song.</li>
-        <li><strong>Year, source genre, broad genre, length, and tempo</strong> help organize the catalog and build better sets.</li>
-        <li><strong>Track</strong> marks prerecorded backing tracks. <strong>Medley</strong>, <strong>opener</strong>, <strong>vocal</strong>, <strong>key</strong>, <strong>family</strong>, and <strong>instrumental</strong> are stage-planning fields.</li>
+        <li><strong>Opener, vocal, key, tempo, and instrumental</strong> are stage-planning fields.</li>
+        <li><strong>Year, source genre, broad genre, and length</strong> help organize the catalog and build better sets.</li>
         <li><strong>Notes</strong> are private performance reminders for arrangement, capo, transitions, or special instructions.</li>
       </ul>
     </div>
@@ -521,7 +519,7 @@ ADDICTED TO LOVE - ROBERT PALMER</pre>
   .setmaxx-sort-button:hover { background:rgba(140,107,255,.24); border-color:rgba(140,107,255,.45); }
   .setmaxx-alpha-button:disabled { opacity:.35; cursor:not-allowed; }
   .setmaxx-table-wrap { overflow:auto; border:1px solid rgba(255,255,255,.08); border-radius:16px; }
-  .setmaxx-song-table { width:100%; min-width:1600px; border-collapse:collapse; }
+  .setmaxx-song-table { width:100%; min-width:1280px; border-collapse:collapse; }
   .setmaxx-song-table th,
   .setmaxx-song-table td { padding:.55rem; border-bottom:1px solid rgba(255,255,255,.07); vertical-align:top; }
   .setmaxx-song-table th { position:sticky; top:0; z-index:1; background:#151323; color:rgba(255,255,255,.78); font-size:.78rem; text-align:left; font-weight:600; }
@@ -979,7 +977,13 @@ ADDICTED TO LOVE - ROBERT PALMER</pre>
         if (genre && isBlank(genre) && result.primaryGenreName) genre.value = result.primaryGenreName;
         if (length && isBlank(length) && result.trackTimeMillis) {
           length.value = msToLength(result.trackTimeMillis);
-          if (prerecorded) prerecorded.checked = true;
+          if (prerecorded) {
+            if (prerecorded.type === 'hidden') {
+              prerecorded.value = '1';
+            } else {
+              prerecorded.checked = true;
+            }
+          }
         }
         markRowDirty(row);
         enriched++;

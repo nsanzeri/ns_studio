@@ -79,6 +79,10 @@ function publishing_page_head(string $title): void { ?>
     .publishing-show-row { display:grid; grid-template-columns:auto minmax(0, 1fr); gap:.65rem; align-items:start; padding:.65rem .75rem; border-radius:14px; background:rgba(255,255,255,.035); border:1px solid rgba(255,255,255,.06); }
     .publishing-output-grid { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:1rem; margin-top:1rem; }
     .publishing-output { display:grid; gap:.7rem; }
+    .publishing-output-head { display:flex; align-items:center; justify-content:space-between; gap:.75rem; }
+    .publishing-copy-btn { display:inline-flex; align-items:center; gap:.4rem; border:1px solid rgba(255,255,255,.16); border-radius:999px; padding:.34rem .62rem; background:rgba(255,255,255,.06); color:#fff; cursor:pointer; font:inherit; font-size:.82rem; font-weight:600; }
+    .publishing-copy-btn:hover { border-color:rgba(212,175,55,.42); color:#ffe28a; }
+    .publishing-copy-btn.is-copied { background:rgba(51,176,102,.18); border-color:rgba(51,176,102,.36); color:#d7ffe4; }
     .publishing-output textarea { min-height:180px; }
     .publishing-actions { display:flex; gap:.75rem; flex-wrap:wrap; align-items:center; }
     .alert { border-radius:16px; padding:.95rem 1rem; margin-bottom:1rem; }

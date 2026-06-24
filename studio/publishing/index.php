@@ -8,7 +8,7 @@ $startDate = trim((string)($_GET['start'] ?? $_POST['start'] ?? $defaultStart));
 $endDate = trim((string)($_GET['end'] ?? $_POST['end'] ?? $defaultEnd));
 $calendarId = (int)($_GET['calendar_id'] ?? $_POST['calendar_id'] ?? 0);
 $tone = trim((string)($_POST['tone'] ?? 'warm'));
-$cta = trim((string)($_POST['cta'] ?? 'Come hang, bring a friend, and enjoy some live music.'));
+$cta = trim((string)($_POST['cta'] ?? 'Come hang, bring a friend, and have a good time.'));
 $link = trim((string)($_POST['link'] ?? ''));
 $selectedKeys = array_values(array_unique(array_filter(array_map('strval', (array)($_POST['show_keys'] ?? [])), fn($key) => trim($key) !== '')));
 $shows = [];
@@ -54,7 +54,7 @@ function publishing_generate_outputs(array $shows, string $tone, string $cta, st
 
     $phrase = publishing_tone_phrase($tone);
     $linkLine = $link !== '' ? "\nMore info: {$link}" : '';
-    $cta = $cta !== '' ? $cta : 'Come hang, bring a friend, and enjoy some live music.';
+    $cta = $cta !== '' ? $cta : 'Come hang, bring a friend, and have a good time.';
 
     if ($count === 1) {
         $show = $shows[0];
@@ -75,7 +75,7 @@ function publishing_generate_outputs(array $shows, string $tone, string $cta, st
     $last = publishing_show_date($shows[$count - 1], 'M j');
 
     return [
-        'Facebook run copy' => "Upcoming live music dates from {$first} through {$last}:\n\n{$lineBlock}\n\n{$cta}{$linkLine}",
+        'Facebook run copy' => "Upcoming events from {$first} through {$last}:\n\n{$lineBlock}\n\n{$cta}{$linkLine}",
         'Instagram run caption' => "Upcoming shows:\n{$lineBlock}\n\n{$cta}{$linkLine}",
         'Newsletter list' => "Here is where you can catch live music next:\n\n{$lineBlock}\n\n{$cta}",
         'Short website blurb' => "Upcoming dates:\n{$lineBlock}",
@@ -212,14 +212,52 @@ publishing_page_head('Publishing | Gig Promo Writer');
     <section class="publishing-card" style="margin-top:1rem;">
       <h2 style="margin-top:0;">Generated copy</h2>
       <div class="publishing-output-grid">
-        <?php foreach ($outputs as $label => $copy): ?>
+        <?php $outputIndex = 0; foreach ($outputs as $label => $copy): $outputId = 'publishingOutput' . (++$outputIndex); ?>
           <div class="publishing-output">
-            <label><?= e($label) ?></label>
-            <textarea class="publishing-textarea" readonly><?= e($copy) ?></textarea>
+            <div class="publishing-output-head">
+              <label for="<?= e($outputId) ?>"><?= e($label) ?></label>
+              <button class="publishing-copy-btn" type="button" data-copy-target="<?= e($outputId) ?>">
+                <i class="fa-regular fa-copy" aria-hidden="true"></i>
+                <span>Copy</span>
+              </button>
+            </div>
+            <textarea class="publishing-textarea" id="<?= e($outputId) ?>" readonly><?= e($copy) ?></textarea>
           </div>
         <?php endforeach; ?>
       </div>
     </section>
   <?php endif; ?>
 </main>
+<script>
+document.querySelectorAll('[data-copy-target]').forEach((button) => {
+  button.addEventListener('click', async () => {
+    const target = document.getElementById(button.dataset.copyTarget || '');
+    if (!target) return;
+    const text = target.value || target.textContent || '';
+    const label = button.querySelector('span');
+    const original = label ? label.textContent : 'Copy';
+
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        target.focus();
+        target.select();
+        document.execCommand('copy');
+        target.blur();
+      }
+      button.classList.add('is-copied');
+      if (label) label.textContent = 'Copied';
+      window.setTimeout(() => {
+        button.classList.remove('is-copied');
+        if (label) label.textContent = original;
+      }, 1400);
+    } catch (error) {
+      if (label) label.textContent = 'Select text';
+      target.focus();
+      target.select();
+    }
+  });
+});
+</script>
 <?php publishing_page_foot(); ?>

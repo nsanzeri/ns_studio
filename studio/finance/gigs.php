@@ -216,11 +216,13 @@ if (!empty($_SESSION['finance_errors']) && is_array($_SESSION['finance_errors'])
 if ($financeReady && is_post()) {
     if (!csrf_verify($_POST['_csrf'] ?? null)) {
         $errors[] = 'Your session expired. Refresh the page and try again.';
-    } elseif (!$isProUser) {
-        $errors[] = 'Finance is included with the paid tools plan. Upgrade to continue.';
     } else {
         $action = (string)($_POST['action'] ?? '');
         try {
+            if ($action === 'import_spreadsheet' && !$isProUser) {
+                throw new RuntimeException('Spreadsheet import is included with the paid tools plan. Upgrade to import CSV or XLSX files.');
+            }
+
             if ($action === 'save_gigs') {
                 $rows = $_POST['gigs'] ?? [];
                 if (!is_array($rows)) throw new RuntimeException('No gig rows were submitted.');
@@ -478,7 +480,7 @@ finance_page_head('Finance | Gig Ledger');
             <div class="finance-field"><label for="end">To</label><input class="finance-input" id="end" name="end" type="date" value="<?= e($endDate) ?>"></div>
           </div>
         </div>
-        <div><button class="btn btn-primary" type="submit" name="preview" value="1" <?= $isProUser ? '' : 'disabled' ?>>Preview calendar gigs</button></div>
+        <div><button class="btn btn-primary" type="submit" name="preview" value="1">Preview calendar gigs</button></div>
       </form>
 
       <?php if ($previewEvents): ?>
@@ -525,6 +527,9 @@ finance_page_head('Finance | Gig Ledger');
             <div class="finance-muted">Use headers: date, event title, guarantee, tips. Headerless files are read in that order. Do not use commas in numbers over 999 unless the value is quoted, because commas are treated as column separators.</div>
           </div>
         </div>
+        <?php if (!$isProUser): ?>
+          <p class="finance-muted" style="margin:0;">Spreadsheet import is a paid feature. You can still add gigs from calendars and edit the ledger manually.</p>
+        <?php endif; ?>
         <div><button class="btn btn-primary" type="submit" <?= $isProUser ? '' : 'disabled' ?>>Import spreadsheet</button></div>
       </form>
     </section>

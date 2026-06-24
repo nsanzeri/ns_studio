@@ -283,8 +283,8 @@ if ($isReadySetShowsHost) {
     <div class="container">
       <div class="rss-section-heading">
         <div>
-          <p class="eyebrow">Included with Ready Set Shows</p>
-          <h2>One subscription. Multiple gig tools.</h2>
+            <p class="eyebrow">Ready Set Shows tools</p>
+            <h2>Multiple gig tools in one place.</h2>
           <p class="muted">Start with Set Maxx, then use the calendar and business tools as the suite grows around it.</p>
         </div>
       </div>

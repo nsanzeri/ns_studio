@@ -244,9 +244,10 @@ if (isset($_GET['upgraded'])) {
         <p class="muted">A useful home base for performers who want to get organized before adding live request features.</p>
         <ul>
           <li>Basic calendar availability tools</li>
-          <li>Song catalog management</li>
-          <li>Setlist creation and planning</li>
-          <li>Public song list basics without paid request checkout</li>
+            <li>Song catalog management</li>
+            <li>Setlist creation and planning</li>
+            <li>Finance dashboard and manual gig ledger</li>
+            <li>Public song list basics without paid request checkout</li>
         </ul>
         <?php if (!$user): ?>
           <a class="btn btn-primary" href="<?= e($registerUrl) ?>">Create Free Account</a>
@@ -296,11 +297,11 @@ if (isset($_GET['upgraded'])) {
         <p class="muted">For performers who want the full Ready Set Shows workflow on stage and behind the scenes.</p>
         <ul>
           <li>Everything in Free</li>
-          <li>Unlimited calendar output and Bandsintown-ready exports</li>
-          <li>SetMaxx live request sessions with QR sharing</li>
-          <li>Tips, paid song requests, and performer payout routing</li>
-          <li>Finance and publishing tools as they roll out</li>
-        </ul>
+            <li>Unlimited calendar output and Bandsintown-ready exports</li>
+            <li>SetMaxx live request sessions with QR sharing</li>
+            <li>Tips, paid song requests, and performer payout routing</li>
+            <li>Spreadsheet import for Finance plus publishing tools</li>
+          </ul>
 
         <?php if (!$user): ?>
           <a class="btn btn-primary" href="<?= e($loginUrl) ?>">Log In to Upgrade</a>

@@ -174,7 +174,7 @@ if ($isReadySetShowsHost) {
 
         <details style="border:1px solid rgba(255,255,255,.08); border-radius:18px; padding:1rem; background:rgba(255,255,255,.03);">
           <summary style="cursor:pointer; font-weight:700;">Finance</summary>
-          <p class="muted" style="margin:.65rem 0 .85rem;">Import gig records, track guarantees and tips, compare years, and see average gig value from your finance dashboard.</p>
+          <p class="muted" style="margin:.65rem 0 .85rem;">Track gig records, guarantees, tips, year comparisons, and average gig value from your finance dashboard.</p>
           <a class="btn btn-outline" href="<?= e(base_url('finance/index.php')) ?>">Launch Finance</a>
         </details>
       </div>

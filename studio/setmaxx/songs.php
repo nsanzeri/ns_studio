@@ -376,6 +376,24 @@ setmaxx_page_head('Set Maxx | Song Catalog');
       </div>
       <div class="setmaxx-table-wrap">
         <table class="setmaxx-song-table" id="setmaxxSongTable">
+          <colgroup>
+            <col class="setmaxx-col-select">
+            <col class="setmaxx-col-check">
+            <col class="setmaxx-col-title">
+            <col class="setmaxx-col-artist">
+            <col class="setmaxx-col-lyrics">
+            <col class="setmaxx-col-money">
+            <col class="setmaxx-col-check">
+            <col class="setmaxx-col-vocal">
+            <col class="setmaxx-col-year">
+            <col class="setmaxx-col-genre">
+            <col class="setmaxx-col-genre">
+            <col class="setmaxx-col-length">
+            <col class="setmaxx-col-key">
+            <col class="setmaxx-col-tempo">
+            <col class="setmaxx-col-check">
+            <col class="setmaxx-col-notes">
+          </colgroup>
           <thead>
             <tr>
               <th><input type="checkbox" id="setmaxxSelectAll" aria-label="Select all songs"></th>
@@ -412,22 +430,22 @@ setmaxx_page_head('Set Maxx | Song Catalog');
                 <td><input class="setmaxx-grid-input js-title" name="songs[<?= $id ?>][title]" value="<?= e($song['title']) ?>" required></td>
                 <td><input class="setmaxx-grid-input js-artist" name="songs[<?= $id ?>][artist]" value="<?= e((string)$song['artist']) ?>"></td>
                 <td><a class="setmaxx-mini-link" href="<?= e(setmaxx_lyrics_url((string)$song['title'], (string)$song['artist'])) ?>" target="_blank" rel="noopener">Lyrics</a></td>
-                <td><input class="setmaxx-grid-input" name="songs[<?= $id ?>][tip_dollars]" type="number" min="0" max="100" step="1" value="<?= e((string)(((int)$song['tip_amount_cents']) / 100)) ?>"></td>
+                <td><input class="setmaxx-grid-input setmaxx-grid-input-compact" name="songs[<?= $id ?>][tip_dollars]" type="number" min="0" max="100" step="1" value="<?= e((string)(((int)$song['tip_amount_cents']) / 100)) ?>"></td>
                 <td><input type="hidden" name="songs[<?= $id ?>][opening_song]" value="0"><input type="checkbox" name="songs[<?= $id ?>][opening_song]" value="1" <?= !empty($song['opening_song']) ? 'checked' : '' ?>></td>
                 <td>
-                  <select class="setmaxx-grid-input" name="songs[<?= $id ?>][vocal_difficulty]">
+                  <select class="setmaxx-grid-input setmaxx-grid-input-compact" name="songs[<?= $id ?>][vocal_difficulty]">
                     <option value=""></option>
                     <option value="easy" <?= $song['vocal_difficulty'] === 'easy' ? 'selected' : '' ?>>Easy</option>
                     <option value="medium" <?= $song['vocal_difficulty'] === 'medium' ? 'selected' : '' ?>>Med</option>
                     <option value="hard" <?= $song['vocal_difficulty'] === 'hard' ? 'selected' : '' ?>>Hard</option>
                   </select>
                 </td>
-                <td><input class="setmaxx-grid-input js-year" name="songs[<?= $id ?>][release_year]" type="number" min="1800" max="<?= (int)date('Y') + 1 ?>" value="<?= e((string)$song['release_year']) ?>"></td>
+                <td><input class="setmaxx-grid-input setmaxx-grid-input-compact js-year" name="songs[<?= $id ?>][release_year]" type="number" min="1800" max="<?= (int)date('Y') + 1 ?>" value="<?= e((string)$song['release_year']) ?>"></td>
                 <td><input class="setmaxx-grid-input js-genre" name="songs[<?= $id ?>][genre]" value="<?= e((string)$song['genre']) ?>"></td>
                 <td><input class="setmaxx-grid-input" name="songs[<?= $id ?>][broad_genre]" placeholder="Pop, Rock, Rap" value="<?= e((string)$song['broad_genre']) ?>"></td>
-                <td><input class="setmaxx-grid-input js-length" name="songs[<?= $id ?>][track_length]" placeholder="3:45" value="<?= e(setmaxx_seconds_to_length((int)($song['track_length_seconds'] ?? 0))) ?>"></td>
-                <td><input class="setmaxx-grid-input" name="songs[<?= $id ?>][song_key]" value="<?= e((string)$song['song_key']) ?>"></td>
-                <td><input class="setmaxx-grid-input" name="songs[<?= $id ?>][tempo_bpm]" type="number" min="1" max="400" value="<?= e((string)$song['tempo_bpm']) ?>"></td>
+                <td><input class="setmaxx-grid-input setmaxx-grid-input-compact js-length" name="songs[<?= $id ?>][track_length]" placeholder="3:45" value="<?= e(setmaxx_seconds_to_length((int)($song['track_length_seconds'] ?? 0))) ?>"></td>
+                <td><input class="setmaxx-grid-input setmaxx-grid-input-compact" name="songs[<?= $id ?>][song_key]" value="<?= e((string)$song['song_key']) ?>"></td>
+                <td><input class="setmaxx-grid-input setmaxx-grid-input-compact" name="songs[<?= $id ?>][tempo_bpm]" type="number" min="1" max="400" value="<?= e((string)$song['tempo_bpm']) ?>"></td>
                 <td><input type="hidden" name="songs[<?= $id ?>][instrumental]" value="0"><input type="checkbox" name="songs[<?= $id ?>][instrumental]" value="1" <?= !empty($song['instrumental']) ? 'checked' : '' ?>></td>
                 <td>
                   <input class="js-prerecorded" type="hidden" name="songs[<?= $id ?>][is_prerecorded]" value="<?= !empty($song['is_prerecorded']) ? '1' : '0' ?>">
@@ -519,13 +537,30 @@ ADDICTED TO LOVE - ROBERT PALMER</pre>
   .setmaxx-sort-button:hover { background:rgba(140,107,255,.24); border-color:rgba(140,107,255,.45); }
   .setmaxx-alpha-button:disabled { opacity:.35; cursor:not-allowed; }
   .setmaxx-table-wrap { overflow:auto; border:1px solid rgba(255,255,255,.08); border-radius:16px; }
-  .setmaxx-song-table { width:100%; min-width:1280px; border-collapse:collapse; }
+  .setmaxx-song-table { width:100%; min-width:1180px; border-collapse:collapse; table-layout:fixed; }
+  .setmaxx-col-select { width:42px; }
+  .setmaxx-col-check { width:56px; }
+  .setmaxx-col-title { width:210px; }
+  .setmaxx-col-artist { width:132px; }
+  .setmaxx-col-lyrics { width:66px; }
+  .setmaxx-col-money { width:76px; }
+  .setmaxx-col-vocal { width:88px; }
+  .setmaxx-col-year { width:76px; }
+  .setmaxx-col-genre { width:112px; }
+  .setmaxx-col-length { width:76px; }
+  .setmaxx-col-key { width:66px; }
+  .setmaxx-col-tempo { width:76px; }
+  .setmaxx-col-notes { width:180px; }
   .setmaxx-song-table th,
   .setmaxx-song-table td { padding:.55rem; border-bottom:1px solid rgba(255,255,255,.07); vertical-align:top; }
   .setmaxx-song-table th { position:sticky; top:0; z-index:1; background:#151323; color:rgba(255,255,255,.78); font-size:.78rem; text-align:left; font-weight:600; }
   .setmaxx-song-table tbody tr:nth-child(even) { background:rgba(255,255,255,.025); }
   .setmaxx-grid-input,
-  .setmaxx-grid-notes { width:100%; min-width:92px; padding:.55rem .6rem; border-radius:10px; border:1px solid rgba(255,255,255,.1); background:rgba(255,255,255,.05); color:#fff; font:inherit; font-size:.88rem; }
+  .setmaxx-grid-notes { width:100%; min-width:0; padding:.55rem .6rem; border-radius:10px; border:1px solid rgba(255,255,255,.1); background:rgba(255,255,255,.05); color:#fff; font:inherit; font-size:.88rem; }
+  .setmaxx-grid-input-compact { padding-left:.5rem; padding-right:.5rem; }
+  .setmaxx-song-table input[type="number"] { appearance:textfield; -moz-appearance:textfield; }
+  .setmaxx-song-table input[type="number"]::-webkit-outer-spin-button,
+  .setmaxx-song-table input[type="number"]::-webkit-inner-spin-button { -webkit-appearance:none; margin:0; }
   .setmaxx-grid-input option { background:#151323; color:#fff; }
   .setmaxx-grid-notes { min-width:180px; height:42px; resize:vertical; }
   .setmaxx-song-table input[type="checkbox"] { width:18px; height:18px; accent-color:#8c6bff; }

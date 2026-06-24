@@ -71,6 +71,12 @@ function finance_date_for_sql(string $atom): string {
     return (new DateTime($atom))->format('Y-m-d H:i:s');
 }
 
+function finance_calendar_datetime(string $raw, DateTimeZone $tz): DateTime {
+    $date = new DateTime($raw, $tz);
+    $date->setTimezone($tz);
+    return $date;
+}
+
 function finance_member_id_for_name(PDO $pdo, int $userId, string $name): int {
     $name = trim($name);
     if ($name === '') {
@@ -135,7 +141,7 @@ function finance_parse_exdates(array $event, DateTimeZone $tz): array {
             $clean = preg_replace('/^.*:/', '', trim($part));
             if ($clean === '') continue;
             try {
-                $dt = new DateTime($clean, $tz);
+                $dt = finance_calendar_datetime($clean, $tz);
                 $dates[$dt->format('Y-m-d')] = true;
             } catch (Throwable $e) {
             }
@@ -169,8 +175,8 @@ function finance_expand_rrule_event(array $event, DateTime $rangeStart, DateTime
 
     $dtStartRaw = preg_replace('/^.*:/', '', $event['DTSTART']);
     $dtEndRaw = isset($event['DTEND']) ? preg_replace('/^.*:/', '', $event['DTEND']) : $dtStartRaw;
-    $baseStart = new DateTime($dtStartRaw, $tz);
-    $baseEnd = new DateTime($dtEndRaw, $tz);
+    $baseStart = finance_calendar_datetime($dtStartRaw, $tz);
+    $baseEnd = finance_calendar_datetime($dtEndRaw, $tz);
     $duration = $baseEnd->getTimestamp() - $baseStart->getTimestamp();
     $allDay = (bool)preg_match('/^\d{8}$/', $dtStartRaw);
 
@@ -183,7 +189,7 @@ function finance_expand_rrule_event(array $event, DateTime $rangeStart, DateTime
 
     $freq = $rr['FREQ'] ?? 'WEEKLY';
     $interval = isset($rr['INTERVAL']) ? max(1, (int)$rr['INTERVAL']) : 1;
-    $until = !empty($rr['UNTIL']) ? new DateTime($rr['UNTIL'], $tz) : clone $rangeEnd;
+    $until = !empty($rr['UNTIL']) ? finance_calendar_datetime($rr['UNTIL'], $tz) : clone $rangeEnd;
     $exdates = finance_parse_exdates($event, $tz);
 
     if ($freq === 'WEEKLY') {
@@ -271,8 +277,8 @@ function finance_fetch_calendar_events(array $calendar, string $startDate, strin
                 } else {
                     $dtStartRaw = preg_replace('/^.*:/', '', $event['DTSTART']);
                     $dtEndRaw = isset($event['DTEND']) ? preg_replace('/^.*:/', '', $event['DTEND']) : $dtStartRaw;
-                    $start = new DateTime($dtStartRaw, $tz);
-                    $end = new DateTime($dtEndRaw, $tz);
+                    $start = finance_calendar_datetime($dtStartRaw, $tz);
+                    $end = finance_calendar_datetime($dtEndRaw, $tz);
                     if (preg_match('/^\d{8}$/', $dtStartRaw)) $end->setTime(23, 59, 59);
                     if ($end >= $rangeStart && $start <= $rangeEnd) {
                         $events[] = ['uid' => $event['UID'] ?? '', 'start' => $start->format(DateTime::ATOM), 'end' => $end->format(DateTime::ATOM), 'summary' => $event['SUMMARY'] ?? 'No Summary', 'location' => $event['LOCATION'] ?? '', 'description' => $event['DESCRIPTION'] ?? ''];

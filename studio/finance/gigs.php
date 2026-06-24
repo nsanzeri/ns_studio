@@ -378,13 +378,6 @@ if ($financeReady) {
     ");
     $yearStmt->execute([$userId]);
     $availableYears = array_values(array_filter(array_map('intval', $yearStmt->fetchAll(PDO::FETCH_COLUMN)), fn($year) => $year > 0));
-    $currentYear = (int)date('Y');
-    foreach (range($currentYear + 1, 2020) as $year) {
-        if (!in_array($year, $availableYears, true)) $availableYears[] = $year;
-    }
-    if (!in_array($currentYear, $availableYears, true)) $availableYears[] = $currentYear;
-    if ($selectedYear > 0 && !in_array($selectedYear, $availableYears, true)) $availableYears[] = $selectedYear;
-    rsort($availableYears, SORT_NUMERIC);
 
     $stmt = $pdo->prepare("
         SELECT g.*,
@@ -439,29 +432,16 @@ finance_page_head('Finance | Gig Ledger');
   <?php else: ?>
     <section class="finance-card" style="margin-bottom:1rem;">
       <h2 style="margin-top:0;">View year</h2>
-      <form method="get" class="finance-stack" action="">
-        <input type="hidden" name="calendar_id" value="<?= (int)$calendarId ?>">
-        <div class="finance-two">
-          <div class="finance-field">
-            <label for="year">Year</label>
-            <select class="finance-select" id="year" name="year">
-              <?php foreach ($availableYears as $year): ?>
-                <option value="<?= (int)$year ?>" <?= (int)substr($startDate, 0, 4) === (int)$year && $startDate === sprintf('%04d-01-01', $year) && $endDate === sprintf('%04d-12-31', $year) ? 'selected' : '' ?>><?= (int)$year ?></option>
-              <?php endforeach; ?>
-            </select>
-          </div>
-          <div class="finance-field">
-            <label>Showing</label>
-            <div class="finance-muted"><?= e($startDate) ?> through <?= e($endDate) ?></div>
-          </div>
+      <div class="finance-muted">Showing <?= e($startDate) ?> through <?= e($endDate) ?>.</div>
+      <?php if ($availableYears): ?>
+        <div class="finance-year-links" aria-label="Years with gigs">
+          <?php foreach ($availableYears as $year): ?>
+            <a class="finance-year-link <?= (int)substr($startDate, 0, 4) === (int)$year && $startDate === sprintf('%04d-01-01', $year) && $endDate === sprintf('%04d-12-31', $year) ? 'active' : '' ?>" href="<?= e(base_url('/finance/gigs.php?calendar_id=' . (int)$calendarId . '&year=' . (int)$year)) ?>"><?= (int)$year ?></a>
+          <?php endforeach; ?>
         </div>
-        <div><button class="btn btn-primary" type="submit">Show year</button></div>
-      </form>
-      <div class="finance-year-links" aria-label="Quick year links">
-        <?php foreach ($availableYears as $year): ?>
-          <a class="finance-year-link <?= (int)substr($startDate, 0, 4) === (int)$year && $startDate === sprintf('%04d-01-01', $year) && $endDate === sprintf('%04d-12-31', $year) ? 'active' : '' ?>" href="<?= e(base_url('/finance/gigs.php?calendar_id=' . (int)$calendarId . '&year=' . (int)$year)) ?>"><?= (int)$year ?></a>
-        <?php endforeach; ?>
-      </div>
+      <?php else: ?>
+        <p class="finance-muted" style="margin:.85rem 0 0;">No gig years yet. Import calendar events or a spreadsheet to build the list.</p>
+      <?php endif; ?>
     </section>
 
     <section class="finance-card">

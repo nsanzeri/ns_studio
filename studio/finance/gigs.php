@@ -65,8 +65,13 @@ function finance_import_parse_date($value): ?DateTimeImmutable {
 
 function finance_import_csv_rows(string $path): array {
     $rows = [];
-    $handle = fopen($path, 'r');
+    $raw = (string)file_get_contents($path);
+    $raw = preg_replace('/,""\$?([0-9]+)","([0-9]{3}\.[0-9]{2})","/', ',"$$1$2",""', $raw) ?? $raw;
+    $raw = preg_replace('/"(\$?[0-9]+(?:\.[0-9])?)"([0-9])(?=\r?\n|$)/', '"$1$2"', $raw) ?? $raw;
+    $handle = fopen('php://temp', 'r+');
     if (!$handle) throw new RuntimeException('The uploaded file could not be opened.');
+    fwrite($handle, $raw);
+    rewind($handle);
     $sample = (string)fgets($handle);
     rewind($handle);
     $delimiter = substr_count($sample, "\t") > substr_count($sample, ',') ? "\t" : ',';
@@ -156,7 +161,7 @@ function finance_import_gig_records(PDO $pdo, int $userId, array $rows): array {
     $hasHeader = isset($headerMap['date'], $headerMap['title']);
     $map = $hasHeader ? $headerMap : ['date' => 0, 'title' => 1, 'guarantee' => 2, 'tips' => 3];
     $dataRows = $hasHeader ? array_slice($rows, 1) : $rows;
-    $findExisting = $pdo->prepare("SELECT id FROM finance_gigs WHERE user_id = ? AND starts_at = ? AND title = ? LIMIT 1");
+    $findExisting = $pdo->prepare("SELECT id FROM finance_gigs WHERE user_id = ? AND starts_at = ? AND title = ? AND guarantee_cents = ? AND tips_cents = ? LIMIT 1");
     $insert = $pdo->prepare("
         INSERT INTO finance_gigs
           (user_id, title, starts_at, ends_at, guarantee_cents, tips_cents, imported_at)
@@ -180,11 +185,12 @@ function finance_import_gig_records(PDO $pdo, int $userId, array $rows): array {
             continue;
         }
         $startsAt = $date->format('Y-m-d H:i:s');
-        $years[(int)$date->format('Y')] = true;
+        $rowYear = (int)$date->format('Y');
+        $years[$rowYear] = ($years[$rowYear] ?? 0) + 1;
         $guaranteeCents = finance_parse_money(finance_import_row_value($row, $map, 'guarantee'));
         $tipsCents = finance_parse_money(finance_import_row_value($row, $map, 'tips'));
 
-        $findExisting->execute([$userId, $startsAt, $title]);
+        $findExisting->execute([$userId, $startsAt, $title, $guaranteeCents, $tipsCents]);
         $existingId = (int)($findExisting->fetchColumn() ?: 0);
         if ($existingId > 0) {
             $update->execute([$guaranteeCents, $tipsCents, $existingId, $userId]);
@@ -194,7 +200,8 @@ function finance_import_gig_records(PDO $pdo, int $userId, array $rows): array {
             $imported++;
         }
     }
-    return ['imported' => $imported, 'updated' => $updated, 'skipped' => $skipped, 'years' => array_keys($years)];
+    ksort($years, SORT_NUMERIC);
+    return ['imported' => $imported, 'updated' => $updated, 'skipped' => $skipped, 'years' => array_keys($years), 'year_counts' => $years];
 }
 
 if (!empty($_SESSION['finance_messages']) && is_array($_SESSION['finance_messages'])) {
@@ -339,6 +346,16 @@ if ($financeReady && is_post()) {
                 if (count($importYears) === 1) {
                     $startDate = sprintf('%04d-01-01', $importYears[0]);
                     $endDate = sprintf('%04d-12-31', $importYears[0]);
+                } elseif (count($importYears) > 1) {
+                    $yearParts = [];
+                    foreach (($result['year_counts'] ?? []) as $rowYear => $count) {
+                        $rowYear = (int)$rowYear;
+                        if ($rowYear < 2000 || $rowYear > 2100) continue;
+                        $yearParts[] = $rowYear . ': ' . (int)$count;
+                    }
+                    if ($yearParts) {
+                        $messages[] = 'Imported rows span multiple years (' . implode(', ', $yearParts) . '). Check for date typos if that was not intentional.';
+                    }
                 }
             }
         } catch (Throwable $e) {
@@ -505,7 +522,7 @@ finance_page_head('Finance | Gig Ledger');
           </div>
           <div class="finance-field">
             <label>Columns</label>
-            <div class="finance-muted">Use headers: date, event title, guarantee, tips. Headerless files are read in that order.</div>
+            <div class="finance-muted">Use headers: date, event title, guarantee, tips. Headerless files are read in that order. Do not use commas in numbers over 999 unless the value is quoted, because commas are treated as column separators.</div>
           </div>
         </div>
         <div><button class="btn btn-primary" type="submit" <?= $isProUser ? '' : 'disabled' ?>>Import spreadsheet</button></div>

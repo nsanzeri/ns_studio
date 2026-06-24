@@ -327,6 +327,9 @@ function finance_page_head(string $title): void { ?>
     .finance-table { width:100%; border-collapse:collapse; min-width:980px; }
     .finance-table th, .finance-table td { padding:.75rem; border-bottom:1px solid rgba(255,255,255,.07); text-align:left; vertical-align:top; }
     .finance-table th { color:#f4d35e; font-size:.78rem; letter-spacing:.08em; text-transform:uppercase; }
+    .finance-table tfoot th { border-top:1px solid rgba(255,255,255,.14); border-bottom:none; color:#fff; background:rgba(255,255,255,.035); }
+    .finance-positive { color:#7effbf !important; }
+    .finance-negative { color:#ff8d8d !important; }
     .finance-table input, .finance-table textarea { min-width:92px; }
     .finance-table textarea { min-width:160px; min-height:42px; resize:vertical; }
     .finance-gig-ledger-table { min-width:900px; }
@@ -374,6 +377,7 @@ function finance_page_head(string $title): void { ?>
     .finance-overview-stats { display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:.75rem; margin-top:1rem; }
     .finance-stat-mini { border:1px solid rgba(255,255,255,.08); border-radius:14px; padding:.85rem; background:rgba(255,255,255,.035); display:grid; gap:.2rem; }
     .finance-stat-mini strong { color:#fff; font-size:1.12rem; }
+    .finance-stat-mini em { color:rgba(255,255,255,.62); font-size:.78rem; font-style:normal; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .alert { border-radius:16px; padding:.95rem 1rem; margin-bottom:1rem; }
     .alert-success { background:rgba(51,176,102,.16); border:1px solid rgba(51,176,102,.28); }
     .alert-error { background:rgba(199,64,64,.16); border:1px solid rgba(199,64,64,.28); }

@@ -29,8 +29,8 @@ if (!function_exists('rss_render_suite_menu')) {
         $modules = [
             ['label' => 'Calendar', 'meta' => 'Availability tools', 'href' => $studioBase . '/tools/index.php', 'active' => rss_header_is_active_path($currentPath, '/tools/'), 'soon' => false],
             ['label' => 'SetMaxx', 'meta' => 'Songs and requests', 'href' => $studioBase . '/setmaxx/index.php', 'active' => rss_header_is_active_path($currentPath, '/setmaxx/'), 'soon' => false],
-            ['label' => 'Finance', 'meta' => 'Coming soon', 'href' => $studioBase . '/shop/#business-tracking', 'active' => false, 'soon' => true],
-            ['label' => 'Publish', 'meta' => 'Coming soon', 'href' => $studioBase . '/shop/#publishing-tools', 'active' => false, 'soon' => true],
+            ['label' => 'Finance', 'meta' => 'Gig income tracking', 'href' => $studioBase . '/finance/index.php', 'active' => rss_header_is_active_path($currentPath, '/finance/'), 'soon' => false],
+            ['label' => 'Publish', 'meta' => 'Promo copy writer', 'href' => $studioBase . '/publishing/index.php', 'active' => rss_header_is_active_path($currentPath, '/publishing/'), 'soon' => false],
         ];
         $buttonId = $idPrefix . 'SuiteMenuToggle';
         $panelId = $idPrefix . 'SuiteMenuPanel';
@@ -70,8 +70,8 @@ if (!function_exists('rss_render_account_menu')) {
         $modules = [
             ['label' => 'Calendar', 'href' => $studioBase . '/tools/index.php', 'active' => rss_header_is_active_path($currentPath, '/tools/'), 'soon' => false],
             ['label' => 'SetMaxx', 'href' => $studioBase . '/setmaxx/index.php', 'active' => rss_header_is_active_path($currentPath, '/setmaxx/'), 'soon' => false],
-            ['label' => 'Finance', 'href' => $studioBase . '/shop/#business-tracking', 'active' => false, 'soon' => true],
-            ['label' => 'Publish', 'href' => $studioBase . '/shop/#publishing-tools', 'active' => false, 'soon' => true],
+            ['label' => 'Finance', 'href' => $studioBase . '/finance/index.php', 'active' => rss_header_is_active_path($currentPath, '/finance/'), 'soon' => false],
+            ['label' => 'Publish', 'href' => $studioBase . '/publishing/index.php', 'active' => rss_header_is_active_path($currentPath, '/publishing/'), 'soon' => false],
         ];
         $buttonId = $idPrefix . 'AccountMenuToggle';
         $panelId = $idPrefix . 'AccountMenuPanel';

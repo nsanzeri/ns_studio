@@ -212,14 +212,14 @@ if (isset($_GET['upgraded'])) {
         <p>Manage songs, generate setlists, and prepare crowd-friendly live request sessions.</p>
       </article>
       <article class="suite-tile">
-        <p class="eyebrow">Finance · Soon</p>
+        <p class="eyebrow">Finance</p>
         <h3>Gig tracking</h3>
-        <p>Coming-soon tools for deposits, balances, totals, averages, and tip reporting.</p>
+        <p>Track gig income, tips, yearly totals, averages, and booking value.</p>
       </article>
       <article class="suite-tile">
-        <p class="eyebrow">Publish · Soon</p>
+        <p class="eyebrow">Publishing</p>
         <h3>Promo support</h3>
-        <p>Roadmap tools for announcements, captions, newsletters, and event copy.</p>
+        <p>Generate announcements, captions, newsletters, and event copy from selected shows.</p>
       </article>
     </section>
 

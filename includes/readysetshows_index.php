@@ -916,12 +916,12 @@ $shopUrl = $studioBase . '/shop/index.php';
                         <p>Check availability, format dates, and prep show exports when booking work needs to move fast.</p>
                     </article>
                     <article class="rss-faq-item">
-                        <h3>Publishing tools <span>Soon</span></h3>
-                        <p>Planned tools for turning show data into event copy, newsletters, and social posts.</p>
+                        <h3>Publishing tools</h3>
+                        <p>Turn show data into event copy, newsletters, social posts, and date-list blurbs.</p>
                     </article>
                     <article class="rss-faq-item">
-                        <h3>Finance <span>Soon</span></h3>
-                        <p>Coming-soon workflows for deposits, balances, revenue totals, and better gig-value visibility.</p>
+                        <h3>Finance</h3>
+                        <p>Track guarantees, tips, yearly totals, monthly averages, and better gig-value visibility.</p>
                     </article>
                 </div>
             </div>

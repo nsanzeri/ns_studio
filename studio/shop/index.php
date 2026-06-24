@@ -338,8 +338,8 @@ if ($isReadySetShowsHost) {
         <summary>
           <span class="rss-icon"><i class="fa-solid fa-bullhorn"></i></span>
           <div>
-            <h3>Publishing Tools <span class="muted" style="font-size:.78rem; font-weight:600;">Soon</span></h3>
-            <p class="muted">Future tools for turning selected shows into promo copy, newsletters, and event posts.</p>
+            <h3>Publishing Tools</h3>
+            <p class="muted">Tools for turning selected shows into promo copy, newsletters, and event posts.</p>
           </div>
           <i class="fa-solid fa-chevron-down rss-chevron"></i>
         </summary>
@@ -350,7 +350,7 @@ if ($isReadySetShowsHost) {
             <li>Prepare event details for Facebook and other platforms</li>
             <li>Reuse your gig data instead of retyping everything</li>
           </ul>
-          <p class="muted">Planned for the Ready Set Shows roadmap.</p>
+          <p><a class="btn btn-outline" href="<?= e(base_url('/publishing/index.php')) ?>">Open Publishing</a></p>
         </div>
       </details>
 
@@ -358,19 +358,19 @@ if ($isReadySetShowsHost) {
         <summary>
           <span class="rss-icon"><i class="fa-solid fa-chart-line"></i></span>
           <div>
-            <h3>Finance <span class="muted" style="font-size:.78rem; font-weight:600;">Soon</span></h3>
-            <p class="muted">Coming-soon tools for deposits, balances, yearly totals, and average gig value.</p>
+            <h3>Finance</h3>
+            <p class="muted">Tools for gig income, tips, yearly totals, and average gig value.</p>
           </div>
           <i class="fa-solid fa-chevron-down rss-chevron"></i>
         </summary>
         <div class="rss-suite-body">
           <ul class="rss-feature-list">
-            <li>Track gig fees, deposits, and balances due</li>
+            <li>Track gig guarantees and tips</li>
             <li>See yearly revenue and average booking value</li>
             <li>Spot which gigs and clients are most profitable</li>
             <li>Run your music work more like a real business</li>
           </ul>
-          <p class="muted">Coming soon to the Ready Set Shows roadmap.</p>
+          <p><a class="btn btn-outline" href="<?= e(base_url('/finance/index.php')) ?>">Open Finance</a></p>
         </div>
       </details>
 

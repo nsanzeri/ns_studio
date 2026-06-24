@@ -105,10 +105,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 		}
 		
 		if (!$errors) {
-			if ($action === 'create' && !$isProUser && $existingCalendarCount >= 1) {
-				$errors[] = 'Free accounts can connect one calendar. Upgrade to Pro to add more.';
-			}
-			
 			if ($action === 'create') {
 				$stmt = $pdo->prepare("
                     INSERT INTO calendars
@@ -428,13 +424,6 @@ $commonTimezones = [
       </div>
     </div>
 
-    <?php if (!$isProUser): ?>
-      <div class="upgrade-banner">
-        <strong>Founder Pricing:</strong> Upgrade to Pro for $10/month to unlock premium exports, multiple calendars, and 5% off shop purchases.
-        <a href="<?= e($upgradeUrl) ?>">Upgrade now</a>
-      </div>
-    <?php endif; ?>
-
     <?php if ($flash): ?>
       <div class="flash"><?= e($flash) ?></div>
     <?php endif; ?>
@@ -452,12 +441,6 @@ $commonTimezones = [
 
     <div class="tools-layout">
       <section class="tools-card">
-        <?php if (!$isProUser): ?>
-          <p class="small-note" style="margin-top:-.25rem;margin-bottom:1rem;">
-            Free accounts can connect one calendar. Upgrade to Pro to add more.
-          </p>
-        <?php endif; ?>
-
         <form id="calendarForm" method="post" action="<?= e(base_url('/tools/calendars.php' . ($editingCalendar ? '?edit=' . (int)$editingCalendar['id'] : ''))) ?>" onsubmit="return handleCalendarFormSubmit(event)">
           <input type="hidden" name="action" value="<?= $editingCalendar ? 'update' : 'create' ?>">
           <?php if ($editingCalendar): ?>
@@ -640,10 +623,7 @@ $commonTimezones = [
       Get the full Ready Set Shows workflow with founder pricing.
     </p>
     <ul style="margin:0 0 1.2rem 1.1rem; color:rgba(255,255,255,.82); line-height:1.8;">
-      <li>Multiple calendars</li>
       <li>Bands In Town export</li>
-      <li>Pretty print views</li>
-      <li>Full date range access</li>
       <li><strong>5% off all shop purchases</strong></li>
     </ul>
     <div style="display:flex; gap:.75rem; flex-wrap:wrap;">
@@ -677,12 +657,6 @@ function requirePro() {
 }
 
 function handleCalendarFormSubmit(event) {
-  if (IS_EDITING_CALENDAR) return true;
-  if (EXISTING_CALENDAR_COUNT >= 1 && !IS_PRO_USER) {
-    if (event) event.preventDefault();
-    openUpgradeModal();
-    return false;
-  }
   return true;
 }
 
@@ -690,17 +664,6 @@ function handleCalendarFormSubmit(event) {
 document.addEventListener('DOMContentLoaded', () => {
   const submitButton = document.getElementById('calendarSubmitButton');
   if (!submitButton) return;
-
-  ['click', 'mousedown', 'touchstart'].forEach(evtName => {
-    submitButton.addEventListener(evtName, function (event) {
-      if (IS_EDITING_CALENDAR) return;
-      if (EXISTING_CALENDAR_COUNT >= 1 && !IS_PRO_USER) {
-        event.preventDefault();
-        event.stopPropagation();
-        openUpgradeModal();
-      }
-    });
-  });
 });
 
   (function () {

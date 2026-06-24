@@ -26,13 +26,6 @@ $defaultDateTo   = $oneMonthOut->format('Y-m-d');
 $dateFrom = $_GET['date_from'] ?? $defaultDateFrom;
 $dateTo   = $_GET['date_to'] ?? $defaultDateTo;
 
-if (!$isProUser) {
-	$maxFreeDateTo = $defaultDateTo;
-	if ($dateTo > $maxFreeDateTo) {
-		$dateTo = $maxFreeDateTo;
-	}
-}
-
 $userTimezone = $user['timezone'] ?? 'America/Chicago';
 
 $calStmt = $pdo->prepare("
@@ -508,13 +501,6 @@ if (!in_array($selectedFormat, ['newsletter', 'spreadsheet', 'print'], true)) {
       </div>
     </div>
 
-    <?php if (!$isProUser): ?>
-      <div class="upgrade-banner">
-        <strong>Founder Pricing:</strong> Upgrade to Pro for $10/month to unlock premium exports, multiple calendars, and 5% off shop purchases.
-        <a href="<?= e($upgradeUrl) ?>">Upgrade now</a>
-      </div>
-    <?php endif; ?>
-
     <div class="tools-layout">
       <aside class="tools-stack">
         <section class="tools-card">
@@ -528,10 +514,7 @@ if (!in_array($selectedFormat, ['newsletter', 'spreadsheet', 'print'], true)) {
 
                 <div class="tools-field">
                   <label for="endDate">End</label>
-                  <input class="tools-input" type="date" id="endDate" name="date_to" value="<?= e($dateTo) ?>" <?= !$isProUser ? 'max="'. e($defaultDateTo) .'"' : '' ?>>
-                  <?php if (!$isProUser): ?>
-                    <p class="pro-locked-note">Free accounts can choose any start date, but the end date is limited to one month from today. Upgrade to Pro to unlock a custom end date.</p>
-                  <?php endif; ?>
+                  <input class="tools-input" type="date" id="endDate" name="date_to" value="<?= e($dateTo) ?>">
                 </div>
               </div>
 
@@ -671,10 +654,7 @@ if (!in_array($selectedFormat, ['newsletter', 'spreadsheet', 'print'], true)) {
       Get the full Ready Set Shows workflow with founder pricing.
     </p>
     <ul style="margin:0 0 1.2rem 1.1rem; color:rgba(255,255,255,.82); line-height:1.8;">
-      <li>Multiple calendars</li>
       <li>Bands In Town export</li>
-      <li>Pretty print views</li>
-      <li>Full date range access</li>
       <li><strong>5% off all shop purchases</strong></li>
     </ul>
     <div style="display:flex; gap:.75rem; flex-wrap:wrap;">
@@ -768,22 +748,12 @@ function guardLockedInteraction(event, actionKey = "locked_interaction", note = 
 }
 
 function lockFreeUserEndDate() {
-  if (IS_PRO_USER) return;
-
   const endDateField = document.getElementById('endDate');
   if (!endDateField) return;
 
-  const maxDate = <?= json_encode($defaultDateTo) ?>;
-  endDateField.value = maxDate;
-  endDateField.max = maxDate;
-  endDateField.setAttribute('readonly', 'readonly');
-  endDateField.setAttribute('aria-disabled', 'true');
-
-  ['click', 'focus', 'mousedown', 'keydown', 'touchstart'].forEach(evtName => {
-    endDateField.addEventListener(evtName, function(e) {
-      guardLockedInteraction(e, "locked_date_range", "Free user attempted to change the end date");
-    });
-  });
+  endDateField.removeAttribute('max');
+  endDateField.removeAttribute('readonly');
+  endDateField.removeAttribute('aria-disabled');
 }
 
 function protectOutputElement(element) {
@@ -1009,7 +979,6 @@ function copyOutput() {
 function exportCSV() {
   const text = document.getElementById("output").textContent;
   if (!text.trim()) return;
-  if (!requirePro("export_csv", "Free user attempted to export pretty print CSV")) return;
 
   const blob = new Blob([text], { type: "text/csv;charset=utf-8" });
   const a = document.createElement("a");
@@ -1023,7 +992,6 @@ function exportCSV() {
 function exportTXT() {
   const text = document.getElementById("output").textContent;
   if (!text.trim()) return;
-  if (!requirePro("export_txt", "Free user attempted to export pretty print TXT")) return;
 
   const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
   const a = document.createElement("a");
@@ -1035,7 +1003,6 @@ function exportTXT() {
 }
 
 function printOutput() {
-  if (!requirePro("print_output", "Free user attempted to print pretty print output")) return;
   trackPrettyPrintUsage("print_output", "success");
   window.print();
 }
@@ -1056,19 +1023,9 @@ document.addEventListener("DOMContentLoaded", function () {
   const toInput = document.querySelector('input[name="to_date"]');
   if (!toInput) return;
 
-  const maxDate = getMaxToDate();
-  toInput.max = maxDate;
-
-  if (!IS_PRO_USER) {
-    toInput.addEventListener("focus", function (e) {
-      guardLockedInteraction(e, "locked_date_range", "Free user attempted to change the end date");
-      this.blur();
-    });
-
-    toInput.addEventListener("click", function (e) {
-      guardLockedInteraction(e, "locked_date_range", "Free user attempted to change the end date");
-    });
-  }
+  toInput.removeAttribute("max");
+  toInput.removeAttribute("readonly");
+  toInput.removeAttribute("aria-disabled");
 });
 
 function getMaxToDate() {

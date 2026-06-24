@@ -27,8 +27,8 @@ $oneMonthOut = (clone $today)->modify('+1 month');
 $defaultDateFrom = $today->format('Y-m-d');
 $defaultDateTo   = $oneMonthOut->format('Y-m-d');
 
-$dateFrom = $isProUser ? ($_GET['date_from'] ?? $defaultDateFrom) : $defaultDateFrom;
-$dateTo   = $isProUser ? ($_GET['date_to'] ?? $defaultDateTo) : $defaultDateTo;
+$dateFrom = $_GET['date_from'] ?? $defaultDateFrom;
+$dateTo   = $_GET['date_to'] ?? $defaultDateTo;
 
 $userTimezone = $user['timezone'] ?? 'America/Chicago';
 
@@ -63,12 +63,6 @@ if (!$selectedCalendarIds && $hasCalendars) {
 			);
 }
 
-if (!$isProUser) {
-	$maxDate = (new DateTime())->modify('+1 month')->format('Y-m-d');
-	if ($dateTo > $maxDate) {
-		$dateTo = $maxDate;
-	}
-}
 ?>
 <!doctype html>
 <html lang="en">
@@ -476,12 +470,6 @@ if (!$isProUser) {
         <h1>Availability</h1>
       </div>
     </div>
-    <?php if (!$isProUser): ?>
-      <div class="upgrade-banner">
-        <strong>Founder Pricing:</strong> Upgrade to Pro for $10/month to unlock premium exports, multiple calendars, and 5% off shop purchases.
-        <a href="<?= e($upgradeUrl) ?>">Upgrade now</a>
-      </div>
-    <?php endif; ?>
 	<?php if (isset($_GET['trial_started'])): ?>
 	  <div class="upgrade-banner">
 	    <strong>Trial Active:</strong> Your 30-day Pro access has started. Explore everything.
@@ -502,9 +490,6 @@ if (!$isProUser) {
                 <div class="tools-field">
                   <label for="date_to">To</label>
                   <input class="tools-input" type="date" id="date_to" name="date_to" value="<?= e($dateTo) ?>">
-                  <?php if (!$isProUser): ?>
-                    <p class="pro-locked-note">Free accounts can view the next month. Upgrade to Pro to choose a custom date range.</p>
-                  <?php endif; ?>
                 </div>
               </div>
 
@@ -674,10 +659,7 @@ if (!$isProUser) {
       Get the full Ready Set Shows workflow with founder pricing.
     </p>
     <ul style="margin:0 0 1.2rem 1.1rem; color:rgba(255,255,255,.82); line-height:1.8;">
-      <li>Multiple calendars</li>
       <li>Bands In Town export</li>
-      <li>Pretty print views</li>
-      <li>Full date range access</li>
       <li><strong>5% off all shop purchases</strong></li>
     </ul>
     <div style="display:flex; gap:.75rem; flex-wrap:wrap;">
@@ -788,27 +770,14 @@ function installLockedDateRange() {
   const toInput = document.getElementById("date_to");
   if (!fromInput || !toInput) return;
 
-  // From date should always be editable and unrestricted
   fromInput.removeAttribute("readonly");
   fromInput.removeAttribute("aria-disabled");
   fromInput.removeAttribute("min");
   fromInput.removeAttribute("max");
 
-  // To date should always be editable, but capped at one month out for free users
   toInput.removeAttribute("readonly");
   toInput.removeAttribute("aria-disabled");
-
-  if (IS_PRO_USER) {
-    toInput.removeAttribute("max");
-    return;
-  }
-
-  const maxDate = getMaxToDate();
-  toInput.max = maxDate;
-
-  if (toInput.value && toInput.value > maxDate) {
-    toInput.value = maxDate;
-  }
+  toInput.removeAttribute("max");
 }
 
 function protectOutputElement(element) {
@@ -925,7 +894,6 @@ function copyAvailabilityOutput() {
 function exportAvailabilityTXT() {
   const text = document.getElementById("availabilityTextOutput").textContent;
   if (!text.trim()) return;
-  if (!requirePro("export_txt", "Free user attempted to export availability TXT")) return;
 
   const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
   const a = document.createElement("a");
@@ -937,7 +905,6 @@ function exportAvailabilityTXT() {
 }
 
 function printAvailabilityOutput() {
-  if (!requirePro("print_output", "Free user attempted to print availability output")) return;
   trackAvailabilityUsage("print_output", "success");
   window.print();
 }
@@ -1077,7 +1044,6 @@ document.addEventListener("DOMContentLoaded", () => {
     form.addEventListener("submit", findAvailableDates);
   }
 
-  // 🔒 Apply Pro locks cleanly
   installLockedDateRange(['date_from', 'date_to']);
 
   const output = document.getElementById("availabilityTextOutput");
@@ -1089,33 +1055,14 @@ document.addEventListener("DOMContentLoaded", function () {
   const toInput = document.getElementById("date_to");
   if (!toInput) return;
 
-  if (IS_PRO_USER) {
-    toInput.removeAttribute("max");
-    toInput.removeAttribute("readonly");
-    toInput.removeAttribute("aria-disabled");
+  toInput.removeAttribute("max");
+  toInput.removeAttribute("readonly");
+  toInput.removeAttribute("aria-disabled");
 
-    if (fromInput) {
-      fromInput.removeAttribute("readonly");
-      fromInput.removeAttribute("aria-disabled");
-    }
-    return;
+  if (fromInput) {
+    fromInput.removeAttribute("readonly");
+    fromInput.removeAttribute("aria-disabled");
   }
-
-  const maxDate = getMaxToDate();
-  toInput.max = maxDate;
-
-  if (toInput.value && toInput.value > maxDate) {
-    toInput.value = maxDate;
-  }
-
-  toInput.addEventListener("focus", function (e) {
-    guardLockedInteraction(e, "locked_date_range", "Free user attempted to change the end date");
-    this.blur();
-  });
-
-  toInput.addEventListener("click", function (e) {
-    guardLockedInteraction(e, "locked_date_range", "Free user attempted to change the end date");
-  });
 });
 
 function getMaxToDate() {

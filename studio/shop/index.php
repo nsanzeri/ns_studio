@@ -253,10 +253,10 @@ if ($isReadySetShowsHost) {
     <div class="container rss-store-hero-grid">
       <div>
         <div class="rss-store-kicker"><i class="fa-solid fa-music"></i> Ready Set Shows</div>
-        <h1>Turn your setlist into a paycheck.</h1>
+        <h1>Build your set. Go live when you are ready.</h1>
         <p>
-          Start with Set Maxx: live paid requests, QR-friendly request pages, tipping, song suggestions,
-          card and Venmo options, smarter setlists, and practical tools for working musicians.
+          Start with free Set Maxx catalog and setlist tools. Upgrade when you want live paid requests,
+          QR-friendly public pages, tipping, song suggestions, card and Venmo options, and practical tools for working musicians.
         </p>
         <div class="rss-store-actions">
           <a class="btn btn-primary" href="<?= e(rss_studio_root_url() . '/setmaxx/index.php') ?>">Open Set Maxx</a>
@@ -285,7 +285,7 @@ if ($isReadySetShowsHost) {
         <div>
             <p class="eyebrow">Ready Set Shows tools</p>
             <h2>Multiple gig tools in one place.</h2>
-          <p class="muted">Start with Set Maxx, then use the calendar and business tools as the suite grows around it.</p>
+          <p class="muted">Start with free Set Maxx planning tools, then add live request and business workflows as the suite grows around it.</p>
         </div>
       </div>
 
@@ -294,7 +294,7 @@ if ($isReadySetShowsHost) {
           <span class="rss-icon"><i class="fa-solid fa-list-check"></i></span>
           <div>
             <h3>Set Maxx</h3>
-            <p class="muted">Build better sets, manage your song list, and take controlled crowd requests.</p>
+            <p class="muted">Build better sets and manage your song list for free. Add controlled crowd requests with Pro.</p>
           </div>
           <i class="fa-solid fa-chevron-down rss-chevron"></i>
         </summary>
@@ -302,8 +302,8 @@ if ($isReadySetShowsHost) {
           <ul class="rss-feature-list">
             <li>Maintain your master song catalog</li>
             <li>Generate sets by crowd, danceability, energy, and flow</li>
-            <li>Create gig-specific request sessions</li>
-            <li>Share a QR-friendly public request page</li>
+            <li>Pro gig-specific request sessions</li>
+            <li>Pro QR-friendly public request pages</li>
           </ul>
           <div class="rss-card-actions">
             <a class="btn btn-primary" href="<?= e(rss_tool_upgrade_url()) ?>">View Pricing</a>

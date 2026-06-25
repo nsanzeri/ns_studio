@@ -190,9 +190,9 @@ setmaxx_page_head('Set Maxx | Payments');
     <?php setmaxx_install_notice(); ?>
   <?php elseif (!$isProUser): ?>
     <div class="setmaxx-card">
-      <h2 style="margin-top:0;">Set Maxx subscription required</h2>
-      <p class="setmaxx-help">Payments are part of the Ready Set Shows tools plan.</p>
-      <a class="btn btn-primary" href="<?= e($upgradeUrl) ?>">Upgrade to unlock Set Maxx</a>
+      <h2 style="margin-top:0;">Pro required for live payments</h2>
+      <p class="setmaxx-help">Song catalogs and setlists are free. Tips, paid requests, and performer payouts are part of the live request workflow in Pro.</p>
+      <a class="btn btn-primary" href="<?= e($upgradeUrl) ?>">Upgrade for live payments</a>
     </div>
   <?php elseif ($isDirectPlatformUser): ?>
     <div class="setmaxx-card">

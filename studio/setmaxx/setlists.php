@@ -137,8 +137,6 @@ if ($tablesReady) {
 if ($tablesReady && is_post()) {
     if (!csrf_verify($_POST['_csrf'] ?? null)) {
         $errors[] = 'Your session expired. Refresh the page and try again.';
-    } elseif (!$isProUser) {
-        $errors[] = 'Set Maxx is included with the paid tools plan. Upgrade to continue.';
     } else {
         $where = ['user_id = ?'];
         $params = [$userId];
@@ -365,7 +363,7 @@ setmaxx_page_head('Set Maxx | Setlist Generator');
           </div>
           <div class="setmaxx-note setmaxx-help">Songs without saved lengths are planned as 4 minutes and labeled as assumed in the generated setlist.</div>
           <div class="setmaxx-actions">
-            <button class="btn btn-primary" type="submit" <?= $isProUser ? '' : 'disabled' ?>>Generate setlist</button>
+            <button class="btn btn-primary" type="submit">Generate setlist</button>
             <a class="btn btn-outline" href="<?= e(base_url('/setmaxx/songs.php')) ?>">Edit Songs</a>
           </div>
         </form>

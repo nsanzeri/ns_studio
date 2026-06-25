@@ -9,12 +9,6 @@ if (!csrf_verify($_GET['_csrf'] ?? null)) {
     exit;
 }
 
-if (!$isProUser) {
-    http_response_code(403);
-    echo json_encode(['ok' => false, 'error' => 'Upgrade required.']);
-    exit;
-}
-
 $title = trim((string)($_GET['title'] ?? ''));
 $artist = trim((string)($_GET['artist'] ?? ''));
 if ($title === '') {

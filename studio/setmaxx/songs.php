@@ -151,8 +151,6 @@ if ($tablesReady) {
 if ($tablesReady && is_post()) {
     if (!csrf_verify($_POST['_csrf'] ?? null)) {
         $errors[] = 'Your session expired. Refresh the page and try again.';
-    } elseif (!$isProUser) {
-        $errors[] = 'Set Maxx is included with the paid tools plan. Upgrade to continue.';
     } else {
         $action = (string)($_POST['action'] ?? 'add_song');
         try {
@@ -321,7 +319,7 @@ setmaxx_page_head('Set Maxx | Song Catalog');
           <label for="song_file">Upload text or CSV</label>
           <input class="setmaxx-input" id="song_file" name="song_file" type="file" accept=".txt,.csv,text/plain,text/csv">
         </div>
-        <div class="setmaxx-actions"><button class="btn btn-primary" type="submit" <?= $isProUser ? '' : 'disabled' ?>>Import songs</button></div>
+        <div class="setmaxx-actions"><button class="btn btn-primary" type="submit">Import songs</button></div>
       </form>
     </div>
     <div class="setmaxx-card">
@@ -334,7 +332,7 @@ setmaxx_page_head('Set Maxx | Song Catalog');
           <div class="setmaxx-field"><label for="artist">Artist</label><input class="setmaxx-input" id="artist" name="artist"></div>
         </div>
         <div class="setmaxx-actions">
-          <button class="btn btn-primary" type="submit" <?= $isProUser ? '' : 'disabled' ?>>Add song</button>
+          <button class="btn btn-primary" type="submit">Add song</button>
           <a class="btn btn-outline" href="<?= e(base_url('/setmaxx/sessions.php')) ?>">Gig Sessions</a>
         </div>
       </form>
@@ -355,8 +353,8 @@ setmaxx_page_head('Set Maxx | Song Catalog');
       <div class="setmaxx-actions">
         <button class="btn btn-outline" type="button" id="setmaxxEnrichBtn" <?= $songs ? '' : 'disabled' ?>>Enrich visible</button>
         <button class="btn btn-outline" type="button" id="setmaxxExportBtn" <?= $songs ? '' : 'disabled' ?>>Export / print</button>
-        <button class="btn btn-outline" type="submit" name="action" value="delete_selected" id="setmaxxDeleteSelectedBtn" <?= $isProUser && $songs ? '' : 'disabled' ?>>Delete selected</button>
-        <button class="btn btn-primary" type="submit" <?= $isProUser && $songs ? '' : 'disabled' ?>>Save catalog</button>
+        <button class="btn btn-outline" type="submit" name="action" value="delete_selected" id="setmaxxDeleteSelectedBtn" <?= $songs ? '' : 'disabled' ?>>Delete selected</button>
+        <button class="btn btn-primary" type="submit" <?= $songs ? '' : 'disabled' ?>>Save catalog</button>
       </div>
     </div>
 

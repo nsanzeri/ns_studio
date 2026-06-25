@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../_private/_core/bootstrap.php';
+require_once __DIR__ . '/../_private/_core/tool_access.php';
 require_once __DIR__ . '/../_private/_core/push_notifications.php';
 
 $token = trim((string)($_GET['token'] ?? ''));
@@ -302,6 +303,47 @@ function setmaxx_public_user_uses_direct_platform_tips(int $userId): bool {
     return in_array($userId, setmaxx_public_direct_platform_tip_user_ids(), true);
 }
 
+function setmaxx_public_user_has_pro_access(PDO $pdo, int $userId): bool {
+    if ($userId <= 0) return false;
+
+    if (rss_table_exists($pdo, 'user_subscriptions') && rss_table_exists($pdo, 'subscription_plans')) {
+        $slugs = rss_tools_product_slugs();
+        $placeholders = implode(',', array_fill(0, count($slugs), '?'));
+        $stmt = $pdo->prepare("
+            SELECT 1
+            FROM user_subscriptions us
+            JOIN subscription_plans sp ON sp.id = us.subscription_plan_id
+            WHERE us.user_id = ?
+              AND us.status IN ('trialing', 'active')
+              AND (us.current_period_end IS NULL OR us.current_period_end > NOW())
+              AND sp.slug IN ($placeholders)
+              AND sp.is_active = 1
+            LIMIT 1
+        ");
+        $stmt->execute(array_merge([$userId], $slugs));
+        if ($stmt->fetchColumn()) return true;
+    }
+
+    if (rss_table_exists($pdo, 'entitlements') && rss_table_exists($pdo, 'products')) {
+        $slugs = rss_tools_product_slugs();
+        $placeholders = implode(',', array_fill(0, count($slugs), '?'));
+        $stmt = $pdo->prepare("
+            SELECT 1
+            FROM entitlements e
+            JOIN products p ON p.id = e.product_id
+            WHERE e.user_id = ?
+              AND e.status = 'active'
+              AND (e.expires_at IS NULL OR e.expires_at > NOW())
+              AND p.slug IN ($placeholders)
+            LIMIT 1
+        ");
+        $stmt->execute(array_merge([$userId], $slugs));
+        if ($stmt->fetchColumn()) return true;
+    }
+
+    return false;
+}
+
 function setmaxx_public_create_performer_checkout_session(array $checkoutPayload, array $connectAccount): \Stripe\Checkout\Session {
     $stripeAccountId = trim((string)($connectAccount['stripe_account_id'] ?? ''));
     if ($stripeAccountId === '') {
@@ -359,6 +401,12 @@ if ($tablesReady && $linkToken !== '' && setmaxx_public_table_exists($pdo, 'setm
             $publicDisplayName = (string)($session['display_name'] ?? $publicDisplayName);
         }
     }
+}
+
+if ($tablesReady && $publicUserId > 0 && !setmaxx_public_user_has_pro_access($pdo, $publicUserId)) {
+    $session = null;
+    $stableLinkFound = false;
+    $publicUserId = 0;
 }
 
 if ($tablesReady && $publicUserId > 0) {

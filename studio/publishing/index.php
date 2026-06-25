@@ -99,8 +99,6 @@ if ($calendar) {
 if (is_post()) {
     if (!csrf_verify($_POST['_csrf'] ?? null)) {
         $errors[] = 'Your session expired. Refresh the page and try again.';
-    } elseif (!$isProUser) {
-        $errors[] = 'Publishing is included with the paid tools plan. Upgrade to continue.';
     } else {
         $showById = [];
         foreach ($shows as $show) $showById[(string)($show['select_key'] ?? '')] = $show;

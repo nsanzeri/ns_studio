@@ -53,7 +53,7 @@ if ($tablesReady && is_post()) {
     if (!csrf_verify($_POST['_csrf'] ?? null)) {
         $errors[] = 'Your session expired. Refresh the page and try again.';
     } elseif (!$isProUser) {
-        $errors[] = 'Set Maxx is included with the paid tools plan. Upgrade to continue.';
+        $errors[] = 'Live session history controls are included with Pro.';
     } else {
         $action = (string)($_POST['action'] ?? '');
         try {

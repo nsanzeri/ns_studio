@@ -74,7 +74,7 @@ if ($tablesReady && is_post()) {
     if (!csrf_verify($_POST['_csrf'] ?? null)) {
         $errors[] = 'Your session expired. Refresh the page and try again.';
     } elseif (!$isProUser) {
-        $errors[] = 'Set Maxx is included with the paid tools plan. Upgrade to continue.';
+        $errors[] = 'The live request dashboard is included with Pro.';
     } else {
         try {
             $requestId = (int)($_POST['request_id'] ?? 0);

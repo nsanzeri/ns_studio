@@ -113,7 +113,7 @@ if ($tablesReady && is_post()) {
 	if (!csrf_verify($_POST['_csrf'] ?? null)) {
 		$errors[] = 'Your session expired. Refresh the page and try again.';
 	} elseif (!$isProUser) {
-		$errors[] = 'Set Maxx is included with the paid tools plan. Upgrade to continue.';
+		$errors[] = 'Live sessions and public request pages are included with Pro.';
 	} else {
 		$action = (string)($_POST['action'] ?? '');
 		try {
@@ -244,7 +244,13 @@ setmaxx_page_head('Set Maxx | Show Setup');
   <div class="setmaxx-card" style="margin-bottom:1rem;">
     <div class="setmaxx-pill">Show setup</div>
     <h1 style="margin:.8rem 0 .35rem;">Configure and create a request page for your next show</h1>
-    <p class="setmaxx-help">Set up the public request page, QR link, notifications, and pricing before you go live.</p>
+    <p class="setmaxx-help">Set up the public request page, QR link, notifications, and pricing before you go live. Catalogs and setlists are free; live public request pages are Pro.</p>
+    <?php if (!$isProUser): ?>
+      <div class="setmaxx-actions" style="margin-top:1rem;">
+        <a class="btn btn-primary" href="<?= e($upgradeUrl) ?>">Upgrade for live request pages</a>
+        <a class="btn btn-outline" href="<?= e(base_url('/setmaxx/songs.php')) ?>">Use free song catalog</a>
+      </div>
+    <?php endif; ?>
   </div>
   <?php if (!$tablesReady): ?><?php setmaxx_install_notice(); ?><?php else: ?>
   <section class="setmaxx-grid">
@@ -270,13 +276,15 @@ setmaxx_page_head('Set Maxx | Show Setup');
         <button class="setmaxx-help-button" type="button" id="setmaxxQrHelpBtn" aria-label="Show QR help" aria-haspopup="dialog">?</button>
       </div>
       <p class="setmaxx-help">This QR code stays the same. It always opens whichever session is currently live.</p>
-      <?php if ($stablePublicUrl): ?>
+      <?php if (!$isProUser): ?>
+        <div class="setmaxx-row"><div class="setmaxx-meta">Permanent QR links and public request pages are included with Pro.</div></div>
+      <?php elseif ($stablePublicUrl): ?>
         <div class="setmaxx-qr-wrap">
           <img class="setmaxx-qr-img" src="<?= e($stableQrUrl) ?>" alt="Set Maxx request QR code">
           <div class="setmaxx-link-box"><strong>Public page</strong><code><?= e($stablePublicUrl) ?></code><a class="btn btn-outline" href="<?= e($stablePublicUrl) ?>" target="_blank" rel="noopener">Open</a></div>
         </div>
       <?php endif; ?>
-      <a class="btn btn-outline" href="<?= e(base_url('/setmaxx/requests.php')) ?>">Open Request Dashboard</a>
+      <a class="btn btn-outline" href="<?= e($isProUser ? base_url('/setmaxx/requests.php') : $upgradeUrl) ?>"><?= $isProUser ? 'Open Request Dashboard' : 'Upgrade for Request Dashboard' ?></a>
     </div>
     <div class="setmaxx-card setmaxx-notification-card">
       <div>

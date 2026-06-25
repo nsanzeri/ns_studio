@@ -72,11 +72,11 @@ setmaxx_page_head('Set Maxx | Dashboard');
   <section class="setmaxx-hero">
     <div class="setmaxx-card">
       <h1 style="margin:.8rem 0 .45rem;">Set Maxx</h1>
-      <p class="setmaxx-help" style="font-size:1rem; margin:0 0 1rem;">Build your requestable song catalog, launch a live gig page, and control crowd requests without letting the room hijack the show.</p>
+      <p class="setmaxx-help" style="font-size:1rem; margin:0 0 1rem;">Build your song catalog and generate stronger setlists. Upgrade when you are ready to launch live public request pages.</p>
       <div class="setmaxx-actions">
         <?php if (!$isProUser): ?>
-          <span class="setmaxx-pill">Paid tools plan required</span>
-          <a class="btn btn-primary" href="<?= e($upgradeUrl) ?>">Upgrade to unlock Set Maxx</a>
+          <span class="setmaxx-pill">Catalog and setlists are free</span>
+          <a class="btn btn-primary" href="<?= e($upgradeUrl) ?>">Upgrade for live request pages</a>
         <?php endif; ?>
       </div>
     </div>
@@ -99,27 +99,27 @@ setmaxx_page_head('Set Maxx | Dashboard');
   <?php else: ?>
     <section class="setmaxx-module-grid" style="margin-bottom:1.25rem;">
       <a class="setmaxx-card setmaxx-module-card" href="<?= e(base_url('/setmaxx/songs.php')) ?>">
-        <div class="setmaxx-pill">Step 1</div>
+        <div class="setmaxx-pill">Free</div>
         <h2>Song Catalog</h2>
-        <p class="setmaxx-help">Add and manage the songs fans can request.</p>
+        <p class="setmaxx-help">Add, enrich, edit, export, and manage your performance catalog.</p>
       </a>
       <a class="setmaxx-card setmaxx-module-card" href="<?= e(base_url('/setmaxx/setlists.php')) ?>">
-        <div class="setmaxx-pill">Plan</div>
+        <div class="setmaxx-pill">Free</div>
         <h2>Setlist Generator</h2>
         <p class="setmaxx-help">Build timed sets from your filtered catalog.</p>
       </a>
       <a class="setmaxx-card setmaxx-module-card" href="<?= e(base_url('/setmaxx/sessions.php')) ?>">
-        <div class="setmaxx-pill">Step 2</div>
+        <div class="setmaxx-pill">Pro</div>
         <h2>Gig Sessions</h2>
         <p class="setmaxx-help">Create a public request page for each show.</p>
       </a>
       <a class="setmaxx-card setmaxx-module-card" href="<?= e(base_url('/setmaxx/requests.php')) ?>">
-        <div class="setmaxx-pill">Step 3</div>
+        <div class="setmaxx-pill">Pro</div>
         <h2>Request Dashboard</h2>
         <p class="setmaxx-help">Queue, play, decline, or cancel requests.</p>
       </a>
       <a class="setmaxx-card setmaxx-module-card" href="<?= e(base_url('/setmaxx/payments.php')) ?>">
-        <div class="setmaxx-pill">Tips</div>
+        <div class="setmaxx-pill">Pro</div>
         <h2>Payments</h2>
         <p class="setmaxx-help">Connect Stripe for paid request payouts.</p>
       </a>
@@ -129,8 +129,8 @@ setmaxx_page_head('Set Maxx | Dashboard');
       <div class="setmaxx-card">
         <h2 style="margin-top:0;">Live session</h2>
         <?php if (!$liveSession): ?>
-          <p class="setmaxx-help">No live session right now. Create one when you are ready to take requests.</p>
-          <a class="btn btn-primary" href="<?= e(base_url('/setmaxx/sessions.php')) ?>">Create Session</a>
+          <p class="setmaxx-help">No live session right now. Live public request pages are part of Pro.</p>
+          <a class="btn btn-primary" href="<?= e($isProUser ? base_url('/setmaxx/sessions.php') : $upgradeUrl) ?>"><?= $isProUser ? 'Create Session' : 'Upgrade for Live Sessions' ?></a>
         <?php else: ?>
           <?php $publicUrl = $sessionLinkBase . rawurlencode((string)$liveSession['public_token']); ?>
           <div style="font-weight:600;"><?= e($liveSession['title']) ?></div>

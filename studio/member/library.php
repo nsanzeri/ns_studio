@@ -125,7 +125,7 @@ if ($isReadySetShowsHost) {
             <?= e($toolsBadge['description']) ?>
           </div>
           <p class="muted" style="margin:.75rem 0 0; max-width:680px;">
-            One membership for the working-musician toolkit: calendar availability, Bandsintown prep, setlist/request tools, and future publishing/business features.
+              Your working-musician toolkit: calendar availability, setlist planning, publishing, finance tracking, and Pro upgrades for the higher-value workflows.
           </p>
         </div>
 
@@ -156,12 +156,12 @@ if ($isReadySetShowsHost) {
 
         <details style="border:1px solid rgba(255,255,255,.08); border-radius:18px; padding:1rem; background:rgba(255,255,255,.03);">
           <summary style="cursor:pointer; font-weight:700;">Set Maxx</summary>
-          <p class="muted" style="margin:.65rem 0 .75rem;">A live-performance module for song catalogs, gig sessions, and controlled audience requests.</p>
+          <p class="muted" style="margin:.65rem 0 .75rem;">Build your song catalog and generate setlists for free, then upgrade when you want live public request pages.</p>
           <ul class="muted" style="margin:0 0 .85rem; padding-left:1.2rem; font-size:.92rem;">
-            <li>Requestable song catalog</li>
-            <li>Public gig request pages</li>
-            <li>One active request per song per show</li>
-            <li>Queue, played, and decline workflow</li>
+            <li>Song catalog management</li>
+            <li>Setlist generation and planning</li>
+            <li>Pro live gig request pages</li>
+            <li>Pro request queue, played, and decline workflow</li>
           </ul>
           <a class="btn btn-outline" href="<?= e(base_url('setmaxx/index.php')) ?>">Launch Set Maxx</a>
         </details>

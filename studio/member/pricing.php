@@ -92,6 +92,36 @@ $requestHost = strtolower((string)($_SERVER['HTTP_HOST'] ?? ''));
 $requestHost = preg_replace('/:\d+$/', '', $requestHost);
 $isReadySetShowsHost = in_array($requestHost, ['readysetshows.com', 'www.readysetshows.com'], true);
 
+$comparisonFeatures = [
+	['module' => 'Calendar', 'label' => 'Create and manage multiple calendars', 'free' => true, 'pro' => true],
+	['module' => 'Calendar', 'label' => 'Unlimited calendars', 'free' => true, 'pro' => true],
+	['module' => 'Calendar', 'label' => 'Availability lookup across any date range', 'free' => true, 'pro' => true],
+	['module' => 'Calendar', 'label' => 'Pretty print calendar views across any date range', 'free' => true, 'pro' => true],
+	['module' => 'Calendar', 'label' => 'TXT, CSV, print, and client-friendly calendar outputs', 'free' => true, 'pro' => true],
+	['module' => 'Calendar', 'label' => 'Bandsintown bulk export', 'free' => false, 'pro' => true],
+	['module' => 'SetMaxx', 'label' => 'Song catalog add, edit, delete, and import tools', 'free' => true, 'pro' => true],
+	['module' => 'SetMaxx', 'label' => 'Song metadata enrichment', 'free' => true, 'pro' => true],
+	['module' => 'SetMaxx', 'label' => 'Song catalog export and print tools', 'free' => true, 'pro' => true],
+	['module' => 'SetMaxx', 'label' => 'Setlist generator and planning tools', 'free' => true, 'pro' => true],
+	['module' => 'SetMaxx', 'label' => 'Live gig sessions', 'free' => false, 'pro' => true],
+	['module' => 'SetMaxx', 'label' => 'Public request pages with stable QR links', 'free' => false, 'pro' => true],
+	['module' => 'SetMaxx', 'label' => 'Live request dashboard with queue, played, and decline workflow', 'free' => false, 'pro' => true],
+	['module' => 'SetMaxx', 'label' => 'Tips, paid song requests, audience song suggestions, email sign-up, reviews, and more', 'free' => false, 'pro' => true],
+	['module' => 'SetMaxx', 'label' => 'Stripe Connect onboarding and performer payout routing', 'free' => false, 'pro' => true],
+	['module' => 'Finance', 'label' => 'Dashboard and manual gig ledger', 'free' => true, 'pro' => true],
+	['module' => 'Finance', 'label' => 'Calendar import and gig preview tools', 'free' => true, 'pro' => true],
+	['module' => 'Finance', 'label' => 'Gig totals, year comparisons, and average gig value', 'free' => true, 'pro' => true],
+	['module' => 'Finance', 'label' => 'Spreadsheet import', 'free' => false, 'pro' => true],
+	['module' => 'Publishing', 'label' => 'Blurbs, social captions, newsletters, and date-list copy', 'free' => true, 'pro' => true],
+];
+
+function rss_pricing_feature_mark(bool $included): string {
+	$class = $included ? 'included' : 'excluded';
+	$symbol = $included ? '&#10003;' : '&times;';
+	$text = $included ? 'Included' : 'Pro only';
+	return '<span class="feature-mark ' . $class . '" aria-label="' . $text . '"><span aria-hidden="true">' . $symbol . '</span></span>';
+}
+
 if (isset($_GET['upgraded'])) {
 	$flash = 'Thanks — your checkout completed. Stripe is processing your subscription now.';
 } elseif (isset($_GET['canceled'])) {
@@ -112,7 +142,7 @@ if (isset($_GET['upgraded'])) {
   <style>
     .pricing-shell{padding:2.5rem 0 4rem;}
     .pricing-hero{max-width:760px;margin:0 auto 2rem;text-align:center;}
-    .pricing-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1.25rem;align-items:stretch;}
+    .pricing-grid{max-width:1040px;margin:0 auto;}
 
     .demo-feature{max-width:1040px;margin:0 auto 2rem;display:grid;grid-template-columns:minmax(0,1.25fr) minmax(280px,.75fr);gap:1.25rem;align-items:center;background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.09);border-radius:24px;padding:1.25rem;box-shadow:0 18px 42px rgba(0,0,0,.22);}
     .demo-video{position:relative;width:100%;aspect-ratio:16/9;border-radius:18px;overflow:hidden;background:#000;box-shadow:0 14px 32px rgba(0,0,0,.28);}
@@ -136,6 +166,25 @@ if (isset($_GET['upgraded'])) {
     .pricing-card ul{margin:1rem 0 1.25rem 1.15rem;color:rgba(255,255,255,.84);line-height:1.85;}
     .small-pricing-note{margin-top:.85rem;color:rgba(255,255,255,.62);font-size:.9rem;line-height:1.5;}
     .pricing-card .btn{margin-top:auto;text-align:center;}
+    .comparison-panel{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:22px;box-shadow:0 16px 34px rgba(0,0,0,.18);overflow:hidden;}
+    .comparison-row{display:grid;grid-template-columns:minmax(260px,1fr) minmax(150px,190px) minmax(150px,190px);align-items:stretch;border-bottom:1px solid rgba(255,255,255,.075);}
+    .comparison-row:last-child{border-bottom:0;}
+    .comparison-head{background:rgba(255,255,255,.055);}
+    .comparison-cell{padding:.95rem 1rem;display:flex;align-items:center;}
+    .comparison-plan{justify-content:center;text-align:center;border-left:1px solid rgba(255,255,255,.075);}
+    .comparison-plan-title{display:grid;gap:.25rem;justify-items:center;}
+    .comparison-plan-title strong{color:#fff;font-size:1.05rem;}
+    .comparison-plan-title span{color:rgba(255,255,255,.64);font-size:.85rem;}
+    .module-heading-row{background:rgba(212,175,55,.09);}
+    .module-heading{grid-column:1 / -1;color:#f2d67c;font-size:.78rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;}
+    .feature-with-module{padding-left:1rem;border-left:2px solid rgba(212,175,55,.24);}
+    .feature-text{color:rgba(255,255,255,.84);line-height:1.45;font-size:.94rem;}
+    .feature-mark{width:1.45rem;height:1.45rem;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;font-weight:800;font-size:.98rem;line-height:1;margin-top:.05rem;}
+    .feature-mark.included{background:rgba(48,196,110,.14);border:1px solid rgba(73,220,130,.5);color:#63e08c;}
+    .feature-mark.excluded{background:rgba(255,88,88,.12);border:1px solid rgba(255,110,110,.48);color:#ff8585;}
+    .comparison-cta-row{background:rgba(255,255,255,.035);}
+    .comparison-cta{display:grid;gap:.5rem;align-content:start;justify-items:stretch;}
+    .comparison-cta .btn{width:100%;text-align:center;}
     .pricing-alert{max-width:860px;margin:0 auto 1.25rem;border-radius:16px;padding:1rem 1.15rem;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);}
     .pricing-error{max-width:860px;margin:0 auto 1.25rem;border-radius:16px;padding:1rem 1.15rem;border:1px solid rgba(255,120,120,.22);background:rgba(120,0,0,.15);color:#ffd2d2;display:none;}
     .state-pill{display:inline-flex;padding:.35rem .7rem;border-radius:999px;background:rgba(255,255,255,.08);font-size:.82rem;font-weight:600;}
@@ -144,8 +193,8 @@ if (isset($_GET['upgraded'])) {
     .stack-actions{margin-top:auto;display:grid;gap:.75rem;}
     .stack-actions .btn{width:100%;}
     .pricing-note-panel{max-width:860px;margin:2rem auto 0;padding:1.25rem;border-radius:20px;background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.08);color:rgba(255,255,255,.74);line-height:1.65;}
-    @media (max-width:980px){.pricing-grid{grid-template-columns:1fr;}.demo-feature{grid-template-columns:1fr;}.demo-copy{padding:.25rem;}.suite-included{grid-template-columns:repeat(2,minmax(0,1fr));}}
-    @media (max-width:620px){.suite-included{grid-template-columns:1fr;}}
+    @media (max-width:980px){.demo-feature{grid-template-columns:1fr;}.demo-copy{padding:.25rem;}.suite-included{grid-template-columns:repeat(2,minmax(0,1fr));}}
+    @media (max-width:620px){.suite-included{grid-template-columns:1fr;}.comparison-row{grid-template-columns:minmax(0,1fr) 74px 74px;}.comparison-cell{padding:.8rem .65rem;}.comparison-plan-title span{display:none;}.feature-text{font-size:.88rem;}.feature-with-module{padding-left:.65rem;}.comparison-cta-row{grid-template-columns:1fr;}.comparison-cta-row .comparison-plan{border-left:0;border-top:1px solid rgba(255,255,255,.075);}}
   </style>
 </head>
 <body>
@@ -155,15 +204,15 @@ if (isset($_GET['upgraded'])) {
   <div class="container">
     <section class="pricing-hero">
       <p class="eyebrow">Ready Set Shows</p>
-      <h1 style="margin-bottom:.4rem;">One simple suite for working performers.</h1>
+      <h1 style="margin-bottom:.4rem;">The subscription built to make gigs pay better.</h1>
 
       <p style="font-size:.95rem; color:rgba(255,255,255,.6); margin-bottom:.8rem;">
-        Calendar tools, song catalogs, setlists, live requests, and performer-first show utilities.
+        Get booked faster, earn more from every room, and spend less time buried in admin.
       </p>
 
       <p class="muted" style="max-width:58ch; margin:0 auto;">
-        Start with the free tools that help you organize your show. Upgrade when you are ready to take paid live requests,
-        collect tips, and run the full SetMaxx workflow at gigs.
+        Ready Set Shows keeps the business side moving so you can think less about paperwork, spreadsheets, and promo panic,
+        and more about the music.
       </p>
 
       <div style="margin-top:1rem; display:flex; justify-content:center; gap:.7rem; flex-wrap:wrap;">
@@ -187,15 +236,15 @@ if (isset($_GET['upgraded'])) {
       </div>
       <div class="demo-copy">
         <p class="eyebrow" style="margin-bottom:.35rem;">Watch the demo</p>
-        <h2>See the workflow in action.</h2>
+        <h2>Stop leaving money on the table.</h2>
         <p>
-          Watch how Ready Set Shows helps a performer move from booking prep to set planning to live audience requests.
-          A shorter overview can drop into this spot later.
+          See how faster replies, cleaner booking tools, smarter show prep, and live request pages turn ordinary admin
+          into more booked dates, better-paid nights, and a fan list you can bring back to the next show.
         </p>
         <div class="demo-points">
-          <span>Check availability and clean up booking communication</span>
-          <span>Build song catalogs and generate better setlists</span>
-          <span>Open QR-friendly requests, tips, and song suggestions at shows</span>
+          <span>Reply quickly and accurately when a buyer asks for dates</span>
+          <span>Turn every gig into requests, tips, emails, reviews, and future show data</span>
+          <span>Promote more consistently without staring at a blank screen</span>
         </div>
       </div>
     </section>
@@ -203,23 +252,23 @@ if (isset($_GET['upgraded'])) {
     <section class="suite-included" aria-label="Ready Set Shows modules">
       <article class="suite-tile">
         <p class="eyebrow">Calendar</p>
-        <h3>Booking prep</h3>
-        <p>Check shared availability, print useful date views, and export clean show data.</p>
+        <h3>Land the date</h3>
+        <p>Respond quickly, cleanly, and accurately when the buyer is ready to book. Faster answers help you look pro, win the gig, and make more money.</p>
       </article>
       <article class="suite-tile">
         <p class="eyebrow">SetMaxx</p>
-        <h3>Set planning</h3>
-        <p>Manage songs, generate setlists, and prepare crowd-friendly live request sessions.</p>
+        <h3>Max the room</h3>
+        <p>Make more per gig with requests, tips, cards, Venmo, and crowd interaction. Collect emails, reviews, and song suggestions for future shows too.</p>
       </article>
       <article class="suite-tile">
         <p class="eyebrow">Finance</p>
-        <h3>Gig tracking</h3>
-        <p>Track gig income, tips, yearly totals, averages, and booking value.</p>
+        <h3>Know the numbers</h3>
+        <p>Track income, import past gigs, reconcile payouts between everyone involved, and see how your music business is actually doing.</p>
       </article>
       <article class="suite-tile">
         <p class="eyebrow">Publishing</p>
-        <h3>Promo support</h3>
-        <p>Generate announcements, captions, newsletters, and event copy from selected shows.</p>
+        <h3>Never go quiet</h3>
+        <p>Never skimp on promotion. Generate posts, captions, newsletters, and date-list copy for all your upcoming shows in a few clicks.</p>
       </article>
     </section>
 
@@ -230,99 +279,89 @@ if (isset($_GET['upgraded'])) {
 
     <section class="pricing-section-heading">
       <p class="eyebrow">Pricing</p>
-      <h2>Keep the planning tools free. Upgrade when the audience joins in.</h2>
-      <p class="muted">That gives performers a useful home base first, then makes the paid plan about live value at the gig.</p>
+      <h2>Free tools to get organized. Pro tools to make the gig pay.</h2>
+      <p class="muted">Use the planning tools now, then upgrade when you want the audience-facing features that collect money, leads, reviews, and momentum.</p>
     </section>
 
-    <section class="pricing-grid">
-      <article class="pricing-card">
-        <div class="pricing-badge">Free</div>
-        <div class="price-line">
-          <div class="price">$0</div>
-          <div class="price-unit">forever</div>
-        </div>
-        <p class="muted">A useful home base for performers who want to get organized before adding live request features.</p>
-        <ul>
-          <li>Basic calendar availability tools</li>
-            <li>SetMaxx song catalog management</li>
-            <li>SetMaxx setlist creation and planning</li>
-            <li>Finance dashboard and manual gig ledger</li>
-            <li>Publishing tools for promo blurbs, captions, and newsletters</li>
-        </ul>
-        <?php if (!$user): ?>
-          <a class="btn btn-primary" href="<?= e($registerUrl) ?>">Create Free Account</a>
-        <?php else: ?>
-          <a class="btn btn-primary" href="<?= e($launchUrl) ?>">Use Free Version</a>
-        <?php endif; ?>
-      </article>
-
-      <article class="pricing-card featured">
-        <div class="pricing-badge">30-Day Trial</div>
-        <div class="price-line">
-          <div class="price">$0</div>
-          <div class="price-unit">for 30 days</div>
-        </div>
-        <p class="muted">Try the full live workflow before committing.</p>
-        <ul>
-          <li>Unlimited calendar tools and exports</li>
-          <li>Live request sessions with a stable QR link</li>
-          <li>Paid requests, tips, and song suggestions</li>
-          <li>Stripe Connect onboarding for performer payouts</li>
-        </ul>
-
-        <?php if (!$user): ?>
-          <a class="btn btn-primary" href="<?= e($loginUrl) ?>">Log In to Start Trial</a>
-        <?php elseif ($access['state'] === 'trial'): ?>
-          <div class="stack-actions">
-            <a class="btn btn-primary" href="<?= e($launchUrl) ?>">Trial Is Active</a>
+    <section class="pricing-grid" aria-label="Free and Pro feature comparison">
+      <div class="comparison-panel">
+        <div class="comparison-row comparison-head">
+          <div class="comparison-cell">
+            <div>
+              <div class="pricing-badge">What Makes You Money</div>
+              <p class="muted" style="margin:0;">The tools that keep you booked, paid, promoted, and out of admin mode.</p>
+            </div>
           </div>
-        <?php elseif ($access['state'] === 'paid'): ?>
-          <a class="btn btn-primary" href="<?= e($launchUrl) ?>">Pro Already Active</a>
-        <?php else: ?>
-          <form method="post" action="<?= e($pricingUrl) ?>" class="trial-form">
-            <input type="hidden" name="action" value="start_trial">
-            <button class="btn btn-primary" type="submit">Start Free Trial</button>
-          </form>
-        <?php endif; ?>
-
-        <div class="small-pricing-note">No risk. Try it at a rehearsal, a livestream, or a real gig.</div>
-      </article>
-
-      <article class="pricing-card">
-        <div class="pricing-badge">Pro</div>
-        <div class="price-line">
-          <div class="price">$10</div>
-          <div class="price-unit">/ month</div>
+          <div class="comparison-cell comparison-plan">
+            <div class="comparison-plan-title">
+              <strong>Free</strong>
+              <span>$0 forever</span>
+            </div>
+          </div>
+          <div class="comparison-cell comparison-plan">
+            <div class="comparison-plan-title">
+              <strong>Pro</strong>
+              <span>$10 / month</span>
+            </div>
+          </div>
         </div>
-        <p class="muted">For performers who want the full Ready Set Shows workflow on stage and behind the scenes.</p>
-        <ul>
-          <li>Everything in Free</li>
-            <li>Unlimited calendar output and Bandsintown-ready exports</li>
-            <li>SetMaxx live request sessions and public pages with QR sharing</li>
-            <li>Tips, paid song requests, and performer payout routing</li>
-            <li>Spreadsheet import for Finance</li>
-          </ul>
 
-        <?php if (!$user): ?>
-          <a class="btn btn-primary" href="<?= e($loginUrl) ?>">Log In to Upgrade</a>
-        <?php elseif ($access['state'] === 'paid'): ?>
-          <a class="btn btn-primary" href="<?= e($launchUrl) ?>">Open Pro Tools</a>
-        <?php elseif ($checkoutEnabled): ?>
-          <button class="btn btn-primary" type="button" id="upgradeBtn">
-            <?= $access['state'] === 'trial' ? 'Upgrade to Pro Now' : 'Upgrade to Pro' ?>
-          </button>
-        <?php else: ?>
-          <a class="btn btn-primary" href="<?= e($loginUrl) ?>">Log In to Upgrade</a>
-        <?php endif; ?>
-
-        <div class="small-pricing-note">
-          <?php if ($access['state'] === 'trial'): ?>
-            Your free trial is active, but you can still go straight to the monthly subscription checkout now.
-          <?php else: ?>
-            Built to stay affordable while keeping tips and paid requests artist-friendly.
+        <?php $currentModule = ''; ?>
+        <?php foreach ($comparisonFeatures as $feature): ?>
+          <?php if ($currentModule !== (string)$feature['module']): ?>
+            <?php $currentModule = (string)$feature['module']; ?>
+            <div class="comparison-row module-heading-row">
+              <div class="comparison-cell module-heading"><?= e($currentModule) ?></div>
+            </div>
           <?php endif; ?>
+          <div class="comparison-row">
+            <div class="comparison-cell">
+              <div class="feature-with-module">
+                <div class="feature-text"><?= e($feature['label']) ?></div>
+              </div>
+            </div>
+            <div class="comparison-cell comparison-plan"><?= rss_pricing_feature_mark((bool)$feature['free']) ?></div>
+            <div class="comparison-cell comparison-plan"><?= rss_pricing_feature_mark((bool)$feature['pro']) ?></div>
+          </div>
+        <?php endforeach; ?>
+
+        <div class="comparison-row comparison-cta-row">
+          <div class="comparison-cell">
+            <p class="muted" style="margin:0;">Start with the tools that keep you organized. Upgrade when you are ready to turn the room into tips, requests, emails, reviews, and repeat business.</p>
+          </div>
+          <div class="comparison-cell comparison-plan">
+            <div class="comparison-cta">
+              <?php if (!$user): ?>
+                <a class="btn btn-primary" href="<?= e($registerUrl) ?>">Create Free Account</a>
+              <?php else: ?>
+                <a class="btn btn-primary" href="<?= e($launchUrl) ?>">Use Free Version</a>
+              <?php endif; ?>
+            </div>
+          </div>
+          <div class="comparison-cell comparison-plan">
+            <div class="comparison-cta">
+              <?php if (!$user): ?>
+                <a class="btn btn-primary" href="<?= e($loginUrl) ?>">Log In to Buy Pro</a>
+              <?php elseif ($access['state'] === 'paid'): ?>
+                <a class="btn btn-primary" href="<?= e($launchUrl) ?>">Open Pro Tools</a>
+              <?php elseif ($checkoutEnabled): ?>
+                <button class="btn btn-primary" type="button" id="upgradeBtn">
+                  <?= $access['state'] === 'trial' ? 'Buy Pro Now' : 'Buy Pro' ?>
+                </button>
+              <?php else: ?>
+                <a class="btn btn-primary" href="<?= e($loginUrl) ?>">Log In to Buy Pro</a>
+              <?php endif; ?>
+              <div class="small-pricing-note">
+                <?php if ($access['state'] === 'trial'): ?>
+                  Trial active.
+                <?php else: ?>
+                  Artist-friendly pricing.
+                <?php endif; ?>
+              </div>
+            </div>
+          </div>
         </div>
-      </article>
+      </div>
     </section>
 
     <section class="pricing-note-panel">

@@ -11,6 +11,8 @@ $requestHost = preg_replace('/:\d+$/', '', $requestHost);
 $isReadySetShowsHost = in_array($requestHost, ['readysetshows.com', 'www.readysetshows.com'], true);
 $loginUrl = rss_studio_root_url() . '/member/login.php';
 $trialUrl = rss_tool_trial_url();
+$readySetShowsUrl = rss_tool_launch_url();
+$screensBase = base_url('../assets/img/readysetshows');
 ?>
 <!doctype html>
 <html lang="en">
@@ -27,16 +29,26 @@ $trialUrl = rss_tool_trial_url();
   <link rel="icon" type="image/png" sizes="16x16" href="<?= e(base_url('../assets/favicons/rss-favicon-16.png')) ?>">
   <link rel="apple-touch-icon" sizes="180x180" href="<?= e(base_url('../assets/favicons/rss-favicon-180.png')) ?>">
   <style>
+    :root {
+      --rss-bg: #080910;
+      --rss-panel: #141625;
+      --rss-border: rgba(255,255,255,.1);
+      --rss-gold: #e7c75a;
+      --rss-muted: rgba(255,255,255,.72);
+    }
     .rss-store-hero {
-      padding: 4.5rem 0 3.5rem;
+      position: relative;
+      overflow: hidden;
+      padding: 5rem 0 4rem;
       background:
-        radial-gradient(circle at top left, rgba(255,255,255,.12), transparent 34rem),
-        linear-gradient(135deg, #171717 0%, #251a14 45%, #101010 100%);
+        linear-gradient(90deg, rgba(8,9,16,.98) 0%, rgba(8,9,16,.84) 50%, rgba(8,9,16,.52) 100%),
+        linear-gradient(135deg, #080910 0%, #161424 48%, #080910 100%);
       color: #fff;
+      border-bottom: 1px solid var(--rss-border);
     }
     .rss-store-hero-grid {
       display: grid;
-      grid-template-columns: minmax(0, 1.1fr) minmax(280px, .9fr);
+      grid-template-columns: minmax(0, 1fr) minmax(320px, .95fr);
       gap: 2.5rem;
       align-items: center;
     }
@@ -47,8 +59,9 @@ $trialUrl = rss_tool_trial_url();
       padding: .35rem .7rem;
       border: 1px solid rgba(255,255,255,.22);
       border-radius: 999px;
-      color: rgba(255,255,255,.82);
+      color: var(--rss-gold);
       font-size: .78rem;
+      font-weight: 700;
       letter-spacing: .08em;
       text-transform: uppercase;
       margin-bottom: 1rem;
@@ -65,6 +78,22 @@ $trialUrl = rss_tool_trial_url();
       max-width: 720px;
       margin-bottom: 1.3rem;
     }
+    .rss-store-proof {
+      display: flex;
+      gap: .7rem;
+      flex-wrap: wrap;
+      margin-top: 1rem;
+      color: rgba(255,255,255,.76);
+      font-size: .94rem;
+    }
+    .rss-store-proof span {
+      display: inline-flex;
+      gap: .4rem;
+      align-items: center;
+    }
+    .rss-store-proof i {
+      color: #65d58a;
+    }
     .rss-store-actions,
     .rss-card-actions {
       display: flex;
@@ -73,17 +102,37 @@ $trialUrl = rss_tool_trial_url();
       align-items: center;
     }
     .rss-hero-image-card {
-      background: rgba(255,255,255,.07);
-      border: 1px solid rgba(255,255,255,.16);
-      border-radius: 24px;
-      padding: 1rem;
-      box-shadow: 0 24px 80px rgba(0,0,0,.28);
+      position: relative;
+      min-height: 460px;
     }
-    .rss-hero-image-card img {
+    .rss-hero-shot {
+      position: absolute;
+      border: 1px solid rgba(255,255,255,.16);
+      border-radius: 16px;
+      overflow: hidden;
+      background: #10121c;
+      box-shadow: 0 24px 80px rgba(0,0,0,.38);
+    }
+    .rss-hero-shot img {
       width: 100%;
+      height: 100%;
+      object-fit: cover;
       display: block;
-      border-radius: 18px;
-      background: #fff;
+    }
+    .rss-hero-shot-main {
+      inset: 0 5% 20% 0;
+    }
+    .rss-hero-shot-small {
+      right: 0;
+      bottom: 0;
+      width: 54%;
+      height: 48%;
+    }
+    .rss-hero-shot-tiny {
+      left: 3%;
+      bottom: 3%;
+      width: 42%;
+      height: 36%;
     }
     .rss-section-heading {
       display: flex;
@@ -94,6 +143,10 @@ $trialUrl = rss_tool_trial_url();
     }
     .rss-section-heading h2 {
       margin-bottom: .25rem;
+    }
+    .rss-section-heading .muted {
+      max-width: 780px;
+      line-height: 1.65;
     }
     .rss-suite-card {
       border: 1px solid rgba(255,255,255,.08);
@@ -146,6 +199,7 @@ $trialUrl = rss_tool_trial_url();
     .rss-suite-card .muted {
       margin: 0;
       color: rgba(255,255,255,.72);
+      line-height: 1.58;
     }
     .rss-chevron {
       color: rgba(255,255,255,.62);
@@ -159,6 +213,12 @@ $trialUrl = rss_tool_trial_url();
     }
     .rss-suite-body {
       padding: 0 1.35rem 1.35rem 5.3rem;
+      color: rgba(255,255,255,.78);
+    }
+    .rss-suite-copy {
+      max-width: 860px;
+      line-height: 1.65;
+      margin: .2rem 0 1rem;
       color: rgba(255,255,255,.78);
     }
     .rss-feature-list {
@@ -177,6 +237,29 @@ $trialUrl = rss_tool_trial_url();
       color: #f1c84f;
       font-weight: 700;
       margin-right: .45rem;
+    }
+    .rss-sizzle-band {
+      margin: 2rem 0;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 1rem;
+    }
+    .rss-sizzle-card {
+      border: 1px solid rgba(255,255,255,.08);
+      border-radius: 18px;
+      background: rgba(255,255,255,.045);
+      padding: 1rem;
+      color: #fff;
+    }
+    .rss-sizzle-card strong {
+      display: block;
+      font-size: 1.05rem;
+      margin-bottom: .35rem;
+    }
+    .rss-sizzle-card span {
+      color: rgba(255,255,255,.7);
+      line-height: 1.55;
+      display: block;
     }
 
     .rss-suite-card .btn-outline {
@@ -221,6 +304,12 @@ $trialUrl = rss_tool_trial_url();
       .rss-other-products {
         grid-template-columns: 1fr;
       }
+      .rss-hero-image-card {
+        min-height: 360px;
+      }
+      .rss-sizzle-band {
+        grid-template-columns: 1fr;
+      }
       .rss-section-heading {
         display: block;
       }
@@ -252,28 +341,40 @@ if ($isReadySetShowsHost) {
   <section class="rss-store-hero">
     <div class="container rss-store-hero-grid">
       <div>
-        <div class="rss-store-kicker"><i class="fa-solid fa-music"></i> Ready Set Shows</div>
-        <h1>Build your set. Go live when you are ready.</h1>
+        <div class="rss-store-kicker"><i class="fa-solid fa-bolt"></i> Ready Set Shows</div>
+        <h1>The musician toolkit that helps the gig pay for itself.</h1>
         <p>
-          Start with free Set Maxx catalog and setlist tools. Upgrade when you want live paid requests,
-          QR-friendly public pages, tipping, song suggestions, card and Venmo options, and practical tools for working musicians.
+          Book faster, promote every date, track the money, and turn live audiences into tips,
+          paid requests, reviews, emails, and future song ideas. Less admin. More music. Better nights.
         </p>
         <div class="rss-store-actions">
-          <a class="btn btn-primary" href="<?= e(rss_studio_root_url() . '/setmaxx/index.php') ?>">Open Set Maxx</a>
+          <a class="btn btn-primary" href="<?= e($readySetShowsUrl) ?>">Open Ready Set Shows</a>
           <?php if (!$user): ?>
             <a class="btn btn-outline" href="<?= e(rss_studio_root_url() . '/member/login.php') ?>">Log In / Start Trial</a>
           <?php elseif ($toolsAccess['state'] === 'free'): ?>
             <a class="btn btn-outline" href="<?= e(rss_tool_trial_url()) ?>">Start Free Trial</a>
           <?php else: ?>
-            <a class="btn btn-outline" href="<?= e(rss_tool_launch_url()) ?>">Open My Tools</a>
+            <a class="btn btn-outline" href="<?= e(rss_tool_launch_url()) ?>">Open Ready Set Shows</a>
           <?php endif; ?>
+        </div>
+        <div class="rss-store-proof">
+          <span><i class="fa-solid fa-check"></i> Calendar</span>
+          <span><i class="fa-solid fa-check"></i> SetMaxx</span>
+          <span><i class="fa-solid fa-check"></i> Finance</span>
+          <span><i class="fa-solid fa-check"></i> Publishing</span>
         </div>
         <p class="muted" style="margin-top:1rem;color:rgba(255,255,255,.7);">Current tools state: <?= e($toolsAccess['label']) ?></p>
       </div>
 
       <div class="rss-hero-image-card">
-        <a href="<?= e(rss_studio_root_url() . '/setmaxx/index.php') ?>">
-          <img src="<?= e(base_url('../assets/img/rss-tools.png')) ?>" alt="Ready Set Shows tools preview">
+        <a class="rss-hero-shot rss-hero-shot-main" href="<?= e($readySetShowsUrl) ?>">
+          <img src="<?= e($screensBase . '/setmaxx-public-requests.png') ?>" alt="Ready Set Shows live request page preview">
+        </a>
+        <a class="rss-hero-shot rss-hero-shot-small" href="<?= e(rss_studio_root_url() . '/finance/index.php') ?>">
+          <img src="<?= e($screensBase . '/finance-ledger.png') ?>" alt="Ready Set Shows finance ledger preview">
+        </a>
+        <a class="rss-hero-shot rss-hero-shot-tiny" href="<?= e(rss_studio_root_url() . '/tools/index.php') ?>">
+          <img src="<?= e($screensBase . '/calendar-availability.png') ?>" alt="Ready Set Shows calendar availability preview">
         </a>
       </div>
     </div>
@@ -284,8 +385,23 @@ if ($isReadySetShowsHost) {
       <div class="rss-section-heading">
         <div>
             <p class="eyebrow">Ready Set Shows tools</p>
-            <h2>Multiple gig tools in one place.</h2>
-          <p class="muted">Start with free Set Maxx planning tools, then add live request and business workflows as the suite grows around it.</p>
+            <h2>One suite for the parts of the gig that usually steal your attention.</h2>
+          <p class="muted">Ready Set Shows is built for working musicians who need to book cleanly, earn more at the show, understand the money afterward, and keep promoting without staring at a blank screen.</p>
+        </div>
+      </div>
+
+      <div class="rss-sizzle-band">
+        <div class="rss-sizzle-card">
+          <strong>Get booked faster</strong>
+          <span>Clean availability answers make you look ready while the buyer is still deciding.</span>
+        </div>
+        <div class="rss-sizzle-card">
+          <strong>Make each room worth more</strong>
+          <span>Give fans a polished way to request, tip, pay, join, review, and come back.</span>
+        </div>
+        <div class="rss-sizzle-card">
+          <strong>Stop guessing</strong>
+          <span>Track income, payouts, averages, and trends so the business side stops feeling fuzzy.</span>
         </div>
       </div>
 
@@ -293,21 +409,22 @@ if ($isReadySetShowsHost) {
         <summary>
           <span class="rss-icon"><i class="fa-solid fa-list-check"></i></span>
           <div>
-            <h3>Set Maxx</h3>
-            <p class="muted">Build better sets and manage your song list for free. Add controlled crowd requests with Pro.</p>
+            <h3>SetMaxx</h3>
+            <p class="muted">Turn the audience into tips, requests, emails, reviews, and future show ideas.</p>
           </div>
           <i class="fa-solid fa-chevron-down rss-chevron"></i>
         </summary>
         <div class="rss-suite-body">
+          <p class="rss-suite-copy">Build your song catalog and generate practical setlists for free. Upgrade when you want the live public request page that helps the crowd participate without hijacking the room.</p>
           <ul class="rss-feature-list">
             <li>Maintain your master song catalog</li>
             <li>Generate sets by crowd, danceability, energy, and flow</li>
-            <li>Pro gig-specific request sessions</li>
-            <li>Pro QR-friendly public request pages</li>
+            <li>Take tips, paid requests, cards, and Venmo</li>
+            <li>Collect email signups, reviews, and song suggestions</li>
           </ul>
           <div class="rss-card-actions">
             <a class="btn btn-primary" href="<?= e(rss_tool_upgrade_url()) ?>">View Pricing</a>
-            <a class="btn btn-outline" href="<?= e(rss_studio_root_url() . '/setmaxx/index.php') ?>">Explore Set Maxx</a>
+            <a class="btn btn-outline" href="<?= e(rss_studio_root_url() . '/setmaxx/index.php') ?>">Open SetMaxx</a>
           </div>
         </div>
       </details>
@@ -317,11 +434,12 @@ if ($isReadySetShowsHost) {
           <span class="rss-icon"><i class="fa-regular fa-calendar-check"></i></span>
           <div>
             <h3>Availability &amp; Calendar Tools</h3>
-            <p class="muted">Find open dates across multiple calendars and turn messy gig data into useful outputs.</p>
+            <p class="muted">Answer date requests fast, clean, and accurately so you can land the gig.</p>
           </div>
           <i class="fa-solid fa-chevron-down rss-chevron"></i>
         </summary>
         <div class="rss-suite-body">
+          <p class="rss-suite-copy">When a buyer asks, speed matters. Check multiple calendars, format useful availability, and produce clean outputs for clients and platforms.</p>
           <ul class="rss-feature-list">
             <li>Check availability across multiple iCal calendars</li>
             <li>Create clean date lists for booking conversations</li>
@@ -339,11 +457,12 @@ if ($isReadySetShowsHost) {
           <span class="rss-icon"><i class="fa-solid fa-bullhorn"></i></span>
           <div>
             <h3>Publishing Tools</h3>
-            <p class="muted">Tools for turning selected shows into promo copy, newsletters, and event posts.</p>
+            <p class="muted">Never skimp on promotion just because you are tired of writing posts.</p>
           </div>
           <i class="fa-solid fa-chevron-down rss-chevron"></i>
         </summary>
         <div class="rss-suite-body">
+          <p class="rss-suite-copy">Turn upcoming gigs into social posts, blurbs, newsletters, and date-list copy in a few clicks, so every show gets a real push.</p>
           <ul class="rss-feature-list">
             <li>Draft newsletter-style show announcements</li>
             <li>Create social captions from calendar entries</li>
@@ -359,16 +478,17 @@ if ($isReadySetShowsHost) {
           <span class="rss-icon"><i class="fa-solid fa-chart-line"></i></span>
           <div>
             <h3>Finance</h3>
-            <p class="muted">Tools for gig income, tips, yearly totals, and average gig value.</p>
+            <p class="muted">Know what came in, what went out, and whether the work is actually working.</p>
           </div>
           <i class="fa-solid fa-chevron-down rss-chevron"></i>
         </summary>
         <div class="rss-suite-body">
+          <p class="rss-suite-copy">Bring in calendar events, import past income with Pro, reconcile payouts between all parties, and watch the real shape of your music business emerge.</p>
           <ul class="rss-feature-list">
             <li>Track gig guarantees and tips</li>
             <li>See yearly revenue and average booking value</li>
             <li>Spot which gigs and clients are most profitable</li>
-            <li>Run your music work more like a real business</li>
+            <li>Keep payouts clean for easy reconciliation</li>
           </ul>
           <p><a class="btn btn-outline" href="<?= e(base_url('/finance/index.php')) ?>">Open Finance</a></p>
         </div>

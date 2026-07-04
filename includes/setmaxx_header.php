@@ -73,6 +73,7 @@ $suiteModules = [
                 <li><a href="<?= htmlspecialchars($studioBase . '/setmaxx/setlists.php') ?>" class="<?= nav_active($currentPage === 'setlists.php') ?>">Setlists</a></li>
                 <li><a href="<?= htmlspecialchars($studioBase . '/setmaxx/sessions.php') ?>" class="<?= nav_active($currentPage === 'sessions.php') ?>">Sessions</a></li>
                 <li><a href="<?= htmlspecialchars($studioBase . '/setmaxx/requests.php') ?>" class="<?= nav_active($currentPage === 'requests.php') ?>">Requests</a></li>
+                <li><a href="<?= htmlspecialchars($studioBase . '/setmaxx/most_requested.php') ?>" class="<?= nav_active($currentPage === 'most_requested.php') ?>">Charts</a></li>
                 <li><a href="<?= htmlspecialchars($studioBase . '/setmaxx/history.php') ?>" class="<?= nav_active($currentPage === 'history.php' || $currentPage === 'session.php') ?>">History</a></li>
                 <li><a href="<?= htmlspecialchars($studioBase . '/setmaxx/payments.php') ?>" class="<?= nav_active($currentPage === 'payments.php') ?>">Payments</a></li>
             </ul>
@@ -94,6 +95,7 @@ $suiteModules = [
             <a href="<?= htmlspecialchars($studioBase . '/setmaxx/setlists.php') ?>" class="<?= nav_active($currentPage === 'setlists.php') ?>">Setlists</a>
             <a href="<?= htmlspecialchars($studioBase . '/setmaxx/sessions.php') ?>" class="<?= nav_active($currentPage === 'sessions.php') ?>">Sessions</a>
             <a href="<?= htmlspecialchars($studioBase . '/setmaxx/requests.php') ?>" class="<?= nav_active($currentPage === 'requests.php') ?>">Requests</a>
+            <a href="<?= htmlspecialchars($studioBase . '/setmaxx/most_requested.php') ?>" class="<?= nav_active($currentPage === 'most_requested.php') ?>">Charts</a>
             <a href="<?= htmlspecialchars($studioBase . '/setmaxx/history.php') ?>" class="<?= nav_active($currentPage === 'history.php' || $currentPage === 'session.php') ?>">History</a>
             <a href="<?= htmlspecialchars($studioBase . '/setmaxx/payments.php') ?>" class="<?= nav_active($currentPage === 'payments.php') ?>">Payments</a>
             <div class="setmaxx-mobile-extra">

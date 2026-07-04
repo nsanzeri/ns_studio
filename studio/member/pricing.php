@@ -106,6 +106,7 @@ $comparisonFeatures = [
 	['module' => 'SetMaxx', 'label' => 'Live gig sessions', 'free' => false, 'pro' => true],
 	['module' => 'SetMaxx', 'label' => 'Public request pages with stable QR links', 'free' => false, 'pro' => true],
 	['module' => 'SetMaxx', 'label' => 'Live request dashboard with queue, played, and decline workflow', 'free' => false, 'pro' => true],
+	['module' => 'SetMaxx', 'label' => 'Most requested song analytics and paid request rankings', 'free' => false, 'pro' => true],
 	['module' => 'SetMaxx', 'label' => 'Tips, paid song requests, audience song suggestions, email sign-up, reviews, and more', 'free' => false, 'pro' => true],
 	['module' => 'SetMaxx', 'label' => 'Stripe Connect onboarding and performer payout routing', 'free' => false, 'pro' => true],
 	['module' => 'Finance', 'label' => 'Dashboard and manual gig ledger', 'free' => true, 'pro' => true],

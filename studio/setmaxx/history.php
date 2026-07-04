@@ -128,6 +128,31 @@ if ($tablesReady) {
             exit;
         }
 
+        $hasRequestPaymentMethod = setmaxx_column_exists($pdo, 'setmaxx_requests', 'payment_method');
+        $hasRequestPaymentIntent = setmaxx_column_exists($pdo, 'setmaxx_requests', 'stripe_payment_intent_id');
+        $requestMoneySql = ($hasRequestPaymentMethod && $hasRequestPaymentIntent)
+            ? "SELECT COALESCE(SUM(r.amount_cents), 0)
+               FROM setmaxx_requests r
+               WHERE r.gig_session_id = gs.id
+                 AND r.amount_cents > 0
+                 AND r.status <> 'canceled'
+                 AND (
+                      (r.payment_method = 'stripe' AND r.stripe_payment_intent_id IS NOT NULL AND r.stripe_payment_intent_id <> '')
+                      OR r.payment_method = 'venmo'
+                 )"
+            : "SELECT COALESCE(SUM(r.amount_cents), 0)
+               FROM setmaxx_requests r
+               WHERE r.gig_session_id = gs.id
+                 AND r.amount_cents > 0
+                 AND r.status <> 'canceled'";
+        $generalTipMoneySql = setmaxx_table_exists($pdo, 'setmaxx_general_tips')
+            ? "SELECT COALESCE(SUM(gt.amount_cents), 0)
+               FROM setmaxx_general_tips gt
+               WHERE gt.gig_session_id = gs.id
+                 AND gt.user_id = gs.user_id
+                 AND gt.status = 'paid'"
+            : "SELECT 0";
+
         $sessionsStmt = $pdo->prepare(
             "SELECT
                 gs.id,
@@ -137,7 +162,9 @@ if ($tablesReady) {
                 gs.ends_at,
                 gs.created_at,
                 (SELECT COUNT(*) FROM setmaxx_requests r WHERE r.gig_session_id = gs.id) AS request_count,
-                (SELECT COUNT(*) FROM setmaxx_song_suggestions ss WHERE ss.gig_session_id = gs.id) AS suggestion_count
+                (SELECT COUNT(*) FROM setmaxx_song_suggestions ss WHERE ss.gig_session_id = gs.id) AS suggestion_count,
+                ({$requestMoneySql}) AS request_money_cents,
+                ({$generalTipMoneySql}) AS general_tip_cents
              FROM setmaxx_gig_sessions gs
              WHERE gs.user_id = ?
                AND gs.status = 'closed'
@@ -186,6 +213,71 @@ if ($tablesReady) {
 
 setmaxx_page_head('Set Maxx | History');
 ?>
+<style>
+  .setmaxx-history-card { padding:1rem; }
+  .setmaxx-history-card h2 { margin:.1rem 0 .75rem; }
+  .setmaxx-history-session-list { gap:.5rem; }
+  .setmaxx-history-session-row {
+    display:grid;
+    grid-template-columns:minmax(0, 1fr) auto auto;
+    align-items:center;
+    gap:.75rem;
+    padding:.62rem .72rem;
+  }
+  .setmaxx-history-title {
+    font-weight:600;
+    line-height:1.25;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+  .setmaxx-history-meta {
+    display:flex;
+    gap:.45rem;
+    align-items:center;
+    flex-wrap:wrap;
+    margin-top:.18rem;
+  }
+  .setmaxx-history-stats {
+    display:flex;
+    gap:.8rem;
+    align-items:center;
+    justify-content:flex-end;
+    white-space:nowrap;
+  }
+  .setmaxx-history-money {
+    color:#efe7ff;
+    font-size:1rem;
+    font-weight:700;
+  }
+  .setmaxx-icon-btn {
+    width:2.35rem;
+    height:2.35rem;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    padding:0;
+    border-radius:12px;
+  }
+  .setmaxx-icon-btn-danger {
+    border-color:rgba(255,120,120,.45);
+    color:#ffb3b3;
+  }
+  .setmaxx-history-actions {
+    gap:.4rem;
+    flex-wrap:nowrap;
+  }
+  @media (max-width: 640px) {
+    .setmaxx-history-session-row {
+      grid-template-columns:minmax(0, 1fr) auto;
+    }
+    .setmaxx-history-stats {
+      grid-column:1 / -1;
+      justify-content:flex-start;
+      order:3;
+    }
+  }
+</style>
 <main class="container setmaxx-shell">
   <?php setmaxx_flash($messages, $errors); ?>
   <div class="setmaxx-card" style="margin-bottom:1rem;">
@@ -203,31 +295,34 @@ setmaxx_page_head('Set Maxx | History');
     <?php setmaxx_install_notice(); ?>
   <?php else: ?>
     <section class="setmaxx-grid">
-      <div class="setmaxx-card" id="sessions">
-        <h2 style="margin-top:0;">Closed sessions</h2>
-        <div class="setmaxx-list">
+      <div class="setmaxx-card setmaxx-history-card" id="sessions">
+        <h2>Closed sessions</h2>
+        <div class="setmaxx-list setmaxx-history-session-list">
           <?php if (!$closedSessions): ?>
             <div class="setmaxx-row"><div class="setmaxx-meta">No closed sessions yet.</div></div>
           <?php else: foreach ($closedSessions as $session): ?>
-            <div class="setmaxx-row">
+            <?php $sessionMoneyCents = (int)($session['request_money_cents'] ?? 0) + (int)($session['general_tip_cents'] ?? 0); ?>
+            <div class="setmaxx-row setmaxx-history-session-row">
               <div style="min-width:0; flex:1;">
-                <div style="font-weight:600;"><?= e((string)$session['title']) ?></div>
-                <div class="setmaxx-meta">
-                  <?= e((string)($session['venue_name'] ?: 'Venue not set')) ?>
-                  &middot; Closed <?= !empty($session['ends_at']) ? e(date('M j, Y', strtotime((string)$session['ends_at']))) : 'date not set' ?>
-                </div>
-                <div class="setmaxx-meta">
-                  <?= (int)$session['request_count'] ?> request<?= (int)$session['request_count'] === 1 ? '' : 's' ?>
-                  &middot; <?= (int)$session['suggestion_count'] ?> suggestion<?= (int)$session['suggestion_count'] === 1 ? '' : 's' ?>
+                <div class="setmaxx-history-title"><?= e((string)$session['title']) ?></div>
+                <div class="setmaxx-meta setmaxx-history-meta">
+                  <span><?= e((string)($session['venue_name'] ?: 'Venue not set')) ?></span>
+                  <span>&middot;</span>
+                  <span><?= !empty($session['ends_at']) ? e(date('M j, Y', strtotime((string)$session['ends_at']))) : 'date not set' ?></span>
                 </div>
               </div>
-              <div class="setmaxx-actions">
-                <a class="btn btn-outline" href="<?= e(base_url('/setmaxx/session.php?id=' . (int)$session['id'])) ?>">Open history</a>
+              <div class="setmaxx-history-stats">
+                <span class="setmaxx-history-money"><?= e(setmaxx_money($sessionMoneyCents)) ?></span>
+                <span class="setmaxx-meta"><?= (int)$session['request_count'] ?> req</span>
+                <span class="setmaxx-meta"><?= (int)$session['suggestion_count'] ?> sug</span>
+              </div>
+              <div class="setmaxx-actions setmaxx-history-actions">
+                <a class="btn btn-outline setmaxx-icon-btn" href="<?= e(base_url('/setmaxx/session.php?id=' . (int)$session['id'])) ?>" aria-label="Open <?= e((string)$session['title']) ?> history" title="Open history"><i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i></a>
                 <form method="post" action="" onsubmit="return confirm('Delete this closed session and its requests, tips, and suggestions? This cannot be undone.');">
                   <input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>">
                   <input type="hidden" name="action" value="delete_closed_session">
                   <input type="hidden" name="session_id" value="<?= (int)$session['id'] ?>">
-                  <button class="btn btn-outline" style="border-color:rgba(255,120,120,.45); color:#ffb3b3;" type="submit" <?= $isProUser ? '' : 'disabled' ?>>Delete</button>
+                  <button class="btn btn-outline setmaxx-icon-btn setmaxx-icon-btn-danger" type="submit" <?= $isProUser ? '' : 'disabled' ?> aria-label="Delete <?= e((string)$session['title']) ?>" title="Delete"><i class="fa-solid fa-trash-can" aria-hidden="true"></i></button>
                 </form>
               </div>
             </div>

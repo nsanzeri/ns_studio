@@ -57,6 +57,7 @@ if ($stripeReady) {
 $connectReady = setmaxx_connect_ready($connectAccount);
 $paymentTotals = [
     'tonight' => ['label' => 'Tonight', 'stripe_cents' => 0, 'venmo_cents' => 0],
+    'this_week' => ['label' => 'This week', 'stripe_cents' => 0, 'venmo_cents' => 0],
     'last_30' => ['label' => 'Last 30 days', 'stripe_cents' => 0, 'venmo_cents' => 0],
     'all_time' => ['label' => 'All time', 'stripe_cents' => 0, 'venmo_cents' => 0],
 ];
@@ -83,6 +84,8 @@ if ($tablesReady) {
             "SELECT
                 COALESCE(SUM(CASE WHEN DATE(r.created_at) = CURDATE() AND r.payment_method = 'stripe' THEN r.amount_cents ELSE 0 END), 0) AS tonight_stripe_cents,
                 COALESCE(SUM(CASE WHEN DATE(r.created_at) = CURDATE() AND r.payment_method = 'venmo' THEN r.amount_cents ELSE 0 END), 0) AS tonight_venmo_cents,
+                COALESCE(SUM(CASE WHEN r.created_at >= DATE_SUB(CURDATE(), INTERVAL WEEKDAY(CURDATE()) DAY) AND r.created_at < DATE_ADD(DATE_SUB(CURDATE(), INTERVAL WEEKDAY(CURDATE()) DAY), INTERVAL 7 DAY) AND r.payment_method = 'stripe' THEN r.amount_cents ELSE 0 END), 0) AS this_week_stripe_cents,
+                COALESCE(SUM(CASE WHEN r.created_at >= DATE_SUB(CURDATE(), INTERVAL WEEKDAY(CURDATE()) DAY) AND r.created_at < DATE_ADD(DATE_SUB(CURDATE(), INTERVAL WEEKDAY(CURDATE()) DAY), INTERVAL 7 DAY) AND r.payment_method = 'venmo' THEN r.amount_cents ELSE 0 END), 0) AS this_week_venmo_cents,
                 COALESCE(SUM(CASE WHEN r.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY) AND r.payment_method = 'stripe' THEN r.amount_cents ELSE 0 END), 0) AS last_30_stripe_cents,
                 COALESCE(SUM(CASE WHEN r.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY) AND r.payment_method = 'venmo' THEN r.amount_cents ELSE 0 END), 0) AS last_30_venmo_cents,
                 COALESCE(SUM(CASE WHEN r.payment_method = 'stripe' THEN r.amount_cents ELSE 0 END), 0) AS all_time_stripe_cents,
@@ -101,6 +104,8 @@ if ($tablesReady) {
         $totalsRow = $totalsStmt->fetch(PDO::FETCH_ASSOC) ?: [];
         $paymentTotals['tonight']['stripe_cents'] = (int)($totalsRow['tonight_stripe_cents'] ?? 0);
         $paymentTotals['tonight']['venmo_cents'] = (int)($totalsRow['tonight_venmo_cents'] ?? 0);
+        $paymentTotals['this_week']['stripe_cents'] = (int)($totalsRow['this_week_stripe_cents'] ?? 0);
+        $paymentTotals['this_week']['venmo_cents'] = (int)($totalsRow['this_week_venmo_cents'] ?? 0);
         $paymentTotals['last_30']['stripe_cents'] = (int)($totalsRow['last_30_stripe_cents'] ?? 0);
         $paymentTotals['last_30']['venmo_cents'] = (int)($totalsRow['last_30_venmo_cents'] ?? 0);
         $paymentTotals['all_time']['stripe_cents'] = (int)($totalsRow['all_time_stripe_cents'] ?? 0);
@@ -111,6 +116,8 @@ if ($tablesReady) {
                 "SELECT
                     COALESCE(SUM(CASE WHEN DATE(created_at) = CURDATE() AND payment_method = 'stripe' THEN amount_cents ELSE 0 END), 0) AS tonight_stripe_cents,
                     COALESCE(SUM(CASE WHEN DATE(created_at) = CURDATE() AND payment_method = 'venmo' THEN amount_cents ELSE 0 END), 0) AS tonight_venmo_cents,
+                    COALESCE(SUM(CASE WHEN created_at >= DATE_SUB(CURDATE(), INTERVAL WEEKDAY(CURDATE()) DAY) AND created_at < DATE_ADD(DATE_SUB(CURDATE(), INTERVAL WEEKDAY(CURDATE()) DAY), INTERVAL 7 DAY) AND payment_method = 'stripe' THEN amount_cents ELSE 0 END), 0) AS this_week_stripe_cents,
+                    COALESCE(SUM(CASE WHEN created_at >= DATE_SUB(CURDATE(), INTERVAL WEEKDAY(CURDATE()) DAY) AND created_at < DATE_ADD(DATE_SUB(CURDATE(), INTERVAL WEEKDAY(CURDATE()) DAY), INTERVAL 7 DAY) AND payment_method = 'venmo' THEN amount_cents ELSE 0 END), 0) AS this_week_venmo_cents,
                     COALESCE(SUM(CASE WHEN created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY) AND payment_method = 'stripe' THEN amount_cents ELSE 0 END), 0) AS last_30_stripe_cents,
                     COALESCE(SUM(CASE WHEN created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY) AND payment_method = 'venmo' THEN amount_cents ELSE 0 END), 0) AS last_30_venmo_cents,
                     COALESCE(SUM(CASE WHEN payment_method = 'stripe' THEN amount_cents ELSE 0 END), 0) AS all_time_stripe_cents,
@@ -123,6 +130,8 @@ if ($tablesReady) {
             $tipsTotalsRow = $tipsTotalsStmt->fetch(PDO::FETCH_ASSOC) ?: [];
             $paymentTotals['tonight']['stripe_cents'] += (int)($tipsTotalsRow['tonight_stripe_cents'] ?? 0);
             $paymentTotals['tonight']['venmo_cents'] += (int)($tipsTotalsRow['tonight_venmo_cents'] ?? 0);
+            $paymentTotals['this_week']['stripe_cents'] += (int)($tipsTotalsRow['this_week_stripe_cents'] ?? 0);
+            $paymentTotals['this_week']['venmo_cents'] += (int)($tipsTotalsRow['this_week_venmo_cents'] ?? 0);
             $paymentTotals['last_30']['stripe_cents'] += (int)($tipsTotalsRow['last_30_stripe_cents'] ?? 0);
             $paymentTotals['last_30']['venmo_cents'] += (int)($tipsTotalsRow['last_30_venmo_cents'] ?? 0);
             $paymentTotals['all_time']['stripe_cents'] += (int)($tipsTotalsRow['all_time_stripe_cents'] ?? 0);
@@ -135,6 +144,19 @@ if ($tablesReady) {
 
 setmaxx_page_head('Set Maxx | Payments');
 ?>
+<style>
+  .setmaxx-payment-total-grid {
+    display:grid;
+    grid-template-columns:repeat(4, minmax(0, 1fr));
+    gap:1rem;
+  }
+  @media (max-width: 1180px) {
+    .setmaxx-payment-total-grid { grid-template-columns:repeat(2, minmax(0, 1fr)); }
+  }
+  @media (max-width: 640px) {
+    .setmaxx-payment-total-grid { grid-template-columns:1fr; }
+  }
+</style>
 <main class="container setmaxx-shell">
   <?php setmaxx_flash($messages, $errors); ?>
 
@@ -201,7 +223,7 @@ setmaxx_page_head('Set Maxx | Payments');
     </div>
     <section class="setmaxx-card" style="margin-top:1rem;">
       <h2 style="margin-top:0;">Payment totals</h2>
-      <div class="setmaxx-module-grid">
+      <div class="setmaxx-payment-total-grid">
         <?php foreach ($paymentTotals as $total): ?>
           <div class="setmaxx-row" style="display:grid; gap:.55rem;">
             <strong><?= e($total['label']) ?></strong>
@@ -254,7 +276,7 @@ setmaxx_page_head('Set Maxx | Payments');
     </section>
     <section class="setmaxx-card" style="margin-top:1rem;">
       <h2 style="margin-top:0;">Payment totals</h2>
-      <div class="setmaxx-module-grid">
+      <div class="setmaxx-payment-total-grid">
         <?php foreach ($paymentTotals as $total): ?>
           <div class="setmaxx-row" style="display:grid; gap:.55rem;">
             <strong><?= e($total['label']) ?></strong>

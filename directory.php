@@ -257,7 +257,7 @@ $siteBase = $isLocal ? '/ns_studio' : '';
         ?>
         <article class="directory-card">
           <?php if ($logoUrl !== ''): ?>
-            <button type="button" class="directory-image-button" data-photo="<?= e($logoUrl) ?>" data-name="<?= e($name) ?>" aria-label="View larger image for <?= e($name) ?>">
+            <button type="button" class="directory-image-button" data-photo="<?= e($logoUrl) ?>" data-name="<?= e($name) ?>" onclick="return window.openDirectoryPhoto ? window.openDirectoryPhoto(this) : false;" aria-label="View larger image for <?= e($name) ?>">
               <img class="directory-image" src="<?= e($logoUrl) ?>" alt="">
             </button>
           <?php else: ?>
@@ -295,37 +295,50 @@ $siteBase = $isLocal ? '/ns_studio' : '';
   </div>
 </div>
 <script>
-document.addEventListener('DOMContentLoaded', function () {
+window.openDirectoryPhoto = function (trigger) {
+  const modal = document.getElementById('directoryPhotoModal');
+  if (!modal || !trigger) return false;
+  const image = modal.querySelector('img');
+  const closeButton = modal.querySelector('.directory-photo-close');
+  if (!image || !closeButton) return false;
+  window.directoryPhotoLastTrigger = trigger;
+  image.src = trigger.getAttribute('data-photo') || '';
+  image.alt = trigger.getAttribute('data-name') || 'Artist image';
+  modal.hidden = false;
+  closeButton.focus();
+  return false;
+};
+
+window.closeDirectoryPhoto = function () {
   const modal = document.getElementById('directoryPhotoModal');
   if (!modal) return;
   const image = modal.querySelector('img');
-  const closeButton = modal.querySelector('.directory-photo-close');
-  let lastTrigger = null;
-
-  function closeModal() {
-    modal.hidden = true;
+  modal.hidden = true;
+  if (image) {
     image.src = '';
     image.alt = '';
-    if (lastTrigger) lastTrigger.focus();
   }
+  if (window.directoryPhotoLastTrigger) window.directoryPhotoLastTrigger.focus();
+};
 
-  document.querySelectorAll('.directory-image-button').forEach(function (button) {
-    button.addEventListener('click', function () {
-      lastTrigger = button;
-      image.src = button.getAttribute('data-photo') || '';
-      image.alt = button.getAttribute('data-name') || 'Artist image';
-      modal.hidden = false;
-      closeButton.focus();
-    });
-  });
+document.addEventListener('click', function (event) {
+  const imageButton = event.target.closest ? event.target.closest('.directory-image-button') : null;
+  if (imageButton) {
+    event.preventDefault();
+    window.openDirectoryPhoto(imageButton);
+    return;
+  }
+  if (event.target.closest && event.target.closest('.directory-photo-close')) {
+    window.closeDirectoryPhoto();
+    return;
+  }
+  const modal = document.getElementById('directoryPhotoModal');
+  if (modal && event.target === modal) window.closeDirectoryPhoto();
+});
 
-  closeButton.addEventListener('click', closeModal);
-  modal.addEventListener('click', function (event) {
-    if (event.target === modal) closeModal();
-  });
-  document.addEventListener('keydown', function (event) {
-    if (!modal.hidden && event.key === 'Escape') closeModal();
-  });
+document.addEventListener('keydown', function (event) {
+  const modal = document.getElementById('directoryPhotoModal');
+  if (modal && !modal.hidden && event.key === 'Escape') window.closeDirectoryPhoto();
 });
 </script>
 <?php include __DIR__ . '/includes/tools_footer_lite.php'; ?>

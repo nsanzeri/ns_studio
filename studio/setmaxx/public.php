@@ -563,6 +563,13 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
 
                     $performerUserId = $publicUserId;
                     $amountCents = $tipDollars * 100;
+                    $checkoutMetadata = [
+                        'kind' => 'setmaxx_general_tip',
+                        'gig_session_id' => $session ? (string)(int)$session['id'] : '',
+                        'performer_user_id' => (string)$performerUserId,
+                        'tipper_name' => mb_substr($tipperName, 0, 190),
+                        'tip_note' => mb_substr($tipNote, 0, 255),
+                    ];
                     $checkoutPayload = [
                         'mode' => 'payment',
                         'line_items' => [[
@@ -578,12 +585,9 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
                         ]],
                         'success_url' => setmaxx_public_absolute_url(setmaxx_public_return_path('&tip=1')),
                         'cancel_url' => setmaxx_public_absolute_url(setmaxx_public_return_path('&canceled=1')),
-                        'metadata' => [
-                            'kind' => 'setmaxx_general_tip',
-                            'gig_session_id' => $session ? (string)(int)$session['id'] : '',
-                            'performer_user_id' => (string)$performerUserId,
-                            'tipper_name' => mb_substr($tipperName, 0, 190),
-                            'tip_note' => mb_substr($tipNote, 0, 255),
+                        'metadata' => $checkoutMetadata,
+                        'payment_intent_data' => [
+                            'metadata' => $checkoutMetadata,
                         ],
                     ];
 
@@ -682,6 +686,14 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
 
                 $performerUserId = (int)($session['user_id'] ?? 0);
                 $amountCents = $requestAmountDollars * 100;
+                $checkoutMetadata = [
+                    'kind' => 'setmaxx_tip',
+                    'gig_session_id' => (string)(int)$session['id'],
+                    'song_id' => (string)$songId,
+                    'performer_user_id' => (string)$performerUserId,
+                    'requester_name' => mb_substr($requesterName, 0, 190),
+                    'request_note' => mb_substr($requestNote, 0, 255),
+                ];
                 $checkoutPayload = [
                     'mode' => 'payment',
                     'line_items' => [[
@@ -697,13 +709,9 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
                     ]],
                     'success_url' => setmaxx_public_absolute_url(setmaxx_public_return_path('&paid=1')),
                     'cancel_url' => setmaxx_public_absolute_url(setmaxx_public_return_path('&canceled=1')),
-                    'metadata' => [
-                        'kind' => 'setmaxx_tip',
-                        'gig_session_id' => (string)(int)$session['id'],
-                        'song_id' => (string)$songId,
-                        'performer_user_id' => (string)$performerUserId,
-                        'requester_name' => mb_substr($requesterName, 0, 190),
-                        'request_note' => mb_substr($requestNote, 0, 255),
+                    'metadata' => $checkoutMetadata,
+                    'payment_intent_data' => [
+                        'metadata' => $checkoutMetadata,
                     ],
                 ];
 

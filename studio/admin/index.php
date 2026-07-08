@@ -288,6 +288,7 @@ if ($toolUsageEnabled) {
     <a href="?tab=tokens" class="<?= $tab==='tokens'?'btn':'' ?>">Tokens</a>
     <a href="?tab=logs" class="<?= $tab==='logs'?'btn':'' ?>">Download Logs</a>
     <a href="?tab=tools" class="<?= $tab==='tools'?'btn':'' ?>">Tool Usage</a>
+    <a href="setmaxx_reconcile.php<?= isset($_GET['k']) ? '?k=' . h((string)$_GET['k']) : '' ?>">SetMaxx Stripe Reconcile</a>
 
     <form method="get" style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
       <input type="hidden" name="tab" value="<?= h($tab) ?>">

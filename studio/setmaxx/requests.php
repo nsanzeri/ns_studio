@@ -93,7 +93,7 @@ if ($tablesReady && is_post()) {
             if (!isset($allowedTransitions[$currentStatus]) || !in_array($newStatus, $allowedTransitions[$currentStatus], true)) {
                 throw new RuntimeException('That request status cannot be changed that way.');
             }
-            $activeLock = in_array($newStatus, ['declined', 'canceled'], true) ? null : 1;
+            $activeLock = in_array($newStatus, ['played', 'declined', 'canceled'], true) ? null : 1;
             $stmt = $pdo->prepare("UPDATE setmaxx_requests r JOIN setmaxx_gig_sessions gs ON gs.id = r.gig_session_id SET r.status = ?, r.active_lock = ? WHERE r.id = ? AND gs.user_id = ?");
             $stmt->execute([$newStatus, $activeLock, $requestId, $userId]);
             $messages[] = 'Request updated.';

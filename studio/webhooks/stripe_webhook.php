@@ -555,18 +555,19 @@ if (!function_exists('handle_setmaxx_tip_checkout')) {
             throw new RuntimeException('Set Maxx paid request song/session mismatch.');
         }
 
+        $existingRequestStmt = $pdo->prepare("SELECT id FROM setmaxx_requests WHERE stripe_payment_intent_id = ? LIMIT 1");
+        $existingRequestStmt->execute([$paymentIntentId]);
+        $existingRequestId = (int)($existingRequestStmt->fetchColumn() ?: 0);
+
+        if ($existingRequestId > 0) {
+            return;
+        }
+
         $pdo->prepare(
             "INSERT INTO setmaxx_requests
                 (gig_session_id, song_id, requester_name, request_note, amount_cents, status, active_lock, stripe_payment_intent_id)
              VALUES
-                (?, ?, ?, ?, ?, 'pending', 1, ?)
-             ON DUPLICATE KEY UPDATE
-                requester_name = COALESCE(requester_name, VALUES(requester_name)),
-                request_note = COALESCE(request_note, VALUES(request_note)),
-                amount_cents = GREATEST(amount_cents, VALUES(amount_cents)),
-                stripe_payment_intent_id = COALESCE(stripe_payment_intent_id, VALUES(stripe_payment_intent_id)),
-                status = IF(status = 'canceled', 'pending', status),
-                active_lock = 1"
+                (?, ?, ?, ?, ?, 'pending', NULL, ?)"
         )->execute([
             $gigSessionId,
             $songId,

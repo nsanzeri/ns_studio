@@ -12,7 +12,6 @@ $stableLinkFound = false;
 $publicUserId = 0;
 $publicDisplayName = '';
 $songs = [];
-$lockedSongIds = [];
 $availableLetters = [];
 $songCount = 0;
 $publicProfile = ['artist_name' => '', 'website_url' => '', 'review_url' => '', 'booking_url' => '', 'logo_path' => '', 'venmo_handle' => '', 'minimum_tip_dollars' => 10, 'suggested_request_dollars' => 10, 'price_step_dollars' => 1];
@@ -467,9 +466,6 @@ if ($session && $tablesReady) {
     }
     ksort($availableLetters);
 
-    $lockStmt = $pdo->prepare("SELECT song_id FROM setmaxx_requests WHERE gig_session_id = ? AND active_lock = 1");
-    $lockStmt->execute([(int)$session['id']]);
-    $lockedSongIds = array_map('intval', array_column($lockStmt->fetchAll(PDO::FETCH_ASSOC), 'song_id'));
 }
 
 if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_post()) {
@@ -661,8 +657,6 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
             $errors[] = 'This song starts at $' . $minimumDollars . '.';
         } elseif (!$song) {
             $errors[] = 'That song is not available for this request page.';
-        } elseif ($requestAmountDollars > 0 && in_array($songId, $lockedSongIds, true)) {
-            $errors[] = 'That song has already been requested for this gig.';
         } elseif ($requestAmountDollars > 0 && $paymentMethod === 'venmo') {
             if (!$venmoAvailable) {
                 $errors[] = 'Venmo is not available for this session.';
@@ -686,7 +680,7 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
                     header('Location: ' . setmaxx_public_venmo_url($venmoHandle, $requestAmountDollars, $note));
                     exit;
                 } catch (Throwable $e) {
-                    $errors[] = 'That song has already been requested for this gig.';
+                    $errors[] = 'The request could not be sent right now.';
                 }
             }
         } elseif ($requestAmountDollars > 0) {
@@ -765,9 +759,9 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
                     $requestAmountDollars * 100,
                 ]);
                 rss_push_notify_setmaxx_request($pdo, (int)$pdo->lastInsertId());
-                $messages[] = 'Request sent to ' . $publicHostName . '.';
+                $messages[] = 'Your request made it to the list. No encore tap needed.';
             } catch (Throwable $e) {
-                $errors[] = 'That song has already been requested for this gig.';
+                $errors[] = 'The request could not be sent right now.';
             }
         }
         }
@@ -871,9 +865,16 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
     .tip-form { display:grid; grid-template-columns:minmax(190px, .9fr) minmax(130px, 1fr) minmax(180px, 1.3fr) auto; gap:.55rem; align-items:center; }
     .payment-buttons { display:flex; gap:.45rem; flex-wrap:wrap; }
     .payment-buttons .btn { white-space:nowrap; }
-    .alert { border-radius:16px; padding:.95rem 1rem; margin-bottom:1rem; }
-    .alert-success { background:rgba(51,176,102,.16); border:1px solid rgba(51,176,102,.28); }
+    .alert { border-radius:18px; padding:1.05rem 1.15rem; margin-bottom:1rem; font-weight:700; line-height:1.35; }
+    .alert-success { position:sticky; top:.75rem; z-index:50; background:linear-gradient(135deg, rgba(58,206,118,.96), rgba(28,126,78,.96)); border:1px solid rgba(198,255,219,.6); color:#07160d; box-shadow:0 18px 46px rgba(0,0,0,.38); font-size:1.05rem; }
+    .alert-success strong { display:block; margin-bottom:.18rem; color:#06120a; font-size:1.22rem; }
     .alert-error { background:rgba(199,64,64,.16); border:1px solid rgba(199,64,64,.28); }
+    .success-modal-backdrop { position:fixed; inset:0; z-index:2000; display:grid; place-items:center; padding:1rem; background:rgba(5,6,12,.78); backdrop-filter:blur(6px); }
+    .success-modal-backdrop[hidden] { display:none; }
+    .success-modal { width:min(480px, 100%); padding:1.35rem; border-radius:22px; background:#f4fff7; color:#07160d; border:1px solid rgba(198,255,219,.85); box-shadow:0 24px 80px rgba(0,0,0,.5); }
+    .success-modal h2 { margin:0 0 .45rem; color:#07160d; font-size:1.55rem; }
+    .success-modal p { margin:0 0 1rem; color:#173923; font-weight:600; }
+    .success-modal button { width:100%; min-height:46px; border:0; border-radius:999px; background:#0b7a3a; color:#fff; font:inherit; font-weight:800; cursor:pointer; }
     @media (max-width: 900px) {
       .song-row, .request-form, .suggestion-form, .mailing-form, .tip-form { grid-template-columns:1fr; }
       .request-submit { width:100%; }
@@ -883,8 +884,17 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
 <body>
 <main class="container public-shell">
   <div class="public-card">
+    <?php if ($messages): ?>
+      <div class="success-modal-backdrop" id="successModal" role="dialog" aria-modal="true" aria-labelledby="successModalTitle">
+        <div class="success-modal">
+          <h2 id="successModalTitle">All set</h2>
+          <p><?= e((string)$messages[0]) ?></p>
+          <button type="button" id="successModalClose">Got it</button>
+        </div>
+      </div>
+    <?php endif; ?>
     <?php foreach ($messages as $message): ?>
-      <div class="alert alert-success"><?= e($message) ?></div>
+      <div class="alert alert-success" role="status" aria-live="polite"><strong>All set</strong><?= e($message) ?></div>
     <?php endforeach; ?>
     <?php foreach ($errors as $error): ?>
       <div class="alert alert-error"><?= e($error) ?></div>
@@ -1111,7 +1121,6 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
           <div class="song-card"><div class="song-meta">No active songs are available for this request page right now.</div></div>
         <?php else: foreach ($songs as $song): ?>
           <?php
-            $locked = in_array((int)$song['id'], $lockedSongIds, true);
             $first = strtoupper(substr(trim((string)$song['title']), 0, 1));
             $letter = preg_match('/[A-Z]/', $first) ? $first : '#';
             $artistSort = (string)($song['artist'] ?: $song['title']);
@@ -1126,17 +1135,6 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
             $defaultAmount = $requestAmounts[0] ?? $minimumDollars;
             $otherMinDollars = max(5, $minimumDollars);
           ?>
-          <?php if ($locked): ?>
-            <div class="song-card locked" data-letter="<?= e($letter) ?>" data-title-letter="<?= e($letter) ?>" data-artist-letter="<?= e($artistLetter) ?>" data-title="<?= e(strtolower((string)$song['title'])) ?>" data-artist="<?= e(strtolower($artistSort)) ?>">
-              <div class="song-summary">
-                <span>
-                  <span class="song-title"><?= e($song['title']) ?></span>
-                  <span class="song-meta"><?= e((string)($song['artist'] ?: 'Artist not listed')) ?></span>
-                </span>
-                <span class="song-meta"><strong>Already requested tonight.</strong></span>
-              </div>
-            </div>
-          <?php else: ?>
             <details class="song-card" data-letter="<?= e($letter) ?>" data-title-letter="<?= e($letter) ?>" data-artist-letter="<?= e($artistLetter) ?>" data-title="<?= e(strtolower((string)$song['title'])) ?>" data-artist="<?= e(strtolower($artistSort)) ?>">
               <summary class="song-summary">
                 <span>
@@ -1173,7 +1171,6 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
                 </form>
               </div>
             </details>
-          <?php endif; ?>
         <?php endforeach; endif; ?>
       </div>
       <?php if ($songs): ?>
@@ -1194,9 +1191,25 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
   const grid = document.querySelector('.public-grid');
   const searchInput = document.getElementById('catalogSearch');
   const emptyState = document.getElementById('catalogEmpty');
+  const successModal = document.getElementById('successModal');
+  const successModalClose = document.getElementById('successModalClose');
   let currentLetter = 'all';
   let currentSort = 'title';
   let currentSearch = '';
+
+  if (successModal && successModalClose) {
+    successModalClose.focus();
+    function closeSuccessModal() {
+      successModal.hidden = true;
+    }
+    successModalClose.addEventListener('click', closeSuccessModal);
+    successModal.addEventListener('click', function(event) {
+      if (event.target === successModal) closeSuccessModal();
+    });
+    document.addEventListener('keydown', function(event) {
+      if (event.key === 'Escape') closeSuccessModal();
+    });
+  }
 
   actionDetails.forEach(function(detail) {
     detail.addEventListener('toggle', function() {
@@ -1295,6 +1308,17 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
         if (freeActions) freeActions.hidden = true;
       });
     }
+  });
+
+  document.querySelectorAll('form').forEach(function(form) {
+    form.addEventListener('submit', function() {
+      const submitButtons = Array.from(form.querySelectorAll('button[type="submit"]'));
+      submitButtons.forEach(function(button) {
+        button.disabled = true;
+        if (!button.dataset.originalText) button.dataset.originalText = button.textContent;
+        button.textContent = 'Sending...';
+      });
+    });
   });
 
   if (!buttons.length || !cards.length || !grid) return;

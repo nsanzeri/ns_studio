@@ -111,8 +111,8 @@ CREATE TABLE IF NOT EXISTS `setmaxx_requests` (
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uq_setmaxx_one_song_per_session` (`gig_session_id`,`song_id`,`active_lock`),
   KEY `idx_setmaxx_requests_session` (`gig_session_id`,`status`,`created_at`),
+  KEY `idx_setmaxx_requests_session_song` (`gig_session_id`,`song_id`,`status`),
   KEY `idx_setmaxx_requests_song` (`song_id`),
   CONSTRAINT `fk_setmaxx_requests_session` FOREIGN KEY (`gig_session_id`) REFERENCES `setmaxx_gig_sessions` (`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_setmaxx_requests_song` FOREIGN KEY (`song_id`) REFERENCES `setmaxx_songs` (`id`) ON DELETE CASCADE

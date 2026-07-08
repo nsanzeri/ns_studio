@@ -204,12 +204,20 @@ $siteBase = $isLocal ? '/ns_studio' : '';
     .directory-grid { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:1rem; }
     .directory-card { display:grid; grid-template-columns:76px 1fr; gap:1rem; align-items:start; padding:1rem; border-radius:8px; background:rgba(255,255,255,.045); border:1px solid rgba(255,255,255,.08); }
     .directory-image { width:76px; height:76px; border-radius:8px; object-fit:cover; background:linear-gradient(135deg, rgba(212,175,55,.32), rgba(140,107,255,.24)); display:grid; place-items:center; color:#fff; font-weight:800; font-size:1.25rem; }
+    .directory-image-button { border:0; padding:0; background:transparent; cursor:pointer; border-radius:8px; line-height:0; }
+    .directory-image-button:focus-visible { outline:2px solid #f4d57a; outline-offset:3px; }
     .directory-card h2 { margin:0 0 .25rem; font-size:1.1rem; line-height:1.2; }
     .directory-meta { color:rgba(255,255,255,.7); font-size:.92rem; margin:.15rem 0 .7rem; }
     .directory-actions { display:flex; gap:.5rem; flex-wrap:wrap; }
     .directory-actions a, .directory-actions button { display:inline-flex; align-items:center; min-height:34px; padding:.45rem .7rem; border-radius:8px; font-size:.9rem; text-decoration:none; border:1px solid rgba(255,255,255,.12); color:rgba(255,255,255,.9); background:rgba(255,255,255,.03); font:inherit; cursor:pointer; }
     .directory-actions a:hover, .directory-actions button:hover { border-color:rgba(212,175,55,.36); color:#f4d57a; }
     .directory-empty { padding:1.25rem; border-radius:8px; border:1px solid rgba(255,255,255,.08); background:rgba(255,255,255,.04); color:rgba(255,255,255,.76); }
+    .directory-photo-modal { position:fixed; inset:0; z-index:1000; display:grid; place-items:center; padding:1.25rem; background:rgba(2,4,14,.82); backdrop-filter:blur(8px); }
+    .directory-photo-modal[hidden] { display:none; }
+    .directory-photo-dialog { position:relative; width:min(92vw, 760px); }
+    .directory-photo-dialog img { width:100%; max-height:82vh; object-fit:contain; border-radius:8px; background:#050713; box-shadow:0 24px 80px rgba(0,0,0,.45); }
+    .directory-photo-close { position:absolute; top:-14px; right:-14px; width:38px; height:38px; border-radius:999px; border:1px solid rgba(255,255,255,.2); background:#10131f; color:#fff; font-size:1.3rem; line-height:1; cursor:pointer; }
+    .directory-photo-close:hover, .directory-photo-close:focus-visible { color:#f4d57a; border-color:rgba(212,175,55,.5); }
     @media (max-width: 980px) { .directory-grid { grid-template-columns:repeat(2, minmax(0, 1fr)); } }
     @media (max-width: 640px) { .directory-shell { padding-top:2rem; } .directory-grid { grid-template-columns:1fr; } .directory-card { grid-template-columns:64px 1fr; } .directory-image { width:64px; height:64px; } }
   </style>
@@ -243,12 +251,15 @@ $siteBase = $isLocal ? '/ns_studio' : '';
           $name = trim((string)($artist['artist_name'] ?: $artist['display_name']));
           $initial = strtoupper(substr($name, 0, 1));
           $logoPath = trim((string)($artist['logo_path'] ?? ''));
+          $logoUrl = $logoPath !== '' ? $siteBase . '/' . ltrim(preg_replace('#^\.\./#', '', $logoPath), '/') : '';
           $requestUrl = (!empty($artist['public_token']) && directory_user_has_request_page_access($pdo, (int)$artist['user_id'])) ? $siteBase . '/studio/request.php?link=' . rawurlencode((string)$artist['public_token']) : '';
           $songlistUrl = (!empty($artist['directory_show_songlist']) && (int)$artist['active_song_count'] > 0) ? $siteBase . '/directory.php?songlist=' . (int)$artist['user_id'] : '';
         ?>
         <article class="directory-card">
-          <?php if ($logoPath !== ''): ?>
-            <img class="directory-image" src="<?= e($siteBase . '/' . ltrim(preg_replace('#^\.\./#', '', $logoPath), '/')) ?>" alt="">
+          <?php if ($logoUrl !== ''): ?>
+            <button type="button" class="directory-image-button" data-photo="<?= e($logoUrl) ?>" data-name="<?= e($name) ?>" aria-label="View larger image for <?= e($name) ?>">
+              <img class="directory-image" src="<?= e($logoUrl) ?>" alt="">
+            </button>
           <?php else: ?>
             <div class="directory-image" aria-hidden="true"><?= e($initial) ?></div>
           <?php endif; ?>
@@ -277,6 +288,46 @@ $siteBase = $isLocal ? '/ns_studio' : '';
     </section>
   <?php endif; ?>
 </main>
+<div class="directory-photo-modal" id="directoryPhotoModal" hidden>
+  <div class="directory-photo-dialog" role="dialog" aria-modal="true" aria-label="Artist image preview">
+    <button type="button" class="directory-photo-close" aria-label="Close image preview">&times;</button>
+    <img src="" alt="">
+  </div>
+</div>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const modal = document.getElementById('directoryPhotoModal');
+  if (!modal) return;
+  const image = modal.querySelector('img');
+  const closeButton = modal.querySelector('.directory-photo-close');
+  let lastTrigger = null;
+
+  function closeModal() {
+    modal.hidden = true;
+    image.src = '';
+    image.alt = '';
+    if (lastTrigger) lastTrigger.focus();
+  }
+
+  document.querySelectorAll('.directory-image-button').forEach(function (button) {
+    button.addEventListener('click', function () {
+      lastTrigger = button;
+      image.src = button.getAttribute('data-photo') || '';
+      image.alt = button.getAttribute('data-name') || 'Artist image';
+      modal.hidden = false;
+      closeButton.focus();
+    });
+  });
+
+  closeButton.addEventListener('click', closeModal);
+  modal.addEventListener('click', function (event) {
+    if (event.target === modal) closeModal();
+  });
+  document.addEventListener('keydown', function (event) {
+    if (!modal.hidden && event.key === 'Escape') closeModal();
+  });
+});
+</script>
 <?php include __DIR__ . '/includes/tools_footer_lite.php'; ?>
 </body>
 </html>

@@ -7,6 +7,10 @@ $siteBase   = $isLocal ? '/ns_studio' : '';
 $studioBase = $siteBase . '/studio';
 require_once __DIR__ . '/rss_header_widgets.php';
 
+$isLoggedIn = class_exists('Auth') && Auth::isLoggedIn();
+$isDirectoryGuest = $currentPage === 'directory.php' && !$isLoggedIn;
+$artistStartUrl = $studioBase . '/member/pricing.php';
+
 $trialStatus = null;
 $headerPdo = (isset($pdo) && $pdo instanceof PDO) ? $pdo : ($GLOBALS['pdo'] ?? null);
 if ($headerPdo instanceof PDO && function_exists('rss_get_current_user_trial_status')) {
@@ -52,12 +56,17 @@ $showCalendarSubnav = str_contains($currentPath, '/tools/');
         </button>
 
         <nav class="rss-suite-nav" aria-label="Ready Set Shows modules">
-            <?php foreach ($suiteModules as $module): ?>
-                <a href="<?= htmlspecialchars($module['href']) ?>" class="<?= nav_active($module['active']) ?>">
-                    <?= htmlspecialchars($module['label']) ?>
-                    <?php if ($module['soon']): ?><span>Soon</span><?php endif; ?>
-                </a>
-            <?php endforeach; ?>
+            <?php if ($isDirectoryGuest): ?>
+                <a href="<?= htmlspecialchars($siteBase . '/directory.php') ?>" class="active">Directory</a>
+                <a href="<?= htmlspecialchars($artistStartUrl) ?>" class="tools-directory-cta">Are you an artist? Start free</a>
+            <?php else: ?>
+                <?php foreach ($suiteModules as $module): ?>
+                    <a href="<?= htmlspecialchars($module['href']) ?>" class="<?= nav_active($module['active']) ?>">
+                        <?= htmlspecialchars($module['label']) ?>
+                        <?php if ($module['soon']): ?><span>Soon</span><?php endif; ?>
+                    </a>
+                <?php endforeach; ?>
+            <?php endif; ?>
         </nav>
         <div class="tools-header-actions">
             <?php rss_render_account_menu('tools'); ?>
@@ -83,11 +92,16 @@ $showCalendarSubnav = str_contains($currentPath, '/tools/');
     <nav class="tools-mobile-nav" id="toolsMobileNav" aria-label="Mobile tools navigation" hidden>
         <div class="tools-mobile-nav-inner">
             <div class="tools-mobile-section">Ready Set Shows</div>
-            <?php foreach ($suiteModules as $module): ?>
-                <a href="<?= htmlspecialchars($module['href']) ?>" class="<?= nav_active($module['active']) ?>">
-                    <?= htmlspecialchars($module['label']) ?><?= $module['soon'] ? ' (Soon)' : '' ?>
-                </a>
-            <?php endforeach; ?>
+            <?php if ($isDirectoryGuest): ?>
+                <a href="<?= htmlspecialchars($siteBase . '/directory.php') ?>" class="active">Directory</a>
+                <a href="<?= htmlspecialchars($artistStartUrl) ?>">Are you an artist? Start free</a>
+            <?php else: ?>
+                <?php foreach ($suiteModules as $module): ?>
+                    <a href="<?= htmlspecialchars($module['href']) ?>" class="<?= nav_active($module['active']) ?>">
+                        <?= htmlspecialchars($module['label']) ?><?= $module['soon'] ? ' (Soon)' : '' ?>
+                    </a>
+                <?php endforeach; ?>
+            <?php endif; ?>
             <?php if ($showCalendarSubnav): ?>
                 <div class="tools-mobile-section">Calendar</div>
                 <a href="<?= htmlspecialchars($studioBase . '/tools/index.php') ?>" class="<?= nav_active($currentPage === 'index.php' && str_contains($currentPath, '/tools/')) ?>">Availability</a>
@@ -168,6 +182,18 @@ $showCalendarSubnav = str_contains($currentPath, '/tools/');
   .rss-suite-nav a:hover {
     background:rgba(212,175,55,.16);
     color:#f4d57a;
+  }
+
+  .rss-suite-nav a.tools-directory-cta {
+    background: linear-gradient(135deg, #f4d57a, #d4af37);
+    color: #111;
+    border-radius: 999px;
+    box-shadow: 0 8px 22px rgba(212,175,55,.18);
+  }
+
+  .rss-suite-nav a.tools-directory-cta:hover {
+    color: #111;
+    background: linear-gradient(135deg, #ffe48a, #d4af37);
   }
 
   .rss-suite-nav span {

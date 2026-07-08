@@ -154,10 +154,6 @@ if ($tablesReady && is_post()) {
 			}
 			if ($action === 'save_public_profile') {
 				setmaxx_ensure_public_profile_pricing_columns($pdo);
-				$directoryVisible = !empty($_POST['directory_visible']) ? 1 : 0;
-				$directoryState = setmaxx_clean_directory_state($_POST['directory_state'] ?? '');
-				$artistName = setmaxx_clean_public_text($_POST['artist_name'] ?? '', 190);
-				$websiteUrl = setmaxx_clean_public_url($_POST['website_url'] ?? '');
 				$reviewUrl = setmaxx_clean_public_url($_POST['review_url'] ?? '');
 				$bookingUrl = setmaxx_clean_public_url($_POST['booking_url'] ?? '');
 				$venmoHandle = setmaxx_clean_venmo_handle($_POST['venmo_handle'] ?? '');
@@ -165,32 +161,15 @@ if ($tablesReady && is_post()) {
 				$suggestedRequestDollars = max(0, min(100, (int)($_POST['suggested_request_dollars'] ?? 10)));
 				$priceStepDollars = (int)($_POST['price_step_dollars'] ?? 1);
 				if (!in_array($priceStepDollars, [1, 5, 10], true)) $priceStepDollars = 1;
+				$directoryVisible = !empty($publicProfile['directory_visible']) ? 1 : 0;
+				$directoryState = setmaxx_clean_directory_state($publicProfile['directory_state'] ?? '');
+				$artistName = setmaxx_clean_public_text($publicProfile['artist_name'] ?? '', 190);
+				$websiteUrl = setmaxx_clean_public_url($publicProfile['website_url'] ?? '');
 				$logoPath = trim((string)($publicProfile['logo_path'] ?? ''));
 				
-				if (trim((string)($_POST['website_url'] ?? '')) !== '' && $websiteUrl === null) throw new RuntimeException('Website link is not valid.');
 				if (trim((string)($_POST['review_url'] ?? '')) !== '' && $reviewUrl === null) throw new RuntimeException('Review link is not valid.');
 				if (trim((string)($_POST['booking_url'] ?? '')) !== '' && $bookingUrl === null) throw new RuntimeException('Booking link is not valid.');
 				if (trim((string)($_POST['venmo_handle'] ?? '')) !== '' && $venmoHandle === null) throw new RuntimeException('Venmo handle can use letters, numbers, dots, underscores, or hyphens.');
-				
-				if (!empty($_FILES['logo_file']['tmp_name']) && is_uploaded_file($_FILES['logo_file']['tmp_name'])) {
-					$tmpPath = (string)$_FILES['logo_file']['tmp_name'];
-					$size = (int)($_FILES['logo_file']['size'] ?? 0);
-					if ($size <= 0 || $size > 2 * 1024 * 1024) throw new RuntimeException('Logo must be under 2 MB.');
-					$info = @getimagesize($tmpPath);
-					$mime = $info['mime'] ?? '';
-					$extensions = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp', 'image/gif' => 'gif'];
-					if (!isset($extensions[$mime])) throw new RuntimeException('Logo must be a JPG, PNG, WEBP, or GIF.');
-					$uploadDir = dirname(__DIR__, 2) . '/assets/uploads/setmaxx';
-					if (!is_dir($uploadDir) && !mkdir($uploadDir, 0775, true) && !is_dir($uploadDir)) throw new RuntimeException('Logo upload folder could not be created.');
-					$fileName = 'setmaxx-logo-' . $userId . '-' . bin2hex(random_bytes(5)) . '.' . $extensions[$mime];
-					$targetPath = $uploadDir . '/' . $fileName;
-					if (!move_uploaded_file($tmpPath, $targetPath)) throw new RuntimeException('Logo could not be saved.');
-					$logoPath = '../assets/uploads/setmaxx/' . $fileName;
-				}
-				
-				if (!empty($_POST['remove_logo'])) {
-					$logoPath = '';
-				}
 				
 				$pdo->prepare(
 					"INSERT INTO setmaxx_public_profiles (user_id, directory_visible, directory_state, artist_name, website_url, review_url, booking_url, logo_path, venmo_handle, minimum_tip_dollars, suggested_request_dollars, price_step_dollars)
@@ -198,7 +177,7 @@ if ($tablesReady && is_post()) {
 					 ON DUPLICATE KEY UPDATE directory_visible = VALUES(directory_visible), directory_state = VALUES(directory_state), artist_name = VALUES(artist_name), website_url = VALUES(website_url), review_url = VALUES(review_url), booking_url = VALUES(booking_url), logo_path = VALUES(logo_path), venmo_handle = VALUES(venmo_handle), minimum_tip_dollars = VALUES(minimum_tip_dollars), suggested_request_dollars = VALUES(suggested_request_dollars), price_step_dollars = VALUES(price_step_dollars)"
 				)->execute([$userId, $directoryVisible, $directoryState, $artistName, $websiteUrl, $reviewUrl, $bookingUrl, $logoPath !== '' ? $logoPath : null, $venmoHandle, $minimumTipDollars, $suggestedRequestDollars, $priceStepDollars]);
 				$publicProfile = setmaxx_public_profile($pdo, $userId);
-				$messages[] = 'Public page settings saved.';
+				$messages[] = 'Request page settings saved.';
 			}
 			if ($action === 'session_status') {
 				$sessionId = (int)($_POST['session_id'] ?? 0);
@@ -322,26 +301,10 @@ setmaxx_page_head('Set Maxx | Show Setup');
       <h2>Public page settings</h2>
       <button class="setmaxx-help-button" type="button" id="setmaxxPublicSettingsHelpBtn" aria-label="Show public page settings help" aria-haspopup="dialog">?</button>
     </div>
-    <form method="post" enctype="multipart/form-data" class="setmaxx-stack" action="">
+    <p class="setmaxx-help">Your artist name, image, website, directory visibility, and state are managed in <a href="<?= e(base_url('/member/settings.php')) ?>">Account Settings</a>.</p>
+    <form method="post" class="setmaxx-stack" action="">
       <input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>">
       <input type="hidden" name="action" value="save_public_profile">
-      <div class="setmaxx-form-grid">
-        <div class="setmaxx-field"><label for="artist_name">Public artist or band name</label><input class="setmaxx-input" id="artist_name" name="artist_name" placeholder="Your stage name or band name" value="<?= e((string)($publicProfile['artist_name'] ?? '')) ?>"></div>
-        <div class="setmaxx-field"><label for="website_url">Artist website</label><input class="setmaxx-input" id="website_url" name="website_url" placeholder="https://your-site.com" value="<?= e((string)($publicProfile['website_url'] ?? '')) ?>"></div>
-      </div>
-      <div class="setmaxx-form-grid">
-        <div class="setmaxx-field">
-          <label style="display:flex; gap:.6rem; align-items:center;">
-            <input type="checkbox" name="directory_visible" value="1" <?= !array_key_exists('directory_visible', $publicProfile) || !empty($publicProfile['directory_visible']) ? 'checked' : '' ?>>
-            <span>Show me in the public artist directory</span>
-          </label>
-          <div class="setmaxx-help">The directory shows your image, public artist name, state, website, request page, and active song count.</div>
-        </div>
-        <div class="setmaxx-field">
-          <label for="directory_state">Directory state</label>
-          <input class="setmaxx-input" id="directory_state" name="directory_state" maxlength="2" placeholder="IL" value="<?= e((string)($publicProfile['directory_state'] ?? '')) ?>">
-        </div>
-      </div>
       <div class="setmaxx-form-grid">
         <div class="setmaxx-field"><label for="review_url">Review link</label><input class="setmaxx-input" id="review_url" name="review_url" placeholder="Google review page" value="<?= e((string)($publicProfile['review_url'] ?? '')) ?>"></div>
         <div class="setmaxx-field"><label for="booking_url">Booking link</label><input class="setmaxx-input" id="booking_url" name="booking_url" placeholder="Your booking form or calendar link" value="<?= e((string)($publicProfile['booking_url'] ?? '')) ?>"></div>
@@ -370,17 +333,6 @@ setmaxx_page_head('Set Maxx | Show Setup');
           </select>
         </div>
         <div class="setmaxx-field"><label>Request pricing</label><div class="setmaxx-help">The minimum is the lowest allowed paid request. The suggested price is what the public dropdown selects first.</div></div>
-      </div>
-      <div class="setmaxx-form-grid">
-        <div class="setmaxx-field"><label for="logo_file">Public page logo</label><input class="setmaxx-input" id="logo_file" name="logo_file" type="file" accept="image/png,image/jpeg,image/webp,image/gif"></div>
-        <div class="setmaxx-field">
-          <label>Current logo</label>
-          <?php if (!empty($publicProfile['logo_path'])): ?>
-            <div class="setmaxx-actions"><img class="setmaxx-profile-logo-preview" src="<?= e(base_url((string)$publicProfile['logo_path'])) ?>" alt="Current public logo"><label class="setmaxx-help"><input type="checkbox" name="remove_logo" value="1"> Remove logo</label></div>
-          <?php else: ?>
-            <div class="setmaxx-help">No logo uploaded yet.</div>
-          <?php endif; ?>
-        </div>
       </div>
       <div class="setmaxx-actions"><button class="btn btn-primary" type="submit" <?= $isProUser ? '' : 'disabled' ?>>Save public settings</button></div>
     </form>

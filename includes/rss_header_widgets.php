@@ -65,6 +65,7 @@ if (!function_exists('rss_render_account_menu')) {
         $currentPath = $ctx['current_path'];
         $studioBase = $ctx['studio_base'];
         $isLoggedIn = class_exists('Auth') && Auth::isLoggedIn();
+        $isDirectoryGuest = !$isLoggedIn && basename($currentPath) === 'directory.php';
         $currentUser = ($isLoggedIn && isset($pdo)) ? Auth::currentUser($pdo) : null;
         $accountLabel = $isLoggedIn ? trim((string)($currentUser['display_name'] ?? $currentUser['email'] ?? 'Account')) : 'Account';
         $accountInitial = strtoupper(substr($accountLabel !== '' ? $accountLabel : 'A', 0, 1));
@@ -98,15 +99,24 @@ if (!function_exists('rss_render_account_menu')) {
                     <a href="<?= htmlspecialchars($studioBase . '/member/settings.php') ?>">Settings</a>
                     <a href="<?= htmlspecialchars($studioBase . '/member/logout.php') ?>">Log out</a>
                 <?php else: ?>
-                    <div class="account-suite-group">
-                        <div class="account-suite-title">Ready Set Shows</div>
-                        <?php foreach ($modules as $module): ?>
-                            <a href="<?= htmlspecialchars($module['href']) ?>" class="account-suite-link <?= $module['active'] ? 'active' : '' ?>">
-                                <span><?= htmlspecialchars($module['label']) ?></span>
-                                <?php if ($module['soon']): ?><em>Soon</em><?php endif; ?>
+                    <?php if ($isDirectoryGuest): ?>
+                        <div class="account-suite-group">
+                            <div class="account-suite-title">Artist tools</div>
+                            <a href="<?= htmlspecialchars($studioBase . '/member/pricing.php') ?>" class="account-suite-link">
+                                <span>Are you an artist? Start free</span>
                             </a>
-                        <?php endforeach; ?>
-                    </div>
+                        </div>
+                    <?php else: ?>
+                        <div class="account-suite-group">
+                            <div class="account-suite-title">Ready Set Shows</div>
+                            <?php foreach ($modules as $module): ?>
+                                <a href="<?= htmlspecialchars($module['href']) ?>" class="account-suite-link <?= $module['active'] ? 'active' : '' ?>">
+                                    <span><?= htmlspecialchars($module['label']) ?></span>
+                                    <?php if ($module['soon']): ?><em>Soon</em><?php endif; ?>
+                                </a>
+                            <?php endforeach; ?>
+                        </div>
+                    <?php endif; ?>
                     <a href="<?= htmlspecialchars($studioBase . '/member/login.php') ?>">Log in</a>
                     <a href="<?= htmlspecialchars($studioBase . '/member/register.php') ?>">Create account</a>
                 <?php endif; ?>

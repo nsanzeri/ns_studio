@@ -9,6 +9,118 @@ $userId = (int)($user['id'] ?? 0);
 $err = null;
 $ok = null;
 
+function ns_public_profile_table_exists(PDO $pdo): bool
+{
+    return rss_table_exists($pdo, 'setmaxx_public_profiles');
+}
+
+function ns_public_profile_column_exists(PDO $pdo, string $columnName): bool
+{
+    $stmt = $pdo->prepare("SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'setmaxx_public_profiles' AND column_name = ? LIMIT 1");
+    $stmt->execute([$columnName]);
+    return (bool)$stmt->fetchColumn();
+}
+
+function ns_ensure_public_artist_profile_table(PDO $pdo): void
+{
+    if (!ns_public_profile_table_exists($pdo)) {
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS `setmaxx_public_profiles` (
+              `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+              `user_id` int(10) unsigned NOT NULL,
+              `directory_visible` tinyint(1) NOT NULL DEFAULT 1,
+              `directory_state` char(2) DEFAULT NULL,
+              `artist_name` varchar(190) DEFAULT NULL,
+              `website_url` varchar(255) DEFAULT NULL,
+              `review_url` varchar(255) DEFAULT NULL,
+              `booking_url` varchar(255) DEFAULT NULL,
+              `logo_path` varchar(255) DEFAULT NULL,
+              `venmo_handle` varchar(80) DEFAULT NULL,
+              `minimum_tip_dollars` tinyint(3) unsigned NOT NULL DEFAULT 10,
+              `suggested_request_dollars` tinyint(3) unsigned NOT NULL DEFAULT 10,
+              `price_step_dollars` tinyint(3) unsigned NOT NULL DEFAULT 1,
+              `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+              `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+              PRIMARY KEY (`id`),
+              UNIQUE KEY `uq_setmaxx_public_profiles_user` (`user_id`),
+              KEY `idx_setmaxx_directory` (`directory_visible`,`directory_state`,`artist_name`),
+              CONSTRAINT `fk_setmaxx_public_profiles_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
+        ");
+    }
+
+    if (!ns_public_profile_column_exists($pdo, 'directory_visible')) {
+        $pdo->exec("ALTER TABLE setmaxx_public_profiles ADD COLUMN directory_visible tinyint(1) NOT NULL DEFAULT 1 AFTER user_id");
+    }
+    if (!ns_public_profile_column_exists($pdo, 'directory_state')) {
+        $pdo->exec("ALTER TABLE setmaxx_public_profiles ADD COLUMN directory_state char(2) DEFAULT NULL AFTER directory_visible");
+    }
+    if (!ns_public_profile_column_exists($pdo, 'artist_name')) {
+        $pdo->exec("ALTER TABLE setmaxx_public_profiles ADD COLUMN artist_name varchar(190) DEFAULT NULL AFTER user_id");
+    }
+    if (!ns_public_profile_column_exists($pdo, 'website_url')) {
+        $pdo->exec("ALTER TABLE setmaxx_public_profiles ADD COLUMN website_url varchar(255) DEFAULT NULL AFTER artist_name");
+    }
+    if (!ns_public_profile_column_exists($pdo, 'logo_path')) {
+        $pdo->exec("ALTER TABLE setmaxx_public_profiles ADD COLUMN logo_path varchar(255) DEFAULT NULL AFTER website_url");
+    }
+    if (!ns_public_profile_column_exists($pdo, 'review_url')) {
+        $pdo->exec("ALTER TABLE setmaxx_public_profiles ADD COLUMN review_url varchar(255) DEFAULT NULL AFTER website_url");
+    }
+    if (!ns_public_profile_column_exists($pdo, 'booking_url')) {
+        $pdo->exec("ALTER TABLE setmaxx_public_profiles ADD COLUMN booking_url varchar(255) DEFAULT NULL AFTER review_url");
+    }
+    if (!ns_public_profile_column_exists($pdo, 'venmo_handle')) {
+        $pdo->exec("ALTER TABLE setmaxx_public_profiles ADD COLUMN venmo_handle varchar(80) DEFAULT NULL AFTER logo_path");
+    }
+    if (!ns_public_profile_column_exists($pdo, 'minimum_tip_dollars')) {
+        $pdo->exec("ALTER TABLE setmaxx_public_profiles ADD COLUMN minimum_tip_dollars tinyint(3) unsigned NOT NULL DEFAULT 10 AFTER logo_path");
+    }
+    if (!ns_public_profile_column_exists($pdo, 'suggested_request_dollars')) {
+        $pdo->exec("ALTER TABLE setmaxx_public_profiles ADD COLUMN suggested_request_dollars tinyint(3) unsigned NOT NULL DEFAULT 10 AFTER minimum_tip_dollars");
+    }
+    if (!ns_public_profile_column_exists($pdo, 'price_step_dollars')) {
+        $pdo->exec("ALTER TABLE setmaxx_public_profiles ADD COLUMN price_step_dollars tinyint(3) unsigned NOT NULL DEFAULT 1 AFTER suggested_request_dollars");
+    }
+}
+
+function ns_clean_profile_text($value, int $maxLength = 190): ?string
+{
+    $text = trim(preg_replace('/\s+/', ' ', (string)$value) ?? '');
+    if ($text === '') return null;
+    return mb_substr($text, 0, $maxLength);
+}
+
+function ns_clean_profile_url($value): ?string
+{
+    $url = trim((string)$value);
+    if ($url === '') return null;
+    if (!preg_match('#^https?://#i', $url)) {
+        $url = 'https://' . $url;
+    }
+    return filter_var($url, FILTER_VALIDATE_URL) ? mb_substr($url, 0, 255) : null;
+}
+
+function ns_clean_profile_state($value): ?string
+{
+    $state = strtoupper(trim((string)$value));
+    return preg_match('/^[A-Z]{2}$/', $state) ? $state : null;
+}
+
+function ns_public_artist_profile(PDO $pdo, int $userId): array
+{
+    ns_ensure_public_artist_profile_table($pdo);
+    $stmt = $pdo->prepare("SELECT directory_visible, directory_state, artist_name, website_url, logo_path FROM setmaxx_public_profiles WHERE user_id = ? LIMIT 1");
+    $stmt->execute([$userId]);
+    return $stmt->fetch(PDO::FETCH_ASSOC) ?: [
+        'directory_visible' => 1,
+        'directory_state' => '',
+        'artist_name' => '',
+        'website_url' => '',
+        'logo_path' => '',
+    ];
+}
+
 function ns_active_stripe_subscription_for_user(PDO $pdo, int $userId): ?array
 {
     if ($userId <= 0 || !rss_table_exists($pdo, 'user_subscriptions') || !rss_table_exists($pdo, 'subscription_plans')) {
@@ -58,12 +170,59 @@ function ns_active_stripe_subscription_for_user(PDO $pdo, int $userId): ?array
 $subscription = ns_active_stripe_subscription_for_user($pdo, $userId);
 $hasActiveStripeSubscription = (bool)$subscription;
 $manageSubscriptionUrl = base_url('api/create_customer_portal_session.php');
+$publicArtistProfile = ns_public_artist_profile($pdo, $userId);
 
 if (is_post()) {
     if (!csrf_verify($_POST['_csrf'] ?? null)) {
         $err = 'Security check failed. Please try again.';
     } else {
         $action = (string)($_POST['action'] ?? '');
+
+        if ($action === 'public_artist_profile') {
+            try {
+                ns_ensure_public_artist_profile_table($pdo);
+                $artistName = ns_clean_profile_text($_POST['artist_name'] ?? '', 190);
+                $websiteUrl = ns_clean_profile_url($_POST['website_url'] ?? '');
+                $directoryState = ns_clean_profile_state($_POST['directory_state'] ?? '');
+                $directoryVisible = !empty($_POST['directory_visible']) ? 1 : 0;
+                $logoPath = trim((string)($publicArtistProfile['logo_path'] ?? ''));
+
+                if (trim((string)($_POST['website_url'] ?? '')) !== '' && $websiteUrl === null) {
+                    throw new RuntimeException('Website link is not valid.');
+                }
+
+                if (!empty($_FILES['logo_file']['tmp_name']) && is_uploaded_file($_FILES['logo_file']['tmp_name'])) {
+                    $tmpPath = (string)$_FILES['logo_file']['tmp_name'];
+                    $size = (int)($_FILES['logo_file']['size'] ?? 0);
+                    if ($size <= 0 || $size > 2 * 1024 * 1024) throw new RuntimeException('Image must be under 2 MB.');
+                    $info = @getimagesize($tmpPath);
+                    $mime = $info['mime'] ?? '';
+                    $extensions = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp', 'image/gif' => 'gif'];
+                    if (!isset($extensions[$mime])) throw new RuntimeException('Image must be a JPG, PNG, WEBP, or GIF.');
+                    $uploadDir = dirname(__DIR__, 2) . '/assets/uploads/setmaxx';
+                    if (!is_dir($uploadDir) && !mkdir($uploadDir, 0775, true) && !is_dir($uploadDir)) throw new RuntimeException('Image upload folder could not be created.');
+                    $fileName = 'setmaxx-logo-' . $userId . '-' . bin2hex(random_bytes(5)) . '.' . $extensions[$mime];
+                    $targetPath = $uploadDir . '/' . $fileName;
+                    if (!move_uploaded_file($tmpPath, $targetPath)) throw new RuntimeException('Image could not be saved.');
+                    $logoPath = '../assets/uploads/setmaxx/' . $fileName;
+                }
+
+                if (!empty($_POST['remove_logo'])) {
+                    $logoPath = '';
+                }
+
+                $pdo->prepare(
+                    "INSERT INTO setmaxx_public_profiles (user_id, directory_visible, directory_state, artist_name, website_url, logo_path)
+                     VALUES (?, ?, ?, ?, ?, ?)
+                     ON DUPLICATE KEY UPDATE directory_visible = VALUES(directory_visible), directory_state = VALUES(directory_state), artist_name = VALUES(artist_name), website_url = VALUES(website_url), logo_path = VALUES(logo_path)"
+                )->execute([$userId, $directoryVisible, $directoryState, $artistName, $websiteUrl, $logoPath !== '' ? $logoPath : null]);
+
+                $publicArtistProfile = ns_public_artist_profile($pdo, $userId);
+                $ok = 'Public artist profile saved.';
+            } catch (Throwable $e) {
+                $err = $e->getMessage();
+            }
+        }
 
         if ($action === 'password') {
             $current = (string)($_POST['current_password'] ?? '');
@@ -142,6 +301,42 @@ if ($isReadySetShowsHost) {
   <?php if ($ok): ?>
     <div class="alert" style="margin:1rem 0;"><?= e($ok) ?></div>
   <?php endif; ?>
+
+  <section class="card" style="padding:1.5rem; margin:1.5rem 0;">
+    <h3 class="form-title">Public Artist Profile</h3>
+    <p class="muted">This is the basic discovery profile used by the public artist directory. It is available whether or not you use Pro request pages.</p>
+    <form class="form" method="post" enctype="multipart/form-data">
+      <input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>">
+      <input type="hidden" name="action" value="public_artist_profile">
+      <div class="form-field">
+        <label>Artist or band name</label>
+        <input type="text" name="artist_name" placeholder="Your stage name or band name" value="<?= e((string)($publicArtistProfile['artist_name'] ?? '')) ?>">
+      </div>
+      <div class="form-field">
+        <label style="margin-top:1rem;">Website</label>
+        <input type="text" name="website_url" placeholder="https://your-site.com" value="<?= e((string)($publicArtistProfile['website_url'] ?? '')) ?>">
+      </div>
+      <div class="form-field">
+        <label style="margin-top:1rem;">Directory state</label>
+        <input type="text" name="directory_state" maxlength="2" placeholder="IL" value="<?= e((string)($publicArtistProfile['directory_state'] ?? '')) ?>">
+      </div>
+      <label style="display:flex; gap:.6rem; align-items:flex-start; margin-top:1rem;">
+        <input type="checkbox" name="directory_visible" value="1" <?= !array_key_exists('directory_visible', $publicArtistProfile) || !empty($publicArtistProfile['directory_visible']) ? 'checked' : '' ?>>
+        <span>Show me in the public artist directory</span>
+      </label>
+      <div class="form-field">
+        <label style="margin-top:1rem;">Profile image</label>
+        <input type="file" name="logo_file" accept="image/png,image/jpeg,image/webp,image/gif">
+      </div>
+      <?php if (!empty($publicArtistProfile['logo_path'])): ?>
+        <div style="display:flex; gap:1rem; align-items:center; flex-wrap:wrap; margin-top:1rem;">
+          <img src="<?= e(base_url((string)$publicArtistProfile['logo_path'])) ?>" alt="" style="width:72px; height:72px; object-fit:cover; border-radius:8px;">
+          <label class="muted" style="display:flex; gap:.45rem; align-items:center;"><input type="checkbox" name="remove_logo" value="1"> Remove image</label>
+        </div>
+      <?php endif; ?>
+      <button class="btn btn-primary" style="margin-top:1.25rem;">Save public profile</button>
+    </form>
+  </section>
 
   <section class="card" style="padding:1.5rem; margin:1.5rem 0;">
     <h3 class="form-title">Subscription</h3>

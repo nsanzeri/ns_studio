@@ -19,6 +19,46 @@ function directory_public_profiles_ready(PDO $pdo): bool {
         && directory_column_exists($pdo, 'setmaxx_public_profiles', 'directory_state');
 }
 
+function directory_user_has_request_page_access(PDO $pdo, int $userId): bool {
+    if ($userId <= 0) return false;
+    $slugs = rss_tools_product_slugs();
+    if (!$slugs) return false;
+    $placeholders = implode(',', array_fill(0, count($slugs), '?'));
+
+    if (rss_table_exists($pdo, 'user_subscriptions') && rss_table_exists($pdo, 'subscription_plans')) {
+        $stmt = $pdo->prepare("
+            SELECT 1
+            FROM user_subscriptions us
+            JOIN subscription_plans sp ON sp.id = us.subscription_plan_id
+            WHERE us.user_id = ?
+              AND us.status IN ('trialing', 'active')
+              AND (us.current_period_end IS NULL OR us.current_period_end > NOW())
+              AND sp.slug IN ($placeholders)
+              AND sp.is_active = 1
+            LIMIT 1
+        ");
+        $stmt->execute(array_merge([$userId], $slugs));
+        if ($stmt->fetchColumn()) return true;
+    }
+
+    if (rss_table_exists($pdo, 'entitlements') && rss_table_exists($pdo, 'products')) {
+        $stmt = $pdo->prepare("
+            SELECT 1
+            FROM entitlements e
+            JOIN products p ON p.id = e.product_id
+            WHERE e.user_id = ?
+              AND e.status = 'active'
+              AND (e.expires_at IS NULL OR e.expires_at > NOW())
+              AND p.slug IN ($placeholders)
+            LIMIT 1
+        ");
+        $stmt->execute(array_merge([$userId], $slugs));
+        if ($stmt->fetchColumn()) return true;
+    }
+
+    return false;
+}
+
 $artists = [];
 $states = [];
 $directoryReady = directory_public_profiles_ready($pdo);
@@ -136,7 +176,7 @@ $siteBase = $isLocal ? '/ns_studio' : '';
           $name = trim((string)($artist['artist_name'] ?: $artist['display_name']));
           $initial = strtoupper(substr($name, 0, 1));
           $logoPath = trim((string)($artist['logo_path'] ?? ''));
-          $requestUrl = !empty($artist['public_token']) ? $siteBase . '/studio/request.php?link=' . rawurlencode((string)$artist['public_token']) : '';
+          $requestUrl = (!empty($artist['public_token']) && directory_user_has_request_page_access($pdo, (int)$artist['user_id'])) ? $siteBase . '/studio/request.php?link=' . rawurlencode((string)$artist['public_token']) : '';
         ?>
         <article class="directory-card">
           <?php if ($logoPath !== ''): ?>

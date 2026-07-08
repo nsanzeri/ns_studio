@@ -79,7 +79,7 @@ $siteBase = $isLocal ? '/ns_studio' : '';
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Artist Directory | Ready Set Shows</title>
-  <meta name="description" content="Discover artists and bands using Ready Set Shows. Browse public artist profiles by state.">
+  <meta name="description" content="Discover prepared, working artists and bands using Ready Set Shows to manage songs, requests, and show details. Browse public artist profiles by state.">
   <link rel="stylesheet" href="<?= e($siteBase . '/assets/css/style.css') ?>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -112,8 +112,8 @@ $siteBase = $isLocal ? '/ns_studio' : '';
 <main class="container directory-shell">
   <section class="directory-hero">
     <div class="directory-kicker">Artist Directory</div>
-    <h1>Discover artists and bands using Ready Set Shows.</h1>
-    <p>Browse public artist profiles by state. Each listing is controlled from the artist's public SetMaxx settings.</p>
+    <h1>Find artists who take the show seriously.</h1>
+    <p>Ready Set Shows artists are already doing the extra work: organizing songs, managing requests, and making the night easier for hosts and audiences. Browse public profiles by state and connect with acts who show up prepared.</p>
   </section>
 
   <?php if ($directoryReady && $states): ?>

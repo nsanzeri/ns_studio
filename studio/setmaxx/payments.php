@@ -27,6 +27,34 @@ if (isset($_GET['stripe_return'])) {
     $messages[] = 'Stripe setup returned successfully. The current account status is shown below.';
 }
 
+if ($tablesReady && is_post()) {
+    if (!csrf_verify($_POST['_csrf'] ?? null)) {
+        $errors[] = 'Your session expired. Refresh the page and try again.';
+    } elseif (!$isProUser) {
+        $errors[] = 'Payments are included with Pro.';
+    } elseif ($isDirectPlatformUser) {
+        $errors[] = 'This account uses platform performer mode, so there is no connected Stripe account to reset.';
+    } else {
+        $action = (string)($_POST['action'] ?? '');
+        if ($action === 'reset_connect_account') {
+            try {
+                setmaxx_ensure_connect_accounts_table($pdo);
+                $pdo->prepare('DELETE FROM setmaxx_connect_accounts WHERE user_id = ?')->execute([$userId]);
+                $_SESSION['setmaxx_payments_messages'] = ['Stripe connection reset. You can connect a fresh Stripe account now.'];
+                header('Location: ' . base_url('/setmaxx/payments.php'));
+                exit;
+            } catch (Throwable $e) {
+                $errors[] = 'Stripe connection could not be reset right now.';
+            }
+        }
+    }
+}
+
+if (!empty($_SESSION['setmaxx_payments_messages']) && is_array($_SESSION['setmaxx_payments_messages'])) {
+    $messages = array_merge($messages, $_SESSION['setmaxx_payments_messages']);
+    unset($_SESSION['setmaxx_payments_messages']);
+}
+
 try {
     require_once __DIR__ . '/../_private/config/stripe.php';
 } catch (Throwable $e) {
@@ -45,9 +73,13 @@ if ($stripeReady) {
 
         $connectAccount = setmaxx_connect_account_row($pdo, $userId);
         if ($connectAccount && !empty($connectAccount['stripe_account_id'])) {
-            $stripeAccount = \Stripe\Account::retrieve((string)$connectAccount['stripe_account_id']);
-            setmaxx_upsert_connect_account($pdo, $userId, (string)$stripeAccount->id, $stripeAccount);
-            $connectAccount = setmaxx_connect_account_row($pdo, $userId);
+            try {
+                $stripeAccount = \Stripe\Account::retrieve((string)$connectAccount['stripe_account_id']);
+                setmaxx_upsert_connect_account($pdo, $userId, (string)$stripeAccount->id, $stripeAccount);
+                $connectAccount = setmaxx_connect_account_row($pdo, $userId);
+            } catch (Throwable $e) {
+                $errors[] = 'Stripe could not refresh this connected account. If it was closed, reset the connection below and connect a fresh Stripe account.';
+            }
         }
     } catch (Throwable $e) {
         $errors[] = 'Stripe account status could not be refreshed right now. You can try again in a moment.';
@@ -272,6 +304,17 @@ setmaxx_page_head('Set Maxx | Payments');
             <?= $connectReady ? 'Update Stripe Details' : ($connectAccount ? 'Continue Stripe Setup' : 'Connect Stripe') ?>
           </button>
         </form>
+        <?php if ($connectAccount && !empty($connectAccount['stripe_account_id'])): ?>
+          <div style="margin-top:1rem; padding-top:1rem; border-top:1px solid rgba(255,255,255,.08);">
+            <h3 style="margin:.1rem 0 .35rem;">Need a fresh Stripe account?</h3>
+            <p class="setmaxx-help">Use this only if this Stripe account was closed or connected by mistake. Past payment history stays in SetMaxx, but the saved Stripe connection will be removed.</p>
+            <form method="post" action="" onsubmit="return confirm('Reset this Stripe connection? You will need to connect Stripe again before card payments work.');">
+              <input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>">
+              <input type="hidden" name="action" value="reset_connect_account">
+              <button class="btn btn-outline" type="submit">Reset Stripe Connection</button>
+            </form>
+          </div>
+        <?php endif; ?>
       </div>
     </section>
     <section class="setmaxx-card" style="margin-top:1rem;">

@@ -64,6 +64,8 @@ CREATE TABLE IF NOT EXISTS `setmaxx_public_profiles` (
   `user_id` int(10) unsigned NOT NULL,
   `directory_visible` tinyint(1) NOT NULL DEFAULT 1,
   `directory_state` char(2) DEFAULT NULL,
+  `directory_show_song_count` tinyint(1) NOT NULL DEFAULT 1,
+  `directory_show_songlist` tinyint(1) NOT NULL DEFAULT 0,
   `artist_name` varchar(190) DEFAULT NULL,
   `website_url` varchar(255) DEFAULT NULL,
   `review_url` varchar(255) DEFAULT NULL,

@@ -93,6 +93,8 @@ $requestHost = preg_replace('/:\d+$/', '', $requestHost);
 $isReadySetShowsHost = in_array($requestHost, ['readysetshows.com', 'www.readysetshows.com'], true);
 
 $comparisonFeatures = [
+	['module' => 'Directory', 'label' => 'Public artist directory listing with profile image, website, state, and active song count', 'free' => true, 'pro' => true],
+	['module' => 'Directory', 'label' => 'Enhanced directory listing with request page links for tips, song suggestions, reviews, mailing list sign-ups, and booking forms when configured', 'free' => false, 'pro' => true],
 	['module' => 'Calendar', 'label' => 'Create and manage multiple calendars', 'free' => true, 'pro' => true],
 	['module' => 'Calendar', 'label' => 'Unlimited calendars', 'free' => true, 'pro' => true],
 	['module' => 'Calendar', 'label' => 'Availability lookup across any date range', 'free' => true, 'pro' => true],
@@ -153,7 +155,7 @@ if (isset($_GET['upgraded'])) {
     .demo-copy p{color:rgba(255,255,255,.78);line-height:1.65;margin:0 0 .85rem;}
     .demo-points{display:grid;gap:.45rem;margin-top:.9rem;color:rgba(255,255,255,.84);}
     .demo-points span{display:block;}
-    .suite-included{max-width:1040px;margin:0 auto 2rem;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1rem;}
+    .suite-included{max-width:1040px;margin:0 auto 2rem;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:1rem;}
     .suite-tile{background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.08);border-radius:18px;padding:1rem;}
     .suite-tile h3{margin:.2rem 0 .35rem;font-size:1rem;}
     .suite-tile p{margin:0;color:rgba(255,255,255,.68);font-size:.9rem;line-height:1.5;}
@@ -252,6 +254,11 @@ if (isset($_GET['upgraded'])) {
 
     <section class="suite-included" aria-label="Ready Set Shows modules">
       <article class="suite-tile">
+        <p class="eyebrow">Directory</p>
+        <h3>Be discoverable</h3>
+        <p>Create a public artist listing with your image, website, state, and active song count so buyers can find prepared acts.</p>
+      </article>
+      <article class="suite-tile">
         <p class="eyebrow">Calendar</p>
         <h3>Land the date</h3>
         <p>Respond quickly, cleanly, and accurately when the buyer is ready to book. Faster answers help you look pro, win the gig, and make more money.</p>
@@ -280,8 +287,8 @@ if (isset($_GET['upgraded'])) {
 
     <section class="pricing-section-heading">
       <p class="eyebrow">Pricing</p>
-      <h2>Free tools to get organized. Pro tools to make the gig pay.</h2>
-      <p class="muted">Use the planning tools now, then upgrade when you want the audience-facing features that collect money, leads, reviews, and momentum.</p>
+      <h2>Free tools to get organized and discovered. Pro tools to make the gig pay.</h2>
+      <p class="muted">Start with the directory, calendar, catalog, finance, and publishing tools. Upgrade when you want the live audience-facing features that collect money, leads, reviews, and momentum.</p>
     </section>
 
     <section class="pricing-grid" aria-label="Free and Pro feature comparison">
@@ -290,7 +297,7 @@ if (isset($_GET['upgraded'])) {
           <div class="comparison-cell">
             <div>
               <div class="pricing-badge">What Makes You Money</div>
-              <p class="muted" style="margin:0;">The tools that keep you booked, paid, promoted, and out of admin mode.</p>
+            <p class="muted" style="margin:0;">The tools that help you get found, booked, paid, promoted, and out of admin mode.</p>
             </div>
           </div>
           <div class="comparison-cell comparison-plan">
@@ -328,7 +335,7 @@ if (isset($_GET['upgraded'])) {
 
         <div class="comparison-row comparison-cta-row">
           <div class="comparison-cell">
-            <p class="muted" style="margin:0;">Start with the tools that keep you organized. Upgrade when you are ready to turn the room into tips, requests, emails, reviews, and repeat business.</p>
+            <p class="muted" style="margin:0;">Start with the tools that keep you organized and visible. Upgrade when you are ready to turn the room into tips, requests, emails, reviews, and repeat business.</p>
           </div>
           <div class="comparison-cell comparison-plan">
             <div class="comparison-cta">

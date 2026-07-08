@@ -106,6 +106,8 @@ function setmaxx_public_ensure_profile_table(PDO $pdo): void {
           `user_id` int(10) unsigned NOT NULL,
           `directory_visible` tinyint(1) NOT NULL DEFAULT 1,
           `directory_state` char(2) DEFAULT NULL,
+          `directory_show_song_count` tinyint(1) NOT NULL DEFAULT 1,
+          `directory_show_songlist` tinyint(1) NOT NULL DEFAULT 0,
           `artist_name` varchar(190) DEFAULT NULL,
           `website_url` varchar(255) DEFAULT NULL,
           `review_url` varchar(255) DEFAULT NULL,
@@ -138,6 +140,12 @@ function setmaxx_public_ensure_profile_pricing_columns(PDO $pdo): void {
     }
     if (!setmaxx_public_profile_column_exists($pdo, 'directory_state')) {
         $pdo->exec("ALTER TABLE setmaxx_public_profiles ADD COLUMN directory_state char(2) DEFAULT NULL AFTER directory_visible");
+    }
+    if (!setmaxx_public_profile_column_exists($pdo, 'directory_show_song_count')) {
+        $pdo->exec("ALTER TABLE setmaxx_public_profiles ADD COLUMN directory_show_song_count tinyint(1) NOT NULL DEFAULT 1 AFTER directory_state");
+    }
+    if (!setmaxx_public_profile_column_exists($pdo, 'directory_show_songlist')) {
+        $pdo->exec("ALTER TABLE setmaxx_public_profiles ADD COLUMN directory_show_songlist tinyint(1) NOT NULL DEFAULT 0 AFTER directory_show_song_count");
     }
     if (!setmaxx_public_profile_column_exists($pdo, 'artist_name')) {
         $pdo->exec("ALTER TABLE setmaxx_public_profiles ADD COLUMN artist_name varchar(190) DEFAULT NULL AFTER user_id");

@@ -9,6 +9,8 @@ function setmaxx_ensure_public_profile_table(PDO $pdo): void {
 		  `user_id` int(10) unsigned NOT NULL,
 		  `directory_visible` tinyint(1) NOT NULL DEFAULT 1,
 		  `directory_state` char(2) DEFAULT NULL,
+		  `directory_show_song_count` tinyint(1) NOT NULL DEFAULT 1,
+		  `directory_show_songlist` tinyint(1) NOT NULL DEFAULT 0,
 		  `artist_name` varchar(190) DEFAULT NULL,
 		  `website_url` varchar(255) DEFAULT NULL,
 		  `review_url` varchar(255) DEFAULT NULL,
@@ -41,6 +43,12 @@ function setmaxx_ensure_public_profile_pricing_columns(PDO $pdo): void {
 	}
 	if (!setmaxx_profile_column_exists($pdo, 'directory_state')) {
 		$pdo->exec("ALTER TABLE setmaxx_public_profiles ADD COLUMN directory_state char(2) DEFAULT NULL AFTER directory_visible");
+	}
+	if (!setmaxx_profile_column_exists($pdo, 'directory_show_song_count')) {
+		$pdo->exec("ALTER TABLE setmaxx_public_profiles ADD COLUMN directory_show_song_count tinyint(1) NOT NULL DEFAULT 1 AFTER directory_state");
+	}
+	if (!setmaxx_profile_column_exists($pdo, 'directory_show_songlist')) {
+		$pdo->exec("ALTER TABLE setmaxx_public_profiles ADD COLUMN directory_show_songlist tinyint(1) NOT NULL DEFAULT 0 AFTER directory_show_song_count");
 	}
 	if (!setmaxx_profile_column_exists($pdo, 'artist_name')) {
 		$pdo->exec("ALTER TABLE setmaxx_public_profiles ADD COLUMN artist_name varchar(190) DEFAULT NULL AFTER user_id");
@@ -102,9 +110,9 @@ function setmaxx_clean_directory_state($value): ?string {
 
 function setmaxx_public_profile(PDO $pdo, int $userId): array {
 	setmaxx_ensure_public_profile_pricing_columns($pdo);
-	$stmt = $pdo->prepare("SELECT directory_visible, directory_state, artist_name, website_url, review_url, booking_url, logo_path, venmo_handle, minimum_tip_dollars, suggested_request_dollars, price_step_dollars FROM setmaxx_public_profiles WHERE user_id = ? LIMIT 1");
+	$stmt = $pdo->prepare("SELECT directory_visible, directory_state, directory_show_song_count, directory_show_songlist, artist_name, website_url, review_url, booking_url, logo_path, venmo_handle, minimum_tip_dollars, suggested_request_dollars, price_step_dollars FROM setmaxx_public_profiles WHERE user_id = ? LIMIT 1");
 	$stmt->execute([$userId]);
-	return $stmt->fetch(PDO::FETCH_ASSOC) ?: ['directory_visible' => 1, 'directory_state' => '', 'artist_name' => '', 'website_url' => '', 'review_url' => '', 'booking_url' => '', 'logo_path' => '', 'venmo_handle' => '', 'minimum_tip_dollars' => 10, 'suggested_request_dollars' => 10, 'price_step_dollars' => 1];
+	return $stmt->fetch(PDO::FETCH_ASSOC) ?: ['directory_visible' => 1, 'directory_state' => '', 'directory_show_song_count' => 1, 'directory_show_songlist' => 0, 'artist_name' => '', 'website_url' => '', 'review_url' => '', 'booking_url' => '', 'logo_path' => '', 'venmo_handle' => '', 'minimum_tip_dollars' => 10, 'suggested_request_dollars' => 10, 'price_step_dollars' => 1];
 }
 
 $stablePublicUrl = '';

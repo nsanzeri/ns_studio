@@ -7,6 +7,8 @@ function setmaxx_ensure_public_profile_table(PDO $pdo): void {
 		CREATE TABLE IF NOT EXISTS `setmaxx_public_profiles` (
 		  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
 		  `user_id` int(10) unsigned NOT NULL,
+		  `directory_visible` tinyint(1) NOT NULL DEFAULT 1,
+		  `directory_state` char(2) DEFAULT NULL,
 		  `artist_name` varchar(190) DEFAULT NULL,
 		  `website_url` varchar(255) DEFAULT NULL,
 		  `review_url` varchar(255) DEFAULT NULL,
@@ -20,6 +22,7 @@ function setmaxx_ensure_public_profile_table(PDO $pdo): void {
 		  `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
 		  PRIMARY KEY (`id`),
 		  UNIQUE KEY `uq_setmaxx_public_profiles_user` (`user_id`),
+		  KEY `idx_setmaxx_directory` (`directory_visible`,`directory_state`,`artist_name`),
 		  CONSTRAINT `fk_setmaxx_public_profiles_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
 	");
@@ -33,6 +36,12 @@ function setmaxx_profile_column_exists(PDO $pdo, string $columnName): bool {
 
 function setmaxx_ensure_public_profile_pricing_columns(PDO $pdo): void {
 	setmaxx_ensure_public_profile_table($pdo);
+	if (!setmaxx_profile_column_exists($pdo, 'directory_visible')) {
+		$pdo->exec("ALTER TABLE setmaxx_public_profiles ADD COLUMN directory_visible tinyint(1) NOT NULL DEFAULT 1 AFTER user_id");
+	}
+	if (!setmaxx_profile_column_exists($pdo, 'directory_state')) {
+		$pdo->exec("ALTER TABLE setmaxx_public_profiles ADD COLUMN directory_state char(2) DEFAULT NULL AFTER directory_visible");
+	}
 	if (!setmaxx_profile_column_exists($pdo, 'artist_name')) {
 		$pdo->exec("ALTER TABLE setmaxx_public_profiles ADD COLUMN artist_name varchar(190) DEFAULT NULL AFTER user_id");
 	}
@@ -86,11 +95,16 @@ function setmaxx_clean_public_url($value): ?string {
 	return filter_var($url, FILTER_VALIDATE_URL) ? mb_substr($url, 0, 255) : null;
 }
 
+function setmaxx_clean_directory_state($value): ?string {
+	$state = strtoupper(trim((string)$value));
+	return preg_match('/^[A-Z]{2}$/', $state) ? $state : null;
+}
+
 function setmaxx_public_profile(PDO $pdo, int $userId): array {
 	setmaxx_ensure_public_profile_pricing_columns($pdo);
-	$stmt = $pdo->prepare("SELECT artist_name, website_url, review_url, booking_url, logo_path, venmo_handle, minimum_tip_dollars, suggested_request_dollars, price_step_dollars FROM setmaxx_public_profiles WHERE user_id = ? LIMIT 1");
+	$stmt = $pdo->prepare("SELECT directory_visible, directory_state, artist_name, website_url, review_url, booking_url, logo_path, venmo_handle, minimum_tip_dollars, suggested_request_dollars, price_step_dollars FROM setmaxx_public_profiles WHERE user_id = ? LIMIT 1");
 	$stmt->execute([$userId]);
-	return $stmt->fetch(PDO::FETCH_ASSOC) ?: ['artist_name' => '', 'website_url' => '', 'review_url' => '', 'booking_url' => '', 'logo_path' => '', 'venmo_handle' => '', 'minimum_tip_dollars' => 10, 'suggested_request_dollars' => 10, 'price_step_dollars' => 1];
+	return $stmt->fetch(PDO::FETCH_ASSOC) ?: ['directory_visible' => 1, 'directory_state' => '', 'artist_name' => '', 'website_url' => '', 'review_url' => '', 'booking_url' => '', 'logo_path' => '', 'venmo_handle' => '', 'minimum_tip_dollars' => 10, 'suggested_request_dollars' => 10, 'price_step_dollars' => 1];
 }
 
 $stablePublicUrl = '';
@@ -140,6 +154,8 @@ if ($tablesReady && is_post()) {
 			}
 			if ($action === 'save_public_profile') {
 				setmaxx_ensure_public_profile_pricing_columns($pdo);
+				$directoryVisible = !empty($_POST['directory_visible']) ? 1 : 0;
+				$directoryState = setmaxx_clean_directory_state($_POST['directory_state'] ?? '');
 				$artistName = setmaxx_clean_public_text($_POST['artist_name'] ?? '', 190);
 				$websiteUrl = setmaxx_clean_public_url($_POST['website_url'] ?? '');
 				$reviewUrl = setmaxx_clean_public_url($_POST['review_url'] ?? '');
@@ -177,10 +193,10 @@ if ($tablesReady && is_post()) {
 				}
 				
 				$pdo->prepare(
-					"INSERT INTO setmaxx_public_profiles (user_id, artist_name, website_url, review_url, booking_url, logo_path, venmo_handle, minimum_tip_dollars, suggested_request_dollars, price_step_dollars)
-					 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-					 ON DUPLICATE KEY UPDATE artist_name = VALUES(artist_name), website_url = VALUES(website_url), review_url = VALUES(review_url), booking_url = VALUES(booking_url), logo_path = VALUES(logo_path), venmo_handle = VALUES(venmo_handle), minimum_tip_dollars = VALUES(minimum_tip_dollars), suggested_request_dollars = VALUES(suggested_request_dollars), price_step_dollars = VALUES(price_step_dollars)"
-				)->execute([$userId, $artistName, $websiteUrl, $reviewUrl, $bookingUrl, $logoPath !== '' ? $logoPath : null, $venmoHandle, $minimumTipDollars, $suggestedRequestDollars, $priceStepDollars]);
+					"INSERT INTO setmaxx_public_profiles (user_id, directory_visible, directory_state, artist_name, website_url, review_url, booking_url, logo_path, venmo_handle, minimum_tip_dollars, suggested_request_dollars, price_step_dollars)
+					 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+					 ON DUPLICATE KEY UPDATE directory_visible = VALUES(directory_visible), directory_state = VALUES(directory_state), artist_name = VALUES(artist_name), website_url = VALUES(website_url), review_url = VALUES(review_url), booking_url = VALUES(booking_url), logo_path = VALUES(logo_path), venmo_handle = VALUES(venmo_handle), minimum_tip_dollars = VALUES(minimum_tip_dollars), suggested_request_dollars = VALUES(suggested_request_dollars), price_step_dollars = VALUES(price_step_dollars)"
+				)->execute([$userId, $directoryVisible, $directoryState, $artistName, $websiteUrl, $reviewUrl, $bookingUrl, $logoPath !== '' ? $logoPath : null, $venmoHandle, $minimumTipDollars, $suggestedRequestDollars, $priceStepDollars]);
 				$publicProfile = setmaxx_public_profile($pdo, $userId);
 				$messages[] = 'Public page settings saved.';
 			}
@@ -312,6 +328,19 @@ setmaxx_page_head('Set Maxx | Show Setup');
       <div class="setmaxx-form-grid">
         <div class="setmaxx-field"><label for="artist_name">Public artist or band name</label><input class="setmaxx-input" id="artist_name" name="artist_name" placeholder="Your stage name or band name" value="<?= e((string)($publicProfile['artist_name'] ?? '')) ?>"></div>
         <div class="setmaxx-field"><label for="website_url">Artist website</label><input class="setmaxx-input" id="website_url" name="website_url" placeholder="https://your-site.com" value="<?= e((string)($publicProfile['website_url'] ?? '')) ?>"></div>
+      </div>
+      <div class="setmaxx-form-grid">
+        <div class="setmaxx-field">
+          <label style="display:flex; gap:.6rem; align-items:center;">
+            <input type="checkbox" name="directory_visible" value="1" <?= !array_key_exists('directory_visible', $publicProfile) || !empty($publicProfile['directory_visible']) ? 'checked' : '' ?>>
+            <span>Show me in the public artist directory</span>
+          </label>
+          <div class="setmaxx-help">The directory shows your image, public artist name, state, website, request page, and active song count.</div>
+        </div>
+        <div class="setmaxx-field">
+          <label for="directory_state">Directory state</label>
+          <input class="setmaxx-input" id="directory_state" name="directory_state" maxlength="2" placeholder="IL" value="<?= e((string)($publicProfile['directory_state'] ?? '')) ?>">
+        </div>
       </div>
       <div class="setmaxx-form-grid">
         <div class="setmaxx-field"><label for="review_url">Review link</label><input class="setmaxx-input" id="review_url" name="review_url" placeholder="Google review page" value="<?= e((string)($publicProfile['review_url'] ?? '')) ?>"></div>

@@ -105,6 +105,8 @@ function setmaxx_public_ensure_profile_table(PDO $pdo): void {
         CREATE TABLE IF NOT EXISTS `setmaxx_public_profiles` (
           `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
           `user_id` int(10) unsigned NOT NULL,
+          `directory_visible` tinyint(1) NOT NULL DEFAULT 1,
+          `directory_state` char(2) DEFAULT NULL,
           `artist_name` varchar(190) DEFAULT NULL,
           `website_url` varchar(255) DEFAULT NULL,
           `review_url` varchar(255) DEFAULT NULL,
@@ -118,6 +120,7 @@ function setmaxx_public_ensure_profile_table(PDO $pdo): void {
           `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
           PRIMARY KEY (`id`),
           UNIQUE KEY `uq_setmaxx_public_profiles_user` (`user_id`),
+          KEY `idx_setmaxx_directory` (`directory_visible`,`directory_state`,`artist_name`),
           CONSTRAINT `fk_setmaxx_public_profiles_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
     ");
@@ -131,6 +134,12 @@ function setmaxx_public_profile_column_exists(PDO $pdo, string $columnName): boo
 
 function setmaxx_public_ensure_profile_pricing_columns(PDO $pdo): void {
     setmaxx_public_ensure_profile_table($pdo);
+    if (!setmaxx_public_profile_column_exists($pdo, 'directory_visible')) {
+        $pdo->exec("ALTER TABLE setmaxx_public_profiles ADD COLUMN directory_visible tinyint(1) NOT NULL DEFAULT 1 AFTER user_id");
+    }
+    if (!setmaxx_public_profile_column_exists($pdo, 'directory_state')) {
+        $pdo->exec("ALTER TABLE setmaxx_public_profiles ADD COLUMN directory_state char(2) DEFAULT NULL AFTER directory_visible");
+    }
     if (!setmaxx_public_profile_column_exists($pdo, 'artist_name')) {
         $pdo->exec("ALTER TABLE setmaxx_public_profiles ADD COLUMN artist_name varchar(190) DEFAULT NULL AFTER user_id");
     }

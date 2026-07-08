@@ -25,6 +25,7 @@ $suiteModules = [
 	['label' => 'SetMaxx', 'href' => $studioBase . '/setmaxx/index.php', 'active' => str_contains($currentPath, '/setmaxx/'), 'soon' => false],
 	['label' => 'Finance', 'href' => $studioBase . '/finance/index.php', 'active' => str_contains($currentPath, '/finance/'), 'soon' => false],
 	['label' => 'Publishing', 'href' => $studioBase . '/publishing/index.php', 'active' => str_contains($currentPath, '/publishing/'), 'soon' => false],
+	['label' => 'Directory', 'href' => $siteBase . '/directory.php', 'active' => $currentPage === 'directory.php', 'soon' => false],
 ];
 $showCalendarSubnav = str_contains($currentPath, '/tools/');
 ?>

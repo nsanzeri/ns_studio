@@ -62,6 +62,8 @@ CREATE TABLE IF NOT EXISTS `setmaxx_public_links` (
 CREATE TABLE IF NOT EXISTS `setmaxx_public_profiles` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `user_id` int(10) unsigned NOT NULL,
+  `directory_visible` tinyint(1) NOT NULL DEFAULT 1,
+  `directory_state` char(2) DEFAULT NULL,
   `artist_name` varchar(190) DEFAULT NULL,
   `website_url` varchar(255) DEFAULT NULL,
   `review_url` varchar(255) DEFAULT NULL,
@@ -75,6 +77,7 @@ CREATE TABLE IF NOT EXISTS `setmaxx_public_profiles` (
   `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_setmaxx_public_profiles_user` (`user_id`),
+  KEY `idx_setmaxx_directory` (`directory_visible`,`directory_state`,`artist_name`),
   CONSTRAINT `fk_setmaxx_public_profiles_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 

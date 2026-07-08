@@ -31,6 +31,7 @@ if (!function_exists('rss_render_suite_menu')) {
             ['label' => 'SetMaxx', 'meta' => 'Songs and requests', 'href' => $studioBase . '/setmaxx/index.php', 'active' => rss_header_is_active_path($currentPath, '/setmaxx/'), 'soon' => false],
             ['label' => 'Finance', 'meta' => 'Gig income tracking', 'href' => $studioBase . '/finance/index.php', 'active' => rss_header_is_active_path($currentPath, '/finance/'), 'soon' => false],
             ['label' => 'Publish', 'meta' => 'Promo copy writer', 'href' => $studioBase . '/publishing/index.php', 'active' => rss_header_is_active_path($currentPath, '/publishing/'), 'soon' => false],
+            ['label' => 'Directory', 'meta' => 'Public artist discovery', 'href' => $ctx['site_base'] . '/directory.php', 'active' => basename($currentPath) === 'directory.php', 'soon' => false],
         ];
         $buttonId = $idPrefix . 'SuiteMenuToggle';
         $panelId = $idPrefix . 'SuiteMenuPanel';
@@ -72,6 +73,7 @@ if (!function_exists('rss_render_account_menu')) {
             ['label' => 'SetMaxx', 'href' => $studioBase . '/setmaxx/index.php', 'active' => rss_header_is_active_path($currentPath, '/setmaxx/'), 'soon' => false],
             ['label' => 'Finance', 'href' => $studioBase . '/finance/index.php', 'active' => rss_header_is_active_path($currentPath, '/finance/'), 'soon' => false],
             ['label' => 'Publish', 'href' => $studioBase . '/publishing/index.php', 'active' => rss_header_is_active_path($currentPath, '/publishing/'), 'soon' => false],
+            ['label' => 'Directory', 'href' => $ctx['site_base'] . '/directory.php', 'active' => basename($currentPath) === 'directory.php', 'soon' => false],
         ];
         $buttonId = $idPrefix . 'AccountMenuToggle';
         $panelId = $idPrefix . 'AccountMenuPanel';

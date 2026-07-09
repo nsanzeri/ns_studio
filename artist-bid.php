@@ -68,9 +68,8 @@ if ($invite && is_post()) {
                 ")->execute([(int)$invite['request_id'], $inviteId, $userId, $amount, $message]);
             }
             $pdo->prepare("UPDATE booking_invites SET status = 'accepted', quote_amount = ?, quote_message = ?, responded_at = NOW() WHERE id = ?")->execute([$amount, $message, $inviteId]);
-            $ok = 'Your bid was sent.';
-            $stmt->execute([$inviteId, $userId]);
-            $invite = $stmt->fetch(PDO::FETCH_ASSOC);
+            flash_set('success', 'Your bid was sent.');
+            redirect($siteBase . '/artist-bookings.php?invite=' . $inviteId);
         }
     }
 }

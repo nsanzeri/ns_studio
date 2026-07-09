@@ -42,6 +42,7 @@ if (!function_exists('rss_render_suite_menu')) {
                 ['label' => 'Finance', 'meta' => 'Gig income tracking', 'href' => $studioBase . '/finance/index.php', 'active' => rss_header_is_active_path($currentPath, '/finance/'), 'soon' => false],
                 ['label' => 'Publish', 'meta' => 'Promo copy writer', 'href' => $studioBase . '/publishing/index.php', 'active' => rss_header_is_active_path($currentPath, '/publishing/'), 'soon' => false],
                 ['label' => 'Directory', 'meta' => 'Public artist discovery', 'href' => $ctx['site_base'] . '/directory.php', 'active' => basename($currentPath) === 'directory.php', 'soon' => false],
+                ['label' => 'Requests', 'meta' => 'Booking requests', 'href' => $ctx['site_base'] . '/artist-bookings.php', 'active' => basename($currentPath) === 'artist-bookings.php', 'soon' => false],
             ];
         $buttonId = $idPrefix . 'SuiteMenuToggle';
         $panelId = $idPrefix . 'SuiteMenuPanel';
@@ -80,7 +81,12 @@ if (!function_exists('rss_render_account_menu')) {
         $accountType = $isLoggedIn ? Auth::normalizeAccountType((string)($currentUser['account_type'] ?? 'artist')) : '';
         $accountLabel = $isLoggedIn ? trim((string)($currentUser['display_name'] ?? $currentUser['email'] ?? 'Account')) : 'Account';
         $accountInitial = strtoupper(substr($accountLabel !== '' ? $accountLabel : 'A', 0, 1));
-        $logoutUrl = $studioBase . '/member/logout.php' . ((($_SESSION['auth_brand'] ?? '') === 'rss' || str_contains($currentPath, '/studio/') || basename($currentPath) === 'directory.php' || basename($currentPath) === 'booking-request.php') ? '?brand=rss' : '');
+        $rssLogoutPages = ['directory.php', 'booking-request.php', 'my-bookings.php', 'artist-bookings.php', 'artist-bid.php'];
+        $isRssLogoutContext = $idPrefix !== 'public'
+            || (($_SESSION['auth_brand'] ?? '') === 'rss')
+            || str_contains($currentPath, '/studio/')
+            || in_array(basename($currentPath), $rssLogoutPages, true);
+        $logoutUrl = $studioBase . '/member/logout.php' . ($isRssLogoutContext ? '?brand=rss' : '');
         $modules = $accountType === 'customer'
             ? [
                 ['label' => 'Directory', 'href' => $ctx['site_base'] . '/directory.php', 'active' => basename($currentPath) === 'directory.php', 'soon' => false],
@@ -93,6 +99,7 @@ if (!function_exists('rss_render_account_menu')) {
                 ['label' => 'Finance', 'href' => $studioBase . '/finance/index.php', 'active' => rss_header_is_active_path($currentPath, '/finance/'), 'soon' => false],
                 ['label' => 'Publish', 'href' => $studioBase . '/publishing/index.php', 'active' => rss_header_is_active_path($currentPath, '/publishing/'), 'soon' => false],
                 ['label' => 'Directory', 'href' => $ctx['site_base'] . '/directory.php', 'active' => basename($currentPath) === 'directory.php', 'soon' => false],
+                ['label' => 'Requests', 'href' => $ctx['site_base'] . '/artist-bookings.php', 'active' => basename($currentPath) === 'artist-bookings.php', 'soon' => false],
             ];
         $buttonId = $idPrefix . 'AccountMenuToggle';
         $panelId = $idPrefix . 'AccountMenuPanel';

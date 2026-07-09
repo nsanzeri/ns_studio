@@ -2,14 +2,22 @@
 require __DIR__ . '/../_private/_core/bootstrap.php';
 
 if (Auth::isLoggedIn()) {
-	redirect(base_url('member/library.php'));
+	$userId = Auth::userId();
+	redirect($userId ? Auth::defaultPostLoginUrl($pdo, (int)$userId) : base_url('member/library.php'));
 }
 
 $err = null;
 $googleClientId = env('GOOGLE_CLIENT_ID', '');
 $requestHost = strtolower((string)($_SERVER['HTTP_HOST'] ?? ''));
 $requestHost = preg_replace('/:\d+$/', '', $requestHost);
-$isReadySetShowsHost = in_array($requestHost, ['readysetshows.com', 'www.readysetshows.com'], true);
+if (($_GET['brand'] ?? '') === 'rss') {
+	$_SESSION['auth_brand'] = 'rss';
+}
+$nextPath = (string)($_SESSION['login_next'] ?? '');
+$isReadySetShowsHost = in_array($requestHost, ['readysetshows.com', 'www.readysetshows.com'], true)
+	|| (($_SESSION['auth_brand'] ?? '') === 'rss')
+	|| isset($_SESSION['registration_account_type'])
+	|| str_contains($nextPath, '/booking-request.php');
 $loginUrl = base_url('member/login.php');
 $trialUrl = base_url('member/pricing.php');
 
@@ -31,12 +39,19 @@ if (is_post()) {
 			Auth::login($userId);
 			Auth::touchLogin($pdo, $userId);
 			sync_user_entitlements($pdo, $userId);
-			$next = $_SESSION['login_next'] ?? base_url('member/library.php');
+			$next = $_SESSION['login_next'] ?? Auth::defaultPostLoginUrl($pdo, $userId);
 			unset($_SESSION['login_next']);
+			unset($_SESSION['auth_brand']);
 			redirect($next);
 		}
 	}
 }
+$registerAccountType = isset($_SESSION['registration_account_type']) ? Auth::normalizeAccountType((string)$_SESSION['registration_account_type']) : '';
+$registerUrl = base_url('member/register.php');
+$registerParams = [];
+if ($registerAccountType !== '') $registerParams['account_type'] = $registerAccountType;
+if ($isReadySetShowsHost) $registerParams['brand'] = 'rss';
+if ($registerParams) $registerUrl .= '?' . http_build_query($registerParams);
 ?>
 <!doctype html>
 <html lang="en">
@@ -90,7 +105,7 @@ if ($isReadySetShowsHost) {
   <?php endif; ?>
 
   <div style="margin-top:1rem;">
-    <a class="text-link" href="<?= e(base_url('member/register.php')) ?>">Create an account</a>
+    <a class="text-link" href="<?= e($registerUrl) ?>">Create an account</a>
   </div>
 </main>
 <?php

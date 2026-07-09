@@ -6,6 +6,7 @@ Auth::requireLogin(base_url('member/settings.php'));
 
 $user = Auth::currentUser($pdo);
 $userId = (int)($user['id'] ?? 0);
+$accountType = Auth::normalizeAccountType((string)($user['account_type'] ?? 'artist'));
 $err = null;
 $ok = null;
 
@@ -188,6 +189,15 @@ if (is_post()) {
     } else {
         $action = (string)($_POST['action'] ?? '');
 
+        if ($action === 'account_type') {
+            $newAccountType = Auth::normalizeAccountType((string)($_POST['account_type'] ?? 'customer'));
+            if ($newAccountType === 'admin') $newAccountType = 'customer';
+            Auth::updateAccountType($pdo, $userId, $newAccountType);
+            $user = Auth::currentUser($pdo);
+            $accountType = Auth::normalizeAccountType((string)($user['account_type'] ?? 'artist'));
+            $ok = 'Account type saved.';
+        }
+
         if ($action === 'public_artist_profile') {
             try {
                 ns_ensure_public_artist_profile_table($pdo);
@@ -198,6 +208,7 @@ if (is_post()) {
                 $directoryShowSongCount = !empty($_POST['directory_show_song_count']) ? 1 : 0;
                 $directoryShowSonglist = !empty($_POST['directory_show_songlist']) ? 1 : 0;
                 $logoPath = trim((string)($publicArtistProfile['logo_path'] ?? ''));
+                $imageErr = null;
 
                 if (trim((string)($_POST['website_url'] ?? '')) !== '' && $websiteUrl === null) {
                     throw new RuntimeException('Website link is not valid.');
@@ -206,17 +217,29 @@ if (is_post()) {
                 if (!empty($_FILES['logo_file']['tmp_name']) && is_uploaded_file($_FILES['logo_file']['tmp_name'])) {
                     $tmpPath = (string)$_FILES['logo_file']['tmp_name'];
                     $size = (int)($_FILES['logo_file']['size'] ?? 0);
-                    if ($size <= 0 || $size > 2 * 1024 * 1024) throw new RuntimeException('Image must be under 2 MB.');
-                    $info = @getimagesize($tmpPath);
-                    $mime = $info['mime'] ?? '';
-                    $extensions = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp', 'image/gif' => 'gif'];
-                    if (!isset($extensions[$mime])) throw new RuntimeException('Image must be a JPG, PNG, WEBP, or GIF.');
-                    $uploadDir = dirname(__DIR__, 2) . '/assets/uploads/setmaxx';
-                    if (!is_dir($uploadDir) && !mkdir($uploadDir, 0775, true) && !is_dir($uploadDir)) throw new RuntimeException('Image upload folder could not be created.');
-                    $fileName = 'setmaxx-logo-' . $userId . '-' . bin2hex(random_bytes(5)) . '.' . $extensions[$mime];
-                    $targetPath = $uploadDir . '/' . $fileName;
-                    if (!move_uploaded_file($tmpPath, $targetPath)) throw new RuntimeException('Image could not be saved.');
-                    $logoPath = '../assets/uploads/setmaxx/' . $fileName;
+                    if ($size <= 0 || $size > 2 * 1024 * 1024) {
+                        $imageErr = 'Image must be under 2 MB.';
+                    } else {
+                        $info = @getimagesize($tmpPath);
+                        $mime = $info['mime'] ?? '';
+                        $extensions = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp', 'image/gif' => 'gif'];
+                        if (!isset($extensions[$mime])) {
+                            $imageErr = 'Image must be a JPG, PNG, WEBP, or GIF.';
+                        } else {
+                            $uploadDir = dirname(__DIR__, 2) . '/assets/uploads/setmaxx';
+                            if (!is_dir($uploadDir) && !mkdir($uploadDir, 0775, true) && !is_dir($uploadDir)) {
+                                $imageErr = 'Image upload folder could not be created.';
+                            } else {
+                                $fileName = 'setmaxx-logo-' . $userId . '-' . bin2hex(random_bytes(5)) . '.' . $extensions[$mime];
+                                $targetPath = $uploadDir . '/' . $fileName;
+                                if (!move_uploaded_file($tmpPath, $targetPath)) {
+                                    $imageErr = 'Image could not be saved.';
+                                } else {
+                                    $logoPath = '../assets/uploads/setmaxx/' . $fileName;
+                                }
+                            }
+                        }
+                    }
                 }
 
                 if (!empty($_POST['remove_logo'])) {
@@ -230,9 +253,21 @@ if (is_post()) {
                 )->execute([$userId, $directoryVisible, $directoryState, $directoryShowSongCount, $directoryShowSonglist, $artistName, $websiteUrl, $logoPath !== '' ? $logoPath : null]);
 
                 $publicArtistProfile = ns_public_artist_profile($pdo, $userId);
-                $ok = 'Public artist profile saved.';
+                if ($imageErr) {
+                    $err = 'Public artist profile saved, but the image was not updated. ' . $imageErr;
+                } else {
+                    $ok = 'Public artist profile saved.';
+                }
             } catch (Throwable $e) {
                 $err = $e->getMessage();
+                $publicArtistProfile = array_merge($publicArtistProfile, [
+                    'directory_visible' => !empty($_POST['directory_visible']) ? 1 : 0,
+                    'directory_state' => strtoupper(trim((string)($_POST['directory_state'] ?? ''))),
+                    'directory_show_song_count' => !empty($_POST['directory_show_song_count']) ? 1 : 0,
+                    'directory_show_songlist' => !empty($_POST['directory_show_songlist']) ? 1 : 0,
+                    'artist_name' => trim((string)($_POST['artist_name'] ?? '')),
+                    'website_url' => trim((string)($_POST['website_url'] ?? '')),
+                ]);
             }
         }
 
@@ -285,7 +320,13 @@ $cancelScheduled = !empty($subscription['canceled_at']);
 $subscriptionLabel = $subscription['plan_name'] ?? 'Ready Set Shows Pro';
 $requestHost = strtolower((string)($_SERVER['HTTP_HOST'] ?? ''));
 $requestHost = preg_replace('/:\d+$/', '', $requestHost);
-$isReadySetShowsHost = in_array($requestHost, ['readysetshows.com', 'www.readysetshows.com'], true);
+if (($_GET['brand'] ?? '') === 'rss') {
+    $_SESSION['auth_brand'] = 'rss';
+}
+$isReadySetShowsHost = in_array($requestHost, ['readysetshows.com', 'www.readysetshows.com'], true)
+    || (($_SESSION['auth_brand'] ?? '') === 'rss')
+    || in_array($accountType, ['artist', 'customer'], true);
+$settingsBrandParam = $isReadySetShowsHost ? '?brand=rss' : '';
 ?>
 <!doctype html>
 <html lang="en">
@@ -314,6 +355,24 @@ if ($isReadySetShowsHost) {
     <div class="alert" style="margin:1rem 0;"><?= e($ok) ?></div>
   <?php endif; ?>
 
+  <section class="card" style="padding:1.5rem; margin:1.5rem 0;">
+    <h3 class="form-title">Account Type</h3>
+    <p class="muted">Choose how you primarily use Ready Set Shows.</p>
+    <form class="form" method="post">
+      <input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>">
+      <input type="hidden" name="action" value="account_type">
+      <div class="form-field">
+        <label>Account type</label>
+        <select name="account_type">
+          <option value="customer" <?= $accountType === 'customer' ? 'selected' : '' ?>>Customer - I book bands for events</option>
+          <option value="artist" <?= $accountType === 'artist' ? 'selected' : '' ?>>Artist - I list/manage my band</option>
+        </select>
+      </div>
+      <button class="btn btn-primary" style="margin-top:1.25rem;">Save account type</button>
+    </form>
+  </section>
+
+  <?php if ($accountType !== 'customer'): ?>
   <section class="card" style="padding:1.5rem; margin:1.5rem 0;">
     <h3 class="form-title">Public Artist Profile</h3>
     <p class="muted">This is the basic discovery profile used by the public artist directory. It is available whether or not you use Pro request pages.</p>
@@ -347,6 +406,7 @@ if ($isReadySetShowsHost) {
       <div class="form-field">
         <label style="margin-top:1rem;">Profile image</label>
         <input type="file" name="logo_file" accept="image/png,image/jpeg,image/webp,image/gif">
+        <p class="muted small" style="margin:.35rem 0 0;">JPG, PNG, WEBP, or GIF under 2 MB.</p>
       </div>
       <?php if (!empty($publicArtistProfile['logo_path'])): ?>
         <div style="display:flex; gap:1rem; align-items:center; flex-wrap:wrap; margin-top:1rem;">
@@ -379,9 +439,10 @@ if ($isReadySetShowsHost) {
       </p>
     <?php else: ?>
       <p class="muted" style="margin:.25rem 0 1rem;">No active paid subscription was found for this account.</p>
-      <a class="btn btn-outline" href="<?= e(base_url('member/pricing.php')) ?>">View Plans</a>
+      <a class="btn btn-outline" href="<?= e(base_url('member/pricing.php') . $settingsBrandParam) ?>">View Plans</a>
     <?php endif; ?>
   </section>
+  <?php endif; ?>
 
   <section class="card" style="padding:1.5rem; margin:1.5rem 0;">
     <h3 class="form-title">Change Password</h3>

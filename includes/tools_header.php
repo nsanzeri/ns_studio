@@ -13,6 +13,8 @@ $artistStartUrl = $studioBase . '/member/pricing.php';
 
 $trialStatus = null;
 $headerPdo = (isset($pdo) && $pdo instanceof PDO) ? $pdo : ($GLOBALS['pdo'] ?? null);
+$headerUserId = $isLoggedIn && class_exists('Auth') ? Auth::userId() : null;
+$headerAccountType = ($isLoggedIn && $headerPdo instanceof PDO && $headerUserId) ? Auth::accountTypeForUser($headerPdo, (int)$headerUserId) : '';
 if ($headerPdo instanceof PDO && function_exists('rss_get_current_user_trial_status')) {
 	$trialStatus = rss_get_current_user_trial_status($headerPdo);
 }
@@ -24,13 +26,18 @@ if (!function_exists('nav_active')) {
 	}
 }
 
-$suiteModules = [
-	['label' => 'Calendar', 'href' => $studioBase . '/tools/index.php', 'active' => str_contains($currentPath, '/tools/'), 'soon' => false],
-	['label' => 'SetMaxx', 'href' => $studioBase . '/setmaxx/index.php', 'active' => str_contains($currentPath, '/setmaxx/'), 'soon' => false],
-	['label' => 'Finance', 'href' => $studioBase . '/finance/index.php', 'active' => str_contains($currentPath, '/finance/'), 'soon' => false],
-	['label' => 'Publishing', 'href' => $studioBase . '/publishing/index.php', 'active' => str_contains($currentPath, '/publishing/'), 'soon' => false],
-	['label' => 'Directory', 'href' => $siteBase . '/directory.php', 'active' => $currentPage === 'directory.php', 'soon' => false],
-];
+$suiteModules = $headerAccountType === 'customer'
+	? [
+		['label' => 'Directory', 'href' => $siteBase . '/directory.php', 'active' => $currentPage === 'directory.php', 'soon' => false],
+		['label' => 'Book Bands', 'href' => $siteBase . '/booking-request.php', 'active' => $currentPage === 'booking-request.php', 'soon' => false],
+	]
+	: [
+		['label' => 'Calendar', 'href' => $studioBase . '/tools/index.php', 'active' => str_contains($currentPath, '/tools/'), 'soon' => false],
+		['label' => 'SetMaxx', 'href' => $studioBase . '/setmaxx/index.php', 'active' => str_contains($currentPath, '/setmaxx/'), 'soon' => false],
+		['label' => 'Finance', 'href' => $studioBase . '/finance/index.php', 'active' => str_contains($currentPath, '/finance/'), 'soon' => false],
+		['label' => 'Publishing', 'href' => $studioBase . '/publishing/index.php', 'active' => str_contains($currentPath, '/publishing/'), 'soon' => false],
+		['label' => 'Directory', 'href' => $siteBase . '/directory.php', 'active' => $currentPage === 'directory.php', 'soon' => false],
+	];
 $showCalendarSubnav = str_contains($currentPath, '/tools/');
 ?>
 

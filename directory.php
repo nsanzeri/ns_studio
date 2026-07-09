@@ -211,6 +211,8 @@ $siteBase = $isLocal ? '/ns_studio' : '';
     .directory-actions { display:flex; gap:.5rem; flex-wrap:wrap; }
     .directory-actions a, .directory-actions button { display:inline-flex; align-items:center; min-height:34px; padding:.45rem .7rem; border-radius:8px; font-size:.9rem; text-decoration:none; border:1px solid rgba(255,255,255,.12); color:rgba(255,255,255,.9); background:rgba(255,255,255,.03); font:inherit; cursor:pointer; }
     .directory-actions a:hover, .directory-actions button:hover { border-color:rgba(212,175,55,.36); color:#f4d57a; }
+    .directory-actions .directory-bid-action { background:linear-gradient(135deg, #f4d57a, #d4af37); color:#111; border-color:rgba(212,175,55,.45); }
+    .directory-actions .directory-bid-action:hover { color:#111; border-color:rgba(255,228,138,.72); }
     .directory-empty { padding:1.25rem; border-radius:8px; border:1px solid rgba(255,255,255,.08); background:rgba(255,255,255,.04); color:rgba(255,255,255,.76); }
     .directory-photo-modal { position:fixed; inset:0; z-index:1000; display:grid; place-items:center; padding:1.25rem; background:rgba(2,4,14,.82); backdrop-filter:blur(8px); }
     .directory-photo-modal[hidden] { display:none; }
@@ -272,6 +274,7 @@ $siteBase = $isLocal ? '/ns_studio' : '';
               <?php endif; ?>
             </div>
             <div class="directory-actions">
+              <a class="directory-bid-action" href="<?= e($siteBase . '/booking-request.php?artists[]=' . (int)$artist['user_id']) ?>">Request Bid</a>
               <?php if (!empty($artist['website_url'])): ?>
                 <a href="<?= e((string)$artist['website_url']) ?>" target="_blank" rel="noopener">Website</a>
               <?php endif; ?>

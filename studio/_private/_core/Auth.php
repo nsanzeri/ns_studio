@@ -118,11 +118,64 @@ class Auth {
     $userId = self::userId();
     if (!$userId) return null;
 
-    $stmt = $pdo->prepare('SELECT id, email, google_sub, display_name, created_at, last_login_at FROM users WHERE id = ? LIMIT 1');
+    $stmt = $pdo->prepare('SELECT * FROM users WHERE id = ? LIMIT 1');
     $stmt->execute([$userId]);
     $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
     return $user ?: null;
+  }
+
+  public static function normalizeAccountType(?string $accountType): string {
+    $accountType = strtolower(trim((string)$accountType));
+    return in_array($accountType, ['customer', 'artist', 'admin'], true) ? $accountType : 'customer';
+  }
+
+  public static function accountTypeColumnExists(PDO $pdo): bool {
+    static $exists = null;
+    if ($exists !== null) return $exists;
+
+    try {
+      $stmt = $pdo->prepare("SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'users' AND column_name = 'account_type' LIMIT 1");
+      $stmt->execute();
+      $exists = (bool)$stmt->fetchColumn();
+    } catch (Throwable $e) {
+      $exists = false;
+    }
+
+    return $exists;
+  }
+
+  public static function accountTypeForUser(PDO $pdo, int $userId): string {
+    if (!self::accountTypeColumnExists($pdo)) return 'artist';
+
+    $stmt = $pdo->prepare('SELECT account_type FROM users WHERE id = ? LIMIT 1');
+    $stmt->execute([$userId]);
+    return self::normalizeAccountType((string)$stmt->fetchColumn());
+  }
+
+  public static function updateAccountType(PDO $pdo, int $userId, string $accountType): void {
+    if (!self::accountTypeColumnExists($pdo)) return;
+
+    $stmt = $pdo->prepare('UPDATE users SET account_type = ? WHERE id = ?');
+    $stmt->execute([self::normalizeAccountType($accountType), $userId]);
+  }
+
+  public static function defaultPostLoginUrl(PDO $pdo, int $userId): string {
+    $accountType = self::accountTypeForUser($pdo, $userId);
+    if ($accountType === 'customer') {
+      return self::siteBasePath() . '/booking-request.php';
+    }
+
+    return base_url('member/library.php');
+  }
+
+  public static function siteBasePath(): string {
+    $base = defined('BASE_PATH') ? (string)BASE_PATH : '';
+    $base = str_replace('\\', '/', $base);
+    if (preg_match('#^(.*)/studio$#', $base, $m)) {
+      return $m[1] === '' ? '' : $m[1];
+    }
+    return '';
   }
 
   public static function touchLogin(PDO $pdo, int $userId): void {

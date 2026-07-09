@@ -47,9 +47,18 @@ if (!$email || !$sub) {
 }
 
 $userId = Auth::upsertGoogleUser($pdo, $sub, $email, $name ?: null);
+$requestedAccountType = isset($_SESSION['registration_account_type']) ? Auth::normalizeAccountType((string)$_SESSION['registration_account_type']) : '';
+if ($requestedAccountType === 'artist' && Auth::accountTypeColumnExists($pdo) && Auth::accountTypeForUser($pdo, $userId) === 'customer') {
+	Auth::updateAccountType($pdo, $userId, 'artist');
+}
 sync_user_entitlements($pdo, $userId);
 Auth::login($userId);
 
-$next = $_SESSION['login_next'] ?? base_url('/member/library.php');
+$next = $_SESSION['login_next'] ?? Auth::defaultPostLoginUrl($pdo, $userId);
+if (empty($_SESSION['login_next']) && $requestedAccountType === 'artist') {
+	$next = base_url('member/artist_onboarding.php');
+}
 unset($_SESSION['login_next']);
+unset($_SESSION['registration_account_type']);
+unset($_SESSION['auth_brand']);
 redirect($next);

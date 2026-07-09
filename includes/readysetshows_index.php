@@ -6,8 +6,10 @@ $studioBase = $siteBase . '/studio';
 $assetBase = $siteBase . '/assets';
 $readySetShowsUrl = $studioBase . '/member/library.php';
 $pricingUrl = $studioBase . '/member/pricing.php';
-$loginUrl = $studioBase . '/member/login.php';
+$loginUrl = $studioBase . '/member/login.php?brand=rss';
 $shopUrl = $studioBase . '/shop/index.php';
+$bookBandUrl = $siteBase . '/booking-request.php';
+$artistRegisterUrl = $studioBase . '/member/register.php?account_type=artist&brand=rss';
 $screensBase = $assetBase . '/img/readysetshows';
 
 $screens = [
@@ -250,6 +252,68 @@ $screens = [
             font-size: .94rem;
         }
 
+        .rss-paths {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 1rem;
+            margin-top: 1.6rem;
+            max-width: 760px;
+        }
+
+        .rss-path-card {
+            display: grid;
+            gap: .7rem;
+            align-content: start;
+            min-height: 190px;
+            padding: 1.1rem;
+            border-radius: 8px;
+            border: 1px solid rgba(255,255,255,.14);
+            background: rgba(255,255,255,.055);
+            text-decoration: none;
+            color: var(--rss-text);
+            box-shadow: 0 18px 48px rgba(0,0,0,.22);
+        }
+
+        .rss-path-card:hover {
+            border-color: rgba(231,199,90,.46);
+            background: rgba(231,199,90,.1);
+            transform: translateY(-1px);
+        }
+
+        .rss-path-icon {
+            width: 42px;
+            height: 42px;
+            border-radius: 999px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            color: #111;
+            background: var(--rss-gold);
+        }
+
+        .rss-path-card h2 {
+            margin: .1rem 0 0;
+            font-size: clamp(1.25rem, 2.2vw, 1.75rem);
+        }
+
+        .rss-path-card p {
+            margin: 0;
+            color: var(--rss-muted);
+            line-height: 1.55;
+        }
+
+        .rss-path-cta {
+            display: inline-flex;
+            align-items: center;
+            gap: .45rem;
+            margin-top: auto;
+            color: var(--rss-gold);
+            font-weight: 800;
+            letter-spacing: .02em;
+            text-transform: uppercase;
+            font-size: .82rem;
+        }
+
         .rss-section {
             padding: clamp(3.2rem, 6vw, 5.6rem) 0;
             border-bottom: 1px solid rgba(255,255,255,.08);
@@ -490,6 +554,7 @@ $screens = [
             .rss-shot-c { grid-row: 3; }
 
             .rss-proof-grid,
+            .rss-paths,
             .rss-module-grid,
             .rss-showcase-row,
             .rss-showcase-row:nth-child(even),
@@ -541,11 +606,10 @@ $screens = [
                 </span>
             </a>
             <nav class="rss-nav" aria-label="Ready Set Shows navigation">
-                <a href="#modules">Modules</a>
-                <a href="#screens">Screens</a>
-                <a href="<?= htmlspecialchars($shopUrl, ENT_QUOTES, 'UTF-8') ?>">Suite</a>
+                <a href="<?= htmlspecialchars($bookBandUrl, ENT_QUOTES, 'UTF-8') ?>">Book a Band</a>
+                <a href="<?= htmlspecialchars($artistRegisterUrl, ENT_QUOTES, 'UTF-8') ?>">Register Your Band</a>
                 <a class="rss-nav-login" href="<?= htmlspecialchars($loginUrl, ENT_QUOTES, 'UTF-8') ?>">Log In</a>
-                <a class="rss-nav-primary" href="<?= htmlspecialchars($pricingUrl, ENT_QUOTES, 'UTF-8') ?>">Start Free</a>
+                <a class="rss-nav-primary" href="<?= htmlspecialchars($artistRegisterUrl, ENT_QUOTES, 'UTF-8') ?>">Join as Artist</a>
             </nav>
         </div>
     </header>
@@ -560,22 +624,28 @@ $screens = [
 
             <div class="container">
                 <div class="rss-hero-content">
-                    <div class="rss-kicker"><i class="fa-solid fa-bolt"></i> The request button your tip jar wished it had</div>
-                    <h1>Turn your setlist into a paycheck.</h1>
+                    <div class="rss-kicker"><i class="fa-solid fa-bolt"></i> Built by working musicians</div>
+                    <h1>Running a music career is hard enough.</h1>
                     <p class="rss-hero-copy">
-                        Ready Set Shows helps working musicians reply faster, promote smarter, track the money, and turn live audiences into tips, requests, reviews, emails, and repeat business.
+                        Ready Set Shows handles the busy work so you can get back to making music. We built the musician&apos;s assistant we always wished we had.
                     </p>
-                    <div class="rss-actions">
-                        <a class="btn btn-primary" href="<?= htmlspecialchars($pricingUrl, ENT_QUOTES, 'UTF-8') ?>">
-                            <i class="fa-solid fa-play"></i> Start Free
+                    <div class="rss-paths" aria-label="Choose how to use Ready Set Shows">
+                        <a class="rss-path-card" href="<?= htmlspecialchars($bookBandUrl, ENT_QUOTES, 'UTF-8') ?>">
+                            <span class="rss-path-icon"><i class="fa-solid fa-calendar-plus"></i></span>
+                            <h2>Book a band</h2>
+                            <p>Create one event request and invite multiple artists to bid on the date.</p>
+                            <span class="rss-path-cta">Start a booking <i class="fa-solid fa-arrow-right"></i></span>
                         </a>
-                        <a class="btn btn-outline" href="<?= htmlspecialchars($readySetShowsUrl, ENT_QUOTES, 'UTF-8') ?>">
-                            <i class="fa-solid fa-arrow-up-right-from-square"></i> Open Ready Set Shows
+                        <a class="rss-path-card" href="<?= htmlspecialchars($artistRegisterUrl, ENT_QUOTES, 'UTF-8') ?>">
+                            <span class="rss-path-icon"><i class="fa-solid fa-guitar"></i></span>
+                            <h2>Join as artist</h2>
+                            <p>List your band, manage gig tools, respond faster, and keep the business side organized.</p>
+                            <span class="rss-path-cta">Register your band <i class="fa-solid fa-arrow-right"></i></span>
                         </a>
                     </div>
                     <div class="rss-hero-note">
-                        <span><i class="fa-solid fa-check"></i> Calendar, SetMaxx, Finance, and Publishing</span>
-                        <span><i class="fa-solid fa-check"></i> Free planning tools, Pro live money tools</span>
+                        <span><i class="fa-solid fa-check"></i> We know how hard it is to be a working musician.</span>
+                        <span><i class="fa-solid fa-check"></i> Calendar, SetMaxx, Finance, Publishing, and booking requests.</span>
                     </div>
                 </div>
             </div>
@@ -585,8 +655,8 @@ $screens = [
             <div class="container">
                 <div class="rss-section-head">
                     <span class="rss-eyebrow">Built for working musicians</span>
-                    <h2>Spend less time managing the gig and more time playing it.</h2>
-                    <p>Ready Set Shows brings the messy parts of a music business into one place: availability, setlists, paid requests, income tracking, and promotion that actually gets done.</p>
+                    <h2>Spend less time managing the career and more time making music.</h2>
+                    <p>We know how hard it is to be a working musician. Ready Set Shows brings the busy work into one place: availability, setlists, booking requests, income tracking, paid audience requests, and promotion that actually gets done.</p>
                 </div>
 
                 <div class="rss-module-grid">
@@ -686,8 +756,8 @@ $screens = [
             <div class="container rss-money-grid">
                 <div class="rss-section-head" style="margin-bottom:0;">
                     <span class="rss-eyebrow">Free where it should be</span>
-                    <h2>Start with the tools that keep you organized. Upgrade for the parts that make money.</h2>
-                    <p>Calendar availability, song catalogs, setlist generation, Finance tracking, and Publishing tools are useful before you ever charge the crowd. Pro unlocks the live public request pages, payments, Bandsintown export, and spreadsheet import workflows that directly support paid operations.</p>
+                    <h2>The musician&apos;s assistant we always wished we had.</h2>
+                    <p>Start with the tools that keep you organized. Calendar availability, song catalogs, setlist generation, Finance tracking, and Publishing tools help before you ever charge the crowd. Pro unlocks live request pages, payments, Bandsintown export, and spreadsheet import workflows that directly support paid operations.</p>
                 </div>
                 <div class="rss-quote">
                     <strong>More signal. Less admin.</strong>
@@ -724,11 +794,11 @@ $screens = [
                 <div class="rss-final-box">
                     <div>
                         <h2>Ready to make the gig work harder for you?</h2>
-                        <p>Open Ready Set Shows, start with the free tools, and upgrade when you are ready to monetize the room.</p>
+                        <p>Book a band for your event, or join as an artist and let Ready Set Shows handle more of the busy work.</p>
                     </div>
                     <div class="rss-actions">
-                        <a class="btn btn-primary" href="<?= htmlspecialchars($pricingUrl, ENT_QUOTES, 'UTF-8') ?>">Start Free</a>
-                        <a class="btn btn-outline" href="<?= htmlspecialchars($readySetShowsUrl, ENT_QUOTES, 'UTF-8') ?>">Open Ready Set Shows</a>
+                        <a class="btn btn-primary" href="<?= htmlspecialchars($bookBandUrl, ENT_QUOTES, 'UTF-8') ?>">Book a Band</a>
+                        <a class="btn btn-outline" href="<?= htmlspecialchars($artistRegisterUrl, ENT_QUOTES, 'UTF-8') ?>">Join as Artist</a>
                     </div>
                 </div>
             </div>

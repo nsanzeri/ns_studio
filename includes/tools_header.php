@@ -30,6 +30,7 @@ $suiteModules = $headerAccountType === 'customer'
 	? [
 		['label' => 'Directory', 'href' => $siteBase . '/directory.php', 'active' => $currentPage === 'directory.php', 'soon' => false],
 		['label' => 'Book Bands', 'href' => $siteBase . '/booking-request.php', 'active' => $currentPage === 'booking-request.php', 'soon' => false],
+		['label' => 'My Bookings', 'href' => $siteBase . '/my-bookings.php', 'active' => $currentPage === 'my-bookings.php', 'soon' => false],
 	]
 	: [
 		['label' => 'Calendar', 'href' => $studioBase . '/tools/index.php', 'active' => str_contains($currentPath, '/tools/'), 'soon' => false],

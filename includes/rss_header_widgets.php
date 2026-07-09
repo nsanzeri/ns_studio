@@ -34,6 +34,7 @@ if (!function_exists('rss_render_suite_menu')) {
             ? [
                 ['label' => 'Directory', 'meta' => 'Public artist discovery', 'href' => $ctx['site_base'] . '/directory.php', 'active' => basename($currentPath) === 'directory.php', 'soon' => false],
                 ['label' => 'Book Bands', 'meta' => 'Invite acts to bid', 'href' => $ctx['site_base'] . '/booking-request.php', 'active' => basename($currentPath) === 'booking-request.php', 'soon' => false],
+                ['label' => 'My Bookings', 'meta' => 'Track bid requests', 'href' => $ctx['site_base'] . '/my-bookings.php', 'active' => basename($currentPath) === 'my-bookings.php', 'soon' => false],
             ]
             : [
                 ['label' => 'Calendar', 'meta' => 'Availability tools', 'href' => $studioBase . '/tools/index.php', 'active' => rss_header_is_active_path($currentPath, '/tools/'), 'soon' => false],
@@ -84,6 +85,7 @@ if (!function_exists('rss_render_account_menu')) {
             ? [
                 ['label' => 'Directory', 'href' => $ctx['site_base'] . '/directory.php', 'active' => basename($currentPath) === 'directory.php', 'soon' => false],
                 ['label' => 'Book Bands', 'href' => $ctx['site_base'] . '/booking-request.php', 'active' => basename($currentPath) === 'booking-request.php', 'soon' => false],
+                ['label' => 'My Bookings', 'href' => $ctx['site_base'] . '/my-bookings.php', 'active' => basename($currentPath) === 'my-bookings.php', 'soon' => false],
             ]
             : [
                 ['label' => 'Calendar', 'href' => $studioBase . '/tools/index.php', 'active' => rss_header_is_active_path($currentPath, '/tools/'), 'soon' => false],
@@ -102,7 +104,7 @@ if (!function_exists('rss_render_account_menu')) {
             <div class="account-menu-panel" id="<?= htmlspecialchars($panelId) ?>" hidden>
                 <?php if ($isLoggedIn): ?>
                     <div class="account-menu-name"><?= htmlspecialchars($accountLabel) ?></div>
-                    <a href="<?= htmlspecialchars($accountType === 'customer' ? $ctx['site_base'] . '/booking-request.php' : $studioBase . '/member/library.php') ?>"><?= $accountType === 'customer' ? 'My Booking Requests' : 'My Products' ?></a>
+                    <a href="<?= htmlspecialchars($accountType === 'customer' ? $ctx['site_base'] . '/my-bookings.php' : $studioBase . '/member/library.php') ?>"><?= $accountType === 'customer' ? 'My Booking Requests' : 'My Products' ?></a>
                     <div class="account-suite-group">
                         <div class="account-suite-title">Ready Set Shows</div>
                         <?php foreach ($modules as $module): ?>

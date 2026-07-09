@@ -76,7 +76,10 @@ $items = array_values(array_filter($items, static function (array $it) use ($too
 	];
 $requestHost = strtolower((string)($_SERVER['HTTP_HOST'] ?? ''));
 $requestHost = preg_replace('/:\d+$/', '', $requestHost);
-$isReadySetShowsHost = in_array($requestHost, ['readysetshows.com', 'www.readysetshows.com'], true);
+$accountType = Auth::normalizeAccountType((string)($user['account_type'] ?? 'artist'));
+$isReadySetShowsHost = in_array($requestHost, ['readysetshows.com', 'www.readysetshows.com'], true)
+  || (($_SESSION['auth_brand'] ?? '') === 'rss')
+  || in_array($accountType, ['artist', 'customer'], true);
 	?>
 <!doctype html>
 <html lang="en">

@@ -4,6 +4,7 @@ $currentPath = str_replace('\\', '/', $_SERVER['PHP_SELF'] ?? '');
 $isLocal = str_contains($currentPath, '/ns_studio/');
 $siteBase   = $isLocal ? '/ns_studio' : '';
 $studioBase = $siteBase . '/studio';
+$rssHomeUrl = $siteBase . '/index.php' . ($isLocal ? '?rss_preview=1' : '');
 
 $trialStatus = null;
 if (isset($pdo) && function_exists('rss_get_current_user_trial_status')) {
@@ -15,7 +16,7 @@ if (isset($pdo) && function_exists('rss_get_current_user_trial_status')) {
     <div class="container tools-header-inner-lite">
 
         <!-- Brand -->
-        <a href="<?= htmlspecialchars($studioBase . '/setmaxx/index.php') ?>" class="brand tools-brand-lite">
+        <a href="<?= htmlspecialchars($rssHomeUrl, ENT_QUOTES, 'UTF-8') ?>" class="brand tools-brand-lite">
             <span class="brand-mark">RS</span>
             <span class="brand-text">
                 <span class="brand-name">Ready Set Shows</span>

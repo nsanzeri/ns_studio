@@ -51,6 +51,7 @@ function booking_fetch_directory_artists(PDO $pdo, bool $profilesReady): array {
             pp.website_url,
             pp.logo_path,
             u.display_name,
+            u.email,
             {$profileSelect}
         FROM setmaxx_public_profiles pp
         JOIN users u ON u.id = pp.user_id
@@ -69,6 +70,43 @@ function booking_clean_text(string $value, int $maxLen): string {
     $value = trim(preg_replace('/\s+/', ' ', $value));
     $value = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/u', '', $value);
     return mb_strlen($value) > $maxLen ? mb_substr($value, 0, $maxLen) : $value;
+}
+
+function booking_absolute_url(string $path): string {
+    $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+    $host = (string)($_SERVER['HTTP_HOST'] ?? 'localhost');
+    return $scheme . '://' . $host . $path;
+}
+
+function booking_send_artist_invite_email(PDO $pdo, array $artist, int $inviteId, string $eventTitle, string $eventDate, string $siteBase): void {
+    if (!booking_table_exists($pdo, 'email_log')) return;
+    $recipient = trim((string)($artist['email'] ?? ''));
+    if (!filter_var($recipient, FILTER_VALIDATE_EMAIL)) return;
+
+    require_once __DIR__ . '/studio/_private/_core/email.php';
+
+    $artistName = trim((string)($artist['artist_name'] ?: $artist['display_name'] ?: 'there'));
+    $bidUrl = booking_absolute_url($siteBase . '/artist-bid.php?invite=' . $inviteId);
+    $dateText = $eventDate !== '' ? $eventDate : 'date TBD';
+    $subject = 'New booking request: ' . $eventTitle;
+    $body = "Hi {$artistName},\n\n"
+        . "You have a new booking request on Ready Set Shows.\n\n"
+        . "Event: {$eventTitle}\n"
+        . "Date: {$dateText}\n\n"
+        . "Review the request and send a bid here:\n{$bidUrl}\n\n"
+        . "Ready Set Shows\n";
+
+    send_and_log_email($pdo, [
+        'message_type' => 'booking_invite',
+        'recipient' => $recipient,
+        'subject' => $subject,
+        'body' => $body,
+        'from_name' => 'Ready Set Shows',
+        'reply_to' => (string)env('SMTP_REPLY_TO', env('SMTP_FROM', 'no-reply@readysetshows.com')),
+        'related_table' => 'booking_invites',
+        'related_id' => $inviteId,
+        'idempotency_key' => 'booking_invite_' . $inviteId,
+    ]);
 }
 
 $isLocal = str_contains(str_replace('\\', '/', $_SERVER['PHP_SELF'] ?? ''), '/ns_studio/');
@@ -155,6 +193,7 @@ if (is_post()) {
         if ($notes !== '') $detailNotes[] = $notes;
 
         $pdo->beginTransaction();
+        $createdInvites = [];
         try {
             $requestStmt = $pdo->prepare("
                 INSERT INTO booking_requests (
@@ -190,11 +229,18 @@ if (is_post()) {
                     !empty($artist['profile_id']) ? (int)$artist['profile_id'] : null,
                     'Customer requested a bid from the public artist directory.',
                 ]);
+                $createdInvites[] = [
+                    'invite_id' => (int)$pdo->lastInsertId(),
+                    'artist' => $artist,
+                ];
             }
 
             $pdo->commit();
+            foreach ($createdInvites as $createdInvite) {
+                booking_send_artist_invite_email($pdo, $createdInvite['artist'], (int)$createdInvite['invite_id'], $eventTitle, $eventDate, $siteBase);
+            }
             flash_set('success', 'Your event request was created and sent to the selected bands.');
-            redirect($siteBase . '/booking-request.php?sent=' . $successRequestId);
+            redirect($siteBase . '/my-bookings.php?id=' . $successRequestId);
         } catch (Throwable $e) {
             $pdo->rollBack();
             throw $e;
@@ -239,6 +285,9 @@ if (!$selectedIds && count($artists) === 1) {
     .booking-request-item strong { display:block; }
     .booking-request-item span { color:rgba(255,255,255,.68); font-size:.92rem; }
     .booking-status { display:inline-flex; align-items:center; min-height:28px; padding:.25rem .65rem; border-radius:999px; background:rgba(212,175,55,.14); color:#f4d57a; font-weight:700; font-size:.82rem; text-transform:capitalize; }
+    .booking-budget-input { appearance:textfield; -moz-appearance:textfield; }
+    .booking-budget-input::-webkit-outer-spin-button,
+    .booking-budget-input::-webkit-inner-spin-button { -webkit-appearance:none; margin:0; }
     .booking-alert { margin:1rem 0; padding:.85rem 1rem; border-radius:8px; border:1px solid rgba(212,175,55,.28); background:rgba(212,175,55,.12); color:rgba(255,255,255,.9); }
     .booking-alert.error { border-color:rgba(255,104,104,.35); background:rgba(255,104,104,.1); }
     .booking-actions { display:flex; gap:.75rem; flex-wrap:wrap; align-items:center; margin-top:1rem; }
@@ -280,7 +329,7 @@ if (!$selectedIds && count($artists) === 1) {
             <strong><?= e((string)($request['event_title'] ?: 'Untitled event')) ?></strong>
             <span><?= e($eventDate) ?><?= $location !== '' ? ' · ' . e($location) : '' ?> · <?= (int)$request['invite_count'] ?> band<?= (int)$request['invite_count'] === 1 ? '' : 's' ?> invited</span>
           </div>
-          <span class="booking-status"><?= e((string)$request['status']) ?></span>
+          <a class="text-link" href="<?= e($siteBase . '/my-bookings.php?id=' . (int)$request['id']) ?>">Open</a>
         </div>
       <?php endforeach; ?>
     </section>
@@ -341,7 +390,7 @@ if (!$selectedIds && count($artists) === 1) {
         </div>
         <div class="form-field">
           <label for="budget_max">Budget up to</label>
-          <input id="budget_max" name="budget_max" type="number" min="0" step="50" value="<?= e((string)($_POST['budget_max'] ?? '')) ?>">
+          <input class="booking-budget-input" id="budget_max" name="budget_max" type="number" min="0" step="1" inputmode="numeric" value="<?= e((string)($_POST['budget_max'] ?? '')) ?>">
         </div>
       </div>
       <div class="form-field">

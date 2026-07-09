@@ -7,10 +7,13 @@ $libraryUrl = $user
 
 $requestHost = strtolower((string)($_SERVER['HTTP_HOST'] ?? ''));
 $requestHost = preg_replace('/:\d+$/', '', $requestHost);
-$isReadySetShowsHost = in_array($requestHost, ['readysetshows.com', 'www.readysetshows.com'], true);
+$isReadySetShowsHost = in_array($requestHost, ['readysetshows.com', 'www.readysetshows.com'], true)
+    || (($_SESSION['auth_brand'] ?? '') === 'rss');
 $homeUrl = function_exists('rss_public_root_url')
     ? rtrim(rss_public_root_url(), '/') . '/index.php'
     : preg_replace('#/studio$#', '', base_url('')) . '/index.php';
+$rssHomeUrl = preg_replace('#/studio$#', '', base_url('')) . '/index.php' . (str_contains(str_replace('\\', '/', $_SERVER['PHP_SELF'] ?? ''), '/ns_studio/') ? '?rss_preview=1' : '');
+$mainSiteUrl = $isReadySetShowsHost ? $rssHomeUrl : $homeUrl;
 ?>
 
 <footer class="site-footer tools-site-footer">
@@ -22,7 +25,7 @@ $homeUrl = function_exists('rss_public_root_url')
                         <?= $user ? 'My Products' : 'Log In' ?>
                     </a>
                 </li>
-                <li><a href="<?= htmlspecialchars($homeUrl, ENT_QUOTES, 'UTF-8') ?>">Main Site</a></li>
+                <li><a href="<?= htmlspecialchars($mainSiteUrl, ENT_QUOTES, 'UTF-8') ?>">Main Site</a></li>
                 <li><a href="<?= htmlspecialchars(preg_replace('#/studio$#', '', base_url('')) . '/privacy.php', ENT_QUOTES, 'UTF-8') ?>">Privacy Policy</a></li>
             </ul>
             <p>© <span id="year"></span> Ready Set Shows</p>

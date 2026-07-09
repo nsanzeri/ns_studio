@@ -119,3 +119,12 @@ SET @sql := IF(
 PREPARE stmt FROM @sql;
 EXECUTE stmt;
 DEALLOCATE PREPARE stmt;
+
+SET @sql := IF(
+  (SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'booking_bids' AND column_name = 'bidder_profile_id' AND is_nullable = 'NO') = 1,
+  'ALTER TABLE `booking_bids` MODIFY COLUMN `bidder_profile_id` bigint(20) unsigned DEFAULT NULL',
+  'SELECT 1'
+);
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;

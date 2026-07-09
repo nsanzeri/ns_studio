@@ -20,6 +20,36 @@ if (!function_exists('rss_header_is_active_path')) {
     }
 }
 
+if (!function_exists('rss_artist_pending_booking_count')) {
+    function rss_artist_pending_booking_count(?PDO $pdo, int $userId): int
+    {
+        if (!$pdo || $userId <= 0) return 0;
+        try {
+            $stmt = $pdo->prepare("
+                SELECT COUNT(*)
+                FROM information_schema.tables
+                WHERE table_schema = DATABASE()
+                  AND table_name IN ('booking_invites', 'booking_requests')
+            ");
+            $stmt->execute();
+            if ((int)$stmt->fetchColumn() !== 2) return 0;
+
+            $countStmt = $pdo->prepare("
+                SELECT COUNT(*)
+                FROM booking_invites bi
+                JOIN booking_requests br ON br.id = bi.request_id
+                WHERE bi.target_user_id = ?
+                  AND bi.status = 'pending'
+                  AND br.status = 'open'
+            ");
+            $countStmt->execute([$userId]);
+            return (int)$countStmt->fetchColumn();
+        } catch (Throwable $e) {
+            return 0;
+        }
+    }
+}
+
 if (!function_exists('rss_render_suite_menu')) {
     function rss_render_suite_menu(string $idPrefix = 'rss'): void
     {
@@ -30,6 +60,7 @@ if (!function_exists('rss_render_suite_menu')) {
         $isLoggedIn = class_exists('Auth') && Auth::isLoggedIn();
         $userId = $isLoggedIn ? Auth::userId() : null;
         $accountType = ($isLoggedIn && isset($pdo) && $pdo instanceof PDO && $userId) ? Auth::accountTypeForUser($pdo, (int)$userId) : '';
+        $pendingBookingCount = ($accountType === 'artist' && isset($pdo) && $pdo instanceof PDO && $userId) ? rss_artist_pending_booking_count($pdo, (int)$userId) : 0;
         $modules = $accountType === 'customer'
             ? [
                 ['label' => 'Directory', 'meta' => 'Public artist discovery', 'href' => $ctx['site_base'] . '/directory.php', 'active' => basename($currentPath) === 'directory.php', 'soon' => false],
@@ -42,7 +73,7 @@ if (!function_exists('rss_render_suite_menu')) {
                 ['label' => 'Finance', 'meta' => 'Gig income tracking', 'href' => $studioBase . '/finance/index.php', 'active' => rss_header_is_active_path($currentPath, '/finance/'), 'soon' => false],
                 ['label' => 'Publish', 'meta' => 'Promo copy writer', 'href' => $studioBase . '/publishing/index.php', 'active' => rss_header_is_active_path($currentPath, '/publishing/'), 'soon' => false],
                 ['label' => 'Directory', 'meta' => 'Public artist discovery', 'href' => $ctx['site_base'] . '/directory.php', 'active' => basename($currentPath) === 'directory.php', 'soon' => false],
-                ['label' => 'Requests', 'meta' => 'Booking requests', 'href' => $ctx['site_base'] . '/artist-bookings.php', 'active' => basename($currentPath) === 'artist-bookings.php', 'soon' => false],
+                ['label' => 'Requests', 'meta' => 'Booking requests', 'href' => $ctx['site_base'] . '/artist-bookings.php', 'active' => basename($currentPath) === 'artist-bookings.php', 'soon' => false, 'badge' => $pendingBookingCount],
             ];
         $buttonId = $idPrefix . 'SuiteMenuToggle';
         $panelId = $idPrefix . 'SuiteMenuPanel';
@@ -59,6 +90,7 @@ if (!function_exists('rss_render_suite_menu')) {
                             <strong><?= htmlspecialchars($module['label']) ?></strong>
                             <small><?= htmlspecialchars($module['meta']) ?></small>
                         </span>
+                        <?php if (!empty($module['badge'])): ?><em><?= (int)$module['badge'] > 99 ? '99+' : (int)$module['badge'] ?></em><?php endif; ?>
                         <?php if ($module['soon']): ?><em>Soon</em><?php endif; ?>
                     </a>
                 <?php endforeach; ?>
@@ -79,6 +111,7 @@ if (!function_exists('rss_render_account_menu')) {
         $isDirectoryGuest = !$isLoggedIn && basename($currentPath) === 'directory.php';
         $currentUser = ($isLoggedIn && isset($pdo)) ? Auth::currentUser($pdo) : null;
         $accountType = $isLoggedIn ? Auth::normalizeAccountType((string)($currentUser['account_type'] ?? 'artist')) : '';
+        $pendingBookingCount = ($accountType === 'artist' && isset($pdo) && $pdo instanceof PDO && !empty($currentUser['id'])) ? rss_artist_pending_booking_count($pdo, (int)$currentUser['id']) : 0;
         $accountLabel = $isLoggedIn ? trim((string)($currentUser['display_name'] ?? $currentUser['email'] ?? 'Account')) : 'Account';
         $accountInitial = strtoupper(substr($accountLabel !== '' ? $accountLabel : 'A', 0, 1));
         $rssLogoutPages = ['directory.php', 'booking-request.php', 'my-bookings.php', 'artist-bookings.php', 'artist-bid.php'];
@@ -99,7 +132,7 @@ if (!function_exists('rss_render_account_menu')) {
                 ['label' => 'Finance', 'href' => $studioBase . '/finance/index.php', 'active' => rss_header_is_active_path($currentPath, '/finance/'), 'soon' => false],
                 ['label' => 'Publish', 'href' => $studioBase . '/publishing/index.php', 'active' => rss_header_is_active_path($currentPath, '/publishing/'), 'soon' => false],
                 ['label' => 'Directory', 'href' => $ctx['site_base'] . '/directory.php', 'active' => basename($currentPath) === 'directory.php', 'soon' => false],
-                ['label' => 'Requests', 'href' => $ctx['site_base'] . '/artist-bookings.php', 'active' => basename($currentPath) === 'artist-bookings.php', 'soon' => false],
+                ['label' => 'Requests', 'href' => $ctx['site_base'] . '/artist-bookings.php', 'active' => basename($currentPath) === 'artist-bookings.php', 'soon' => false, 'badge' => $pendingBookingCount],
             ];
         $buttonId = $idPrefix . 'AccountMenuToggle';
         $panelId = $idPrefix . 'AccountMenuPanel';
@@ -117,6 +150,7 @@ if (!function_exists('rss_render_account_menu')) {
                         <?php foreach ($modules as $module): ?>
                             <a href="<?= htmlspecialchars($module['href']) ?>" class="account-suite-link <?= $module['active'] ? 'active' : '' ?>">
                                 <span><?= htmlspecialchars($module['label']) ?></span>
+                                <?php if (!empty($module['badge'])): ?><em><?= (int)$module['badge'] > 99 ? '99+' : (int)$module['badge'] ?></em><?php endif; ?>
                                 <?php if ($module['soon']): ?><em>Soon</em><?php endif; ?>
                             </a>
                         <?php endforeach; ?>
@@ -137,6 +171,7 @@ if (!function_exists('rss_render_account_menu')) {
                             <?php foreach ($modules as $module): ?>
                                 <a href="<?= htmlspecialchars($module['href']) ?>" class="account-suite-link <?= $module['active'] ? 'active' : '' ?>">
                                     <span><?= htmlspecialchars($module['label']) ?></span>
+                                    <?php if (!empty($module['badge'])): ?><em><?= (int)$module['badge'] > 99 ? '99+' : (int)$module['badge'] ?></em><?php endif; ?>
                                     <?php if ($module['soon']): ?><em>Soon</em><?php endif; ?>
                                 </a>
                             <?php endforeach; ?>

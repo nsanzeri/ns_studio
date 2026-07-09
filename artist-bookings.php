@@ -29,6 +29,8 @@ function artist_booking_invite(PDO $pdo, int $inviteId, int $userId): ?array {
             bi.status AS invite_status,
             bi.decline_reason,
             bi.decline_message,
+            bi.quote_amount,
+            bi.quote_message,
             br.id AS request_id,
             br.contact_name,
             br.event_title,
@@ -151,6 +153,10 @@ $trialUrl = $siteBase . '/studio/member/pricing.php';
     .artist-action-buttons { display:flex; gap:.7rem; flex-wrap:wrap; margin-top:1.1rem; }
     .artist-action-panel { display:none; margin-top:1rem; }
     .artist-action-panel.is-open { display:block; }
+    .artist-response-summary { margin:1rem 0; padding:1rem; border-radius:8px; border:1px solid rgba(212,175,55,.22); background:rgba(212,175,55,.08); }
+    .artist-response-summary h3 { margin:0 0 .55rem; }
+    .artist-response-summary p { margin:.35rem 0 0; }
+    .artist-response-amount { color:#f4d57a; font-size:1.35rem; font-weight:800; }
     .artist-quote-input { appearance:textfield; -moz-appearance:textfield; }
     .artist-quote-input::-webkit-outer-spin-button,
     .artist-quote-input::-webkit-inner-spin-button { -webkit-appearance:none; margin:0; }
@@ -190,6 +196,7 @@ $trialUrl = $siteBase . '/studio/member/pricing.php';
           <p class="muted">Choose a request.</p>
         <?php else: ?>
           <?php $dateText = !empty($selectedInvite['event_date']) ? date('M j, Y', strtotime((string)$selectedInvite['event_date'])) : 'Date TBD'; ?>
+          <?php $inviteStatus = (string)$selectedInvite['invite_status']; ?>
           <h2><?= e((string)($selectedInvite['event_title'] ?: 'Untitled event')) ?></h2>
           <p class="artist-meta">
             <?= e($dateText) ?>
@@ -199,36 +206,50 @@ $trialUrl = $siteBase . '/studio/member/pricing.php';
           </p>
           <?php if (!empty($selectedInvite['notes'])): ?><p><?= nl2br(e((string)$selectedInvite['notes'])) ?></p><?php endif; ?>
 
-          <?php if ($selectedInvite['invite_status'] === 'declined'): ?>
-            <div class="alert" style="margin:1rem 0;">Declined: <?= e((string)($selectedInvite['decline_reason'] ?? '')) ?><?= !empty($selectedInvite['decline_message']) ? ' - ' . e((string)$selectedInvite['decline_message']) : '' ?></div>
+          <?php if ($inviteStatus === 'accepted'): ?>
+            <?php
+              $quoteAmount = $selectedInvite['bid_amount'] ?? $selectedInvite['quote_amount'] ?? null;
+              $quoteMessage = trim((string)($selectedInvite['bid_message'] ?? $selectedInvite['quote_message'] ?? ''));
+            ?>
+            <div class="artist-response-summary">
+              <h3>Quote sent</h3>
+              <?php if (!empty($quoteAmount)): ?><div class="artist-response-amount">$<?= e(number_format((float)$quoteAmount, 0)) ?></div><?php endif; ?>
+              <p><?= $quoteMessage !== '' ? nl2br(e($quoteMessage)) : '<span class="muted">No message added.</span>' ?></p>
+            </div>
+          <?php elseif ($inviteStatus === 'declined'): ?>
+            <div class="artist-response-summary">
+              <h3>Request declined</h3>
+              <p><strong>Reason:</strong> <?= e((string)($selectedInvite['decline_reason'] ?: 'Other')) ?></p>
+              <p><?= !empty($selectedInvite['decline_message']) ? nl2br(e((string)$selectedInvite['decline_message'])) : '<span class="muted">No note added.</span>' ?></p>
+            </div>
           <?php endif; ?>
 
           <div class="artist-action-buttons">
-            <button class="btn btn-primary" type="button" data-artist-action="quote">Quote</button>
-            <button class="btn btn-outline" type="button" data-artist-action="decline">Decline</button>
+            <button class="btn btn-primary" type="button" data-artist-action="quote"><?= $inviteStatus === 'accepted' ? 'Edit Quote' : 'Quote' ?></button>
+            <button class="btn btn-outline" type="button" data-artist-action="decline"><?= $inviteStatus === 'declined' ? 'Edit Decline' : 'Decline' ?></button>
           </div>
 
-          <div class="artist-action-panel <?= $selectedInvite['invite_status'] !== 'declined' ? 'is-open' : '' ?>" data-artist-panel="quote">
+          <div class="artist-action-panel <?= $inviteStatus === 'pending' ? 'is-open' : '' ?>" data-artist-panel="quote">
             <form class="form card" method="post" style="padding:1.15rem;">
-              <h3 class="form-title">Send Quote</h3>
+              <h3 class="form-title"><?= $inviteStatus === 'accepted' ? 'Edit Quote' : 'Send Quote' ?></h3>
               <input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>">
               <input type="hidden" name="action" value="quote">
               <input type="hidden" name="invite_id" value="<?= (int)$selectedInvite['invite_id'] ?>">
               <div class="form-field">
                 <label>Quote amount</label>
-                <input class="artist-quote-input" type="number" name="amount" min="0" step="1" inputmode="numeric" required value="<?= e((string)($selectedInvite['bid_amount'] ?? '')) ?>">
+                <input class="artist-quote-input" type="number" name="amount" min="0" step="1" inputmode="numeric" required value="<?= e((string)($selectedInvite['bid_amount'] ?? $selectedInvite['quote_amount'] ?? '')) ?>">
               </div>
               <div class="form-field">
                 <label style="margin-top:1rem;">Message</label>
-                <textarea name="message" rows="5" placeholder="What is included? Any notes or questions?"><?= e((string)($selectedInvite['bid_message'] ?? '')) ?></textarea>
+                <textarea name="message" rows="5" placeholder="What is included? Any notes or questions?"><?= e((string)($selectedInvite['bid_message'] ?? $selectedInvite['quote_message'] ?? '')) ?></textarea>
               </div>
-              <button class="btn btn-primary" style="margin-top:1rem;">Send Quote</button>
+              <button class="btn btn-primary" style="margin-top:1rem;"><?= $inviteStatus === 'accepted' ? 'Save Quote' : 'Send Quote' ?></button>
             </form>
           </div>
 
-          <div class="artist-action-panel <?= $selectedInvite['invite_status'] === 'declined' ? 'is-open' : '' ?>" data-artist-panel="decline">
+          <div class="artist-action-panel" data-artist-panel="decline">
             <form class="form card" method="post" style="padding:1.15rem;">
-              <h3 class="form-title">Decline</h3>
+              <h3 class="form-title"><?= $inviteStatus === 'declined' ? 'Edit Decline' : 'Decline' ?></h3>
               <input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>">
               <input type="hidden" name="action" value="decline">
               <input type="hidden" name="invite_id" value="<?= (int)$selectedInvite['invite_id'] ?>">
@@ -236,15 +257,15 @@ $trialUrl = $siteBase . '/studio/member/pricing.php';
                 <label>Reason</label>
                 <select name="decline_reason">
                   <?php foreach ($declineReasons as $key => $label): ?>
-                    <option value="<?= e($key) ?>"><?= e($label) ?></option>
+                    <option value="<?= e($key) ?>" <?= (string)($selectedInvite['decline_reason'] ?? '') === $label ? 'selected' : '' ?>><?= e($label) ?></option>
                   <?php endforeach; ?>
                 </select>
               </div>
               <div class="form-field">
                 <label style="margin-top:1rem;">Optional note</label>
-                <textarea name="decline_message" rows="5" placeholder="Optional note for your own record or the booker."></textarea>
+                <textarea name="decline_message" rows="5" placeholder="Optional note for your own record or the booker."><?= e((string)($selectedInvite['decline_message'] ?? '')) ?></textarea>
               </div>
-              <button class="btn btn-outline" style="margin-top:1rem;">Decline Request</button>
+              <button class="btn btn-outline" style="margin-top:1rem;"><?= $inviteStatus === 'declined' ? 'Save Decline' : 'Decline Request' ?></button>
             </form>
           </div>
         <?php endif; ?>

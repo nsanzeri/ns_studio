@@ -30,8 +30,20 @@ function booking_selected_artist_ids(array $source): array {
     return array_values($ids);
 }
 
-function booking_fetch_directory_artists(PDO $pdo, bool $profilesReady): array {
+function booking_selected_genres(array $source): array {
+    $raw = $source['genre_filter'] ?? [];
+    if (!is_array($raw)) $raw = [$raw];
+    $genres = [];
+    foreach ($raw as $genre) {
+        $genre = strtolower(trim((string)$genre));
+        if ($genre !== '') $genres[$genre] = $genre;
+    }
+    return array_values($genres);
+}
+
+function booking_fetch_directory_artists(PDO $pdo, bool $profilesReady, bool $directoryMetaReady): array {
     $profileSelect = $profilesReady ? 'p.id AS profile_id' : 'NULL AS profile_id';
+    $directoryMetaSelect = $directoryMetaReady ? 'pp.directory_genres, pp.directory_description,' : 'NULL AS directory_genres, NULL AS directory_description,';
     $profileJoin = $profilesReady ? "
         LEFT JOIN (
             SELECT user_id, MIN(id) AS id
@@ -50,6 +62,7 @@ function booking_fetch_directory_artists(PDO $pdo, bool $profilesReady): array {
             pp.artist_name,
             pp.website_url,
             pp.logo_path,
+            {$directoryMetaSelect}
             u.display_name,
             u.email,
             {$profileSelect}
@@ -114,6 +127,9 @@ $siteBase = $isLocal ? '/ns_studio' : '';
 $ready = booking_table_ready($pdo);
 $targetUserReady = $ready && booking_column_exists($pdo, 'booking_invites', 'target_user_id');
 $profilesReady = booking_table_exists($pdo, 'profiles');
+$directoryMetaReady = $ready
+    && booking_column_exists($pdo, 'setmaxx_public_profiles', 'directory_genres')
+    && booking_column_exists($pdo, 'setmaxx_public_profiles', 'directory_description');
 
 if (!Auth::isLoggedIn()) {
     $_SESSION['login_next'] = $siteBase . '/booking-request.php';
@@ -125,11 +141,20 @@ if (!Auth::isLoggedIn()) {
 }
 
 $currentUser = Auth::currentUser($pdo);
-$artists = $ready ? booking_fetch_directory_artists($pdo, $profilesReady) : [];
+$artists = $ready ? booking_fetch_directory_artists($pdo, $profilesReady, $directoryMetaReady) : [];
 $artistByUserId = [];
+$artistStates = [];
+$artistGenres = [];
 foreach ($artists as $artist) {
     $artistByUserId[(int)$artist['user_id']] = $artist;
+    $state = trim((string)($artist['directory_state'] ?? ''));
+    if ($state !== '') $artistStates[$state] = $state;
+    foreach (array_filter(array_map('trim', explode(',', (string)($artist['directory_genres'] ?? '')))) as $genre) {
+        $artistGenres[$genre] = $genre;
+    }
 }
+sort($artistStates);
+ksort($artistGenres, SORT_NATURAL | SORT_FLAG_CASE);
 
 $myRequests = [];
 if ($ready) {
@@ -147,6 +172,8 @@ if ($ready) {
 }
 
 $selectedIds = booking_selected_artist_ids($_GET);
+$activeGenreFilters = booking_selected_genres($_POST);
+$activeStateFilter = strtoupper(booking_clean_text((string)($_POST['state_filter'] ?? ''), 2));
 $errors = [];
 $successRequestId = 0;
 
@@ -157,9 +184,6 @@ if (is_post()) {
 
     $selectedIds = booking_selected_artist_ids($_POST);
     $selectedIds = array_values(array_filter($selectedIds, fn($id) => isset($artistByUserId[$id])));
-    if (!$selectedIds) {
-        $errors[] = 'Choose at least one band to invite.';
-    }
     if (!$ready || !$targetUserReady) {
         $errors[] = 'The booking bid tables need the latest database update before requests can be saved.';
     }
@@ -174,10 +198,36 @@ if (is_post()) {
     $venueName = booking_clean_text((string)($_POST['venue_name'] ?? ''), 190);
     $city = booking_clean_text((string)($_POST['city'] ?? ''), 120);
     $state = strtoupper(booking_clean_text((string)($_POST['state'] ?? ''), 2));
+    $activeStateFilter = strtoupper(booking_clean_text((string)($_POST['state_filter'] ?? ''), 2));
     $budgetMax = (float)($_POST['budget_max'] ?? 0);
     $guestCount = (int)($_POST['guest_count'] ?? 0);
     $notes = trim((string)($_POST['notes'] ?? ''));
     if (mb_strlen($notes) > 4000) $notes = mb_substr($notes, 0, 4000);
+
+    $autoAddMatching = !empty($_POST['auto_add_matching']);
+    $activeGenreFilters = booking_selected_genres($_POST);
+    $autoAddState = $activeStateFilter !== '' ? $activeStateFilter : $state;
+    if ($autoAddMatching) {
+        foreach ($artists as $artist) {
+            $artistUserId = (int)$artist['user_id'];
+            $artistState = strtoupper(trim((string)($artist['directory_state'] ?? '')));
+            $artistGenresForMatch = booking_selected_genres([
+                'genre_filter' => explode(',', (string)($artist['directory_genres'] ?? '')),
+            ]);
+            $matchesState = $autoAddState !== '' && $artistState === $autoAddState;
+            $matchesGenre = $activeGenreFilters && array_intersect($activeGenreFilters, $artistGenresForMatch);
+            if ($matchesState || $matchesGenre) {
+                $selectedIds[$artistUserId] = $artistUserId;
+            }
+        }
+        $selectedIds = array_values(array_unique($selectedIds));
+    }
+
+    if (!$selectedIds) {
+        $errors[] = $autoAddMatching
+            ? 'No bands matched your auto-add settings. Choose at least one band or adjust the filters.'
+            : 'Choose at least one band to invite.';
+    }
 
     if ($contactName === '') $errors[] = 'Add your name.';
     if (!filter_var($contactEmail, FILTER_VALIDATE_EMAIL)) $errors[] = 'Add a valid email address.';
@@ -274,12 +324,28 @@ if (!$selectedIds && count($artists) === 1) {
     .booking-bid-layout { display:grid; grid-template-columns:minmax(0, 1.1fr) minmax(280px, .9fr); gap:1.25rem; align-items:start; }
     .booking-bid-panel { padding:1rem; border-radius:8px; border:1px solid rgba(255,255,255,.08); background:rgba(255,255,255,.045); }
     .booking-bid-panel h2 { margin-top:0; font-size:1.2rem; }
+    .booking-bid-panel input:not([type="checkbox"]), .booking-bid-panel select, .booking-bid-panel textarea { background:#090a12; color:#fff; }
+    .booking-bid-panel input:-webkit-autofill,
+    .booking-bid-panel input:-webkit-autofill:hover,
+    .booking-bid-panel input:-webkit-autofill:focus { -webkit-text-fill-color:#fff; -webkit-box-shadow:0 0 0 1000px #090a12 inset; caret-color:#fff; }
+    .booking-band-filters { display:grid; grid-template-columns:1fr 1fr; gap:.6rem; margin-bottom:.8rem; }
+    .booking-band-filters .wide { grid-column:1 / -1; }
+    .booking-filter-genres { grid-column:1 / -1; display:flex; flex-wrap:wrap; gap:.45rem; }
+    .booking-filter-genres label { display:inline-flex; align-items:center; gap:.35rem; min-height:32px; padding:.25rem .55rem; border-radius:999px; border:1px solid rgba(255,255,255,.1); background:rgba(255,255,255,.04); color:rgba(255,255,255,.8); font-size:.85rem; cursor:pointer; }
+    .booking-filter-genres input { width:15px; height:15px; }
+    .booking-filter-empty { display:none; color:rgba(255,255,255,.68); margin:.75rem 0 0; }
+    .booking-filter-empty.is-visible { display:block; }
     .booking-band-list { display:grid; gap:.65rem; max-height:620px; overflow:auto; padding-right:.25rem; }
-    .booking-band-option { display:grid; grid-template-columns:auto 1fr; gap:.7rem; align-items:start; padding:.75rem; border:1px solid rgba(255,255,255,.1); border-radius:8px; background:rgba(255,255,255,.035); cursor:pointer; }
+    .booking-band-option { display:grid; grid-template-columns:auto 48px 1fr; gap:.7rem; align-items:start; padding:.75rem; border:1px solid rgba(255,255,255,.1); border-radius:8px; background:rgba(255,255,255,.035); cursor:pointer; }
+    .booking-band-option[hidden] { display:none !important; }
     .booking-band-option:has(input:checked) { border-color:rgba(212,175,55,.48); background:rgba(212,175,55,.12); }
     .booking-band-option input { margin-top:.25rem; width:18px; height:18px; }
     .booking-band-option strong { display:block; line-height:1.25; }
     .booking-band-option span { color:rgba(255,255,255,.68); font-size:.9rem; }
+    .booking-band-photo { width:48px; height:48px; border-radius:8px; border:0; padding:0; overflow:hidden; background:rgba(212,175,55,.16); color:#f4d57a; display:grid; place-items:center; font-weight:800; cursor:pointer; }
+    .booking-band-photo img { width:100%; height:100%; object-fit:cover; display:block; }
+    .booking-genre-chips { display:flex; flex-wrap:wrap; gap:.3rem; margin-top:.45rem; }
+    .booking-genre-chips span { display:inline-flex; padding:.14rem .42rem; border-radius:999px; border:1px solid rgba(255,255,255,.1); background:rgba(255,255,255,.045); font-size:.75rem; color:rgba(255,255,255,.75); }
     .booking-request-list { display:grid; gap:.65rem; margin:0 0 1.25rem; }
     .booking-request-item { display:flex; align-items:center; justify-content:space-between; gap:1rem; flex-wrap:wrap; padding:.85rem 1rem; border-radius:8px; border:1px solid rgba(255,255,255,.08); background:rgba(255,255,255,.04); }
     .booking-request-item strong { display:block; }
@@ -288,10 +354,20 @@ if (!$selectedIds && count($artists) === 1) {
     .booking-budget-input { appearance:textfield; -moz-appearance:textfield; }
     .booking-budget-input::-webkit-outer-spin-button,
     .booking-budget-input::-webkit-inner-spin-button { -webkit-appearance:none; margin:0; }
+    .booking-photo-modal { position:fixed; inset:0; z-index:1000; display:grid; place-items:center; padding:1rem; background:rgba(2,4,14,.82); backdrop-filter:blur(8px); }
+    .booking-photo-modal[hidden] { display:none; }
+    .booking-photo-dialog { width:min(92vw, 680px); border-radius:8px; border:1px solid rgba(255,255,255,.12); background:#10121c; overflow:hidden; box-shadow:0 24px 80px rgba(0,0,0,.45); }
+    .booking-photo-dialog img { width:100%; max-height:68vh; object-fit:contain; display:block; background:#050713; }
+    .booking-photo-info { padding:1rem; }
+    .booking-photo-info h3 { margin:0 0 .35rem; }
+    .booking-photo-close { float:right; border:1px solid rgba(255,255,255,.18); background:transparent; color:#fff; width:34px; height:34px; border-radius:999px; cursor:pointer; }
     .booking-alert { margin:1rem 0; padding:.85rem 1rem; border-radius:8px; border:1px solid rgba(212,175,55,.28); background:rgba(212,175,55,.12); color:rgba(255,255,255,.9); }
     .booking-alert.error { border-color:rgba(255,104,104,.35); background:rgba(255,104,104,.1); }
     .booking-actions { display:flex; gap:.75rem; flex-wrap:wrap; align-items:center; margin-top:1rem; }
+    .booking-auto-add { display:flex; gap:.55rem; align-items:flex-start; margin:.1rem 0 .85rem; color:rgba(255,255,255,.78); font-size:.92rem; line-height:1.45; }
+    .booking-auto-add input { margin-top:.18rem; width:18px; height:18px; }
     @media (max-width: 860px) { .booking-bid-layout { grid-template-columns:1fr; } }
+    @media (max-width: 520px) { .booking-band-filters { grid-template-columns:1fr; } .booking-band-filters .wide { grid-column:auto; } }
   </style>
 </head>
 <body>
@@ -408,26 +484,152 @@ if (!$selectedIds && count($artists) === 1) {
       <?php if (!$artists): ?>
         <p class="muted">No directory bands are available yet.</p>
       <?php else: ?>
+        <div class="booking-band-filters" aria-label="Filter bands">
+          <div class="form-field wide">
+            <label for="bandNameFilter">Band name</label>
+            <input id="bandNameFilter" type="search" placeholder="Search by band name">
+          </div>
+          <div class="form-field">
+            <label for="bandStateFilter">State</label>
+            <select id="bandStateFilter" name="state_filter">
+              <option value="">All states</option>
+              <?php foreach ($artistStates as $stateOption): ?>
+                <option value="<?= e($stateOption) ?>" <?= $activeStateFilter === strtoupper((string)$stateOption) ? 'selected' : '' ?>><?= e($stateOption) ?></option>
+              <?php endforeach; ?>
+            </select>
+          </div>
+          <?php if ($artistGenres): ?>
+            <div class="form-field wide">
+              <label>Genres</label>
+              <div class="booking-filter-genres">
+                <?php foreach (array_keys($artistGenres) as $genreOption): ?>
+                  <?php $genreValue = strtolower((string)$genreOption); ?>
+                  <label><input type="checkbox" name="genre_filter[]" value="<?= e($genreValue) ?>" data-genre-filter <?= in_array($genreValue, $activeGenreFilters, true) ? 'checked' : '' ?>> <?= e($genreOption) ?></label>
+                <?php endforeach; ?>
+              </div>
+            </div>
+          <?php endif; ?>
+        </div>
+        <label class="booking-auto-add">
+          <input type="checkbox" name="auto_add_matching" value="1" <?= !empty($_POST['auto_add_matching']) ? 'checked' : '' ?>>
+          <span>Auto-add bands that match the event state or selected genres.</span>
+        </label>
         <div class="booking-band-list">
           <?php foreach ($artists as $artist): ?>
             <?php
               $artistUserId = (int)$artist['user_id'];
               $name = trim((string)($artist['artist_name'] ?: $artist['display_name']));
               $state = trim((string)($artist['directory_state'] ?? ''));
+              $genres = array_filter(array_map('trim', explode(',', (string)($artist['directory_genres'] ?? ''))));
+              $description = trim((string)($artist['directory_description'] ?? ''));
+              $logoPath = trim((string)($artist['logo_path'] ?? ''));
+              $logoUrl = $logoPath !== '' ? $siteBase . '/' . ltrim(preg_replace('#^\.\./#', '', $logoPath), '/') : '';
+              $initial = strtoupper(substr($name !== '' ? $name : 'A', 0, 1));
             ?>
-            <label class="booking-band-option">
+            <label class="booking-band-option" data-band-card data-name="<?= e(strtolower($name)) ?>" data-state="<?= e($state) ?>" data-genres="<?= e(strtolower(implode(',', $genres))) ?>">
               <input type="checkbox" name="artists[]" value="<?= $artistUserId ?>" <?= in_array($artistUserId, $selectedIds, true) ? 'checked' : '' ?>>
-              <span>
+              <button type="button" class="booking-band-photo" data-photo="<?= e($logoUrl) ?>" data-name="<?= e($name) ?>" data-state="<?= e($state !== '' ? $state : 'State not set') ?>" data-description="<?= e($description) ?>" aria-label="View <?= e($name) ?> photo">
+                <?php if ($logoUrl !== ''): ?><img src="<?= e($logoUrl) ?>" alt=""><?php else: ?><?= e($initial) ?><?php endif; ?>
+              </button>
+              <span class="booking-band-copy">
                 <strong><?= e($name) ?></strong>
                 <span><?= e($state !== '' ? $state : 'State not set') ?></span>
+                <?php if ($genres): ?>
+                  <span class="booking-genre-chips">
+                    <?php foreach ($genres as $genre): ?><span><?= e($genre) ?></span><?php endforeach; ?>
+                  </span>
+                <?php endif; ?>
               </span>
             </label>
           <?php endforeach; ?>
         </div>
+        <p class="booking-filter-empty" id="bookingFilterEmpty">No bands match those filters.</p>
       <?php endif; ?>
     </aside>
   </form>
 </main>
+<div class="booking-photo-modal" id="bookingPhotoModal" hidden>
+  <div class="booking-photo-dialog" role="dialog" aria-modal="true" aria-label="Band preview">
+    <button type="button" class="booking-photo-close" aria-label="Close preview">&times;</button>
+    <img src="" alt="">
+    <div class="booking-photo-info">
+      <h3></h3>
+      <p class="muted" data-photo-state></p>
+      <p data-photo-description></p>
+    </div>
+  </div>
+</div>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const nameFilter = document.getElementById('bandNameFilter');
+  const stateFilter = document.getElementById('bandStateFilter');
+  const genreFilters = Array.from(document.querySelectorAll('[data-genre-filter]'));
+  const emptyMessage = document.getElementById('bookingFilterEmpty');
+  const cards = Array.from(document.querySelectorAll('[data-band-card]'));
+
+  function applyBandFilters() {
+    const name = (nameFilter?.value || '').trim().toLowerCase();
+    const state = stateFilter?.value || '';
+    const genres = genreFilters.filter(function (input) { return input.checked; }).map(function (input) { return input.value; });
+    let visibleCount = 0;
+    cards.forEach(function (card) {
+      const matchesName = name === '' || (card.getAttribute('data-name') || '').includes(name);
+      const matchesState = state === '' || card.getAttribute('data-state') === state;
+      const cardGenres = (card.getAttribute('data-genres') || '').split(',').filter(Boolean);
+      const matchesGenre = genres.length === 0 || genres.some(function (genre) { return cardGenres.includes(genre); });
+      const visible = matchesName && matchesState && matchesGenre;
+      card.hidden = !visible;
+      if (visible) visibleCount++;
+    });
+    if (emptyMessage) emptyMessage.classList.toggle('is-visible', visibleCount === 0);
+  }
+
+  [nameFilter, stateFilter].forEach(function (control) {
+    if (control) control.addEventListener('input', applyBandFilters);
+    if (control) control.addEventListener('change', applyBandFilters);
+  });
+  genreFilters.forEach(function (control) {
+    control.addEventListener('change', applyBandFilters);
+  });
+  applyBandFilters();
+});
+
+document.addEventListener('click', function (event) {
+  const photoButton = event.target.closest('.booking-band-photo');
+  const modal = document.getElementById('bookingPhotoModal');
+  if (photoButton && modal) {
+    event.preventDefault();
+    const image = modal.querySelector('img');
+    const title = modal.querySelector('h3');
+    const state = modal.querySelector('[data-photo-state]');
+    const description = modal.querySelector('[data-photo-description]');
+    const photo = photoButton.getAttribute('data-photo') || '';
+    if (image) {
+      image.src = photo;
+      image.alt = photoButton.getAttribute('data-name') || 'Band photo';
+      image.hidden = photo === '';
+    }
+    if (title) title.textContent = photoButton.getAttribute('data-name') || '';
+    if (state) state.textContent = photoButton.getAttribute('data-state') || '';
+    if (description) description.textContent = photoButton.getAttribute('data-description') || 'No description yet.';
+    modal.hidden = false;
+    const close = modal.querySelector('.booking-photo-close');
+    if (close) close.focus();
+    return;
+  }
+  if (event.target.closest('.booking-photo-close') || event.target.id === 'bookingPhotoModal') {
+    const modal = document.getElementById('bookingPhotoModal');
+    if (modal) modal.hidden = true;
+  }
+});
+
+document.addEventListener('keydown', function (event) {
+  if (event.key === 'Escape') {
+    const modal = document.getElementById('bookingPhotoModal');
+    if (modal) modal.hidden = true;
+  }
+});
+</script>
 <?php include __DIR__ . '/includes/tools_footer_lite.php'; ?>
 </body>
 </html>

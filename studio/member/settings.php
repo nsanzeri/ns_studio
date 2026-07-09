@@ -9,6 +9,7 @@ $userId = (int)($user['id'] ?? 0);
 $accountType = Auth::normalizeAccountType((string)($user['account_type'] ?? 'artist'));
 $err = null;
 $ok = null;
+$artistGenreOptions = ['tribute', 'variety', 'pop', 'rock', 'originals', 'acoustic', 'alternative', 'reggae', 'country', 'blues', 'funk', 'jazz', 'dj', 'polka', 'mariachi', 'R&B', 'bluegrass'];
 
 function ns_public_profile_table_exists(PDO $pdo): bool
 {
@@ -63,6 +64,12 @@ function ns_ensure_public_artist_profile_table(PDO $pdo): void
     }
     if (!ns_public_profile_column_exists($pdo, 'directory_show_songlist')) {
         $pdo->exec("ALTER TABLE setmaxx_public_profiles ADD COLUMN directory_show_songlist tinyint(1) NOT NULL DEFAULT 0 AFTER directory_show_song_count");
+    }
+    if (!ns_public_profile_column_exists($pdo, 'directory_genres')) {
+        $pdo->exec("ALTER TABLE setmaxx_public_profiles ADD COLUMN directory_genres varchar(500) DEFAULT NULL AFTER directory_show_songlist");
+    }
+    if (!ns_public_profile_column_exists($pdo, 'directory_description')) {
+        $pdo->exec("ALTER TABLE setmaxx_public_profiles ADD COLUMN directory_description text DEFAULT NULL AFTER directory_genres");
     }
     if (!ns_public_profile_column_exists($pdo, 'artist_name')) {
         $pdo->exec("ALTER TABLE setmaxx_public_profiles ADD COLUMN artist_name varchar(190) DEFAULT NULL AFTER user_id");
@@ -119,13 +126,15 @@ function ns_clean_profile_state($value): ?string
 function ns_public_artist_profile(PDO $pdo, int $userId): array
 {
     ns_ensure_public_artist_profile_table($pdo);
-    $stmt = $pdo->prepare("SELECT directory_visible, directory_state, directory_show_song_count, directory_show_songlist, artist_name, website_url, logo_path FROM setmaxx_public_profiles WHERE user_id = ? LIMIT 1");
+    $stmt = $pdo->prepare("SELECT directory_visible, directory_state, directory_show_song_count, directory_show_songlist, directory_genres, directory_description, artist_name, website_url, logo_path FROM setmaxx_public_profiles WHERE user_id = ? LIMIT 1");
     $stmt->execute([$userId]);
     return $stmt->fetch(PDO::FETCH_ASSOC) ?: [
         'directory_visible' => 1,
         'directory_state' => '',
         'directory_show_song_count' => 1,
         'directory_show_songlist' => 0,
+        'directory_genres' => '',
+        'directory_description' => '',
         'artist_name' => '',
         'website_url' => '',
         'logo_path' => '',
@@ -207,6 +216,10 @@ if (is_post()) {
                 $directoryVisible = !empty($_POST['directory_visible']) ? 1 : 0;
                 $directoryShowSongCount = !empty($_POST['directory_show_song_count']) ? 1 : 0;
                 $directoryShowSonglist = !empty($_POST['directory_show_songlist']) ? 1 : 0;
+                $postedGenres = isset($_POST['directory_genres']) && is_array($_POST['directory_genres']) ? $_POST['directory_genres'] : [];
+                $directoryGenres = array_values(array_intersect($artistGenreOptions, array_map('strval', $postedGenres)));
+                $directoryGenresText = implode(',', $directoryGenres);
+                $directoryDescription = ns_clean_profile_text($_POST['directory_description'] ?? '', 700);
                 $logoPath = trim((string)($publicArtistProfile['logo_path'] ?? ''));
                 $imageErr = null;
 
@@ -247,10 +260,10 @@ if (is_post()) {
                 }
 
                 $pdo->prepare(
-                    "INSERT INTO setmaxx_public_profiles (user_id, directory_visible, directory_state, directory_show_song_count, directory_show_songlist, artist_name, website_url, logo_path)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                     ON DUPLICATE KEY UPDATE directory_visible = VALUES(directory_visible), directory_state = VALUES(directory_state), directory_show_song_count = VALUES(directory_show_song_count), directory_show_songlist = VALUES(directory_show_songlist), artist_name = VALUES(artist_name), website_url = VALUES(website_url), logo_path = VALUES(logo_path)"
-                )->execute([$userId, $directoryVisible, $directoryState, $directoryShowSongCount, $directoryShowSonglist, $artistName, $websiteUrl, $logoPath !== '' ? $logoPath : null]);
+                    "INSERT INTO setmaxx_public_profiles (user_id, directory_visible, directory_state, directory_show_song_count, directory_show_songlist, directory_genres, directory_description, artist_name, website_url, logo_path)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     ON DUPLICATE KEY UPDATE directory_visible = VALUES(directory_visible), directory_state = VALUES(directory_state), directory_show_song_count = VALUES(directory_show_song_count), directory_show_songlist = VALUES(directory_show_songlist), directory_genres = VALUES(directory_genres), directory_description = VALUES(directory_description), artist_name = VALUES(artist_name), website_url = VALUES(website_url), logo_path = VALUES(logo_path)"
+                )->execute([$userId, $directoryVisible, $directoryState, $directoryShowSongCount, $directoryShowSonglist, $directoryGenresText !== '' ? $directoryGenresText : null, $directoryDescription, $artistName, $websiteUrl, $logoPath !== '' ? $logoPath : null]);
 
                 $publicArtistProfile = ns_public_artist_profile($pdo, $userId);
                 if ($imageErr) {
@@ -265,6 +278,8 @@ if (is_post()) {
                     'directory_state' => strtoupper(trim((string)($_POST['directory_state'] ?? ''))),
                     'directory_show_song_count' => !empty($_POST['directory_show_song_count']) ? 1 : 0,
                     'directory_show_songlist' => !empty($_POST['directory_show_songlist']) ? 1 : 0,
+                    'directory_genres' => implode(',', array_values(array_intersect($artistGenreOptions, array_map('strval', isset($_POST['directory_genres']) && is_array($_POST['directory_genres']) ? $_POST['directory_genres'] : [])))),
+                    'directory_description' => trim((string)($_POST['directory_description'] ?? '')),
                     'artist_name' => trim((string)($_POST['artist_name'] ?? '')),
                     'website_url' => trim((string)($_POST['website_url'] ?? '')),
                 ]);
@@ -390,6 +405,19 @@ if ($isReadySetShowsHost) {
       <div class="form-field">
         <label style="margin-top:1rem;">Directory state</label>
         <input type="text" name="directory_state" maxlength="2" placeholder="IL" value="<?= e((string)($publicArtistProfile['directory_state'] ?? '')) ?>">
+      </div>
+      <fieldset class="form-field" style="margin-top:1rem;">
+        <legend>Genres</legend>
+        <div class="checkbox-grid">
+          <?php $selectedGenres = array_filter(array_map('trim', explode(',', (string)($publicArtistProfile['directory_genres'] ?? '')))); ?>
+          <?php foreach ($artistGenreOptions as $genre): ?>
+            <label><input type="checkbox" name="directory_genres[]" value="<?= e($genre) ?>" <?= in_array($genre, $selectedGenres, true) ? 'checked' : '' ?>> <?= e($genre) ?></label>
+          <?php endforeach; ?>
+        </div>
+      </fieldset>
+      <div class="form-field">
+        <label style="margin-top:1rem;">Band description</label>
+        <textarea name="directory_description" rows="3" placeholder="A sentence or two about your band."><?= e((string)($publicArtistProfile['directory_description'] ?? '')) ?></textarea>
       </div>
       <label style="display:flex; gap:.6rem; align-items:flex-start; margin-top:1rem;">
         <input type="checkbox" name="directory_visible" value="1" <?= !array_key_exists('directory_visible', $publicArtistProfile) || !empty($publicArtistProfile['directory_visible']) ? 'checked' : '' ?>>

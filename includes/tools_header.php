@@ -15,6 +15,9 @@ $trialStatus = null;
 $headerPdo = (isset($pdo) && $pdo instanceof PDO) ? $pdo : ($GLOBALS['pdo'] ?? null);
 $headerUserId = $isLoggedIn && class_exists('Auth') ? Auth::userId() : null;
 $headerAccountType = ($isLoggedIn && $headerPdo instanceof PDO && $headerUserId) ? Auth::accountTypeForUser($headerPdo, (int)$headerUserId) : '';
+$headerPendingBookingCount = ($headerAccountType === 'artist' && function_exists('rss_artist_pending_booking_count') && $headerPdo instanceof PDO && $headerUserId)
+	? rss_artist_pending_booking_count($headerPdo, (int)$headerUserId)
+	: 0;
 if ($headerPdo instanceof PDO && function_exists('rss_get_current_user_trial_status')) {
 	$trialStatus = rss_get_current_user_trial_status($headerPdo);
 }
@@ -38,7 +41,7 @@ $suiteModules = $headerAccountType === 'customer'
 		['label' => 'Finance', 'href' => $studioBase . '/finance/index.php', 'active' => str_contains($currentPath, '/finance/'), 'soon' => false],
 		['label' => 'Publishing', 'href' => $studioBase . '/publishing/index.php', 'active' => str_contains($currentPath, '/publishing/'), 'soon' => false],
 		['label' => 'Directory', 'href' => $siteBase . '/directory.php', 'active' => $currentPage === 'directory.php', 'soon' => false],
-		['label' => 'Requests', 'href' => $siteBase . '/artist-bookings.php', 'active' => $currentPage === 'artist-bookings.php', 'soon' => false],
+		['label' => 'Requests', 'href' => $siteBase . '/artist-bookings.php', 'active' => $currentPage === 'artist-bookings.php', 'soon' => false, 'badge' => $headerPendingBookingCount],
 	];
 $showCalendarSubnav = str_contains($currentPath, '/tools/');
 ?>
@@ -72,6 +75,7 @@ $showCalendarSubnav = str_contains($currentPath, '/tools/');
                 <?php foreach ($suiteModules as $module): ?>
                     <a href="<?= htmlspecialchars($module['href']) ?>" class="<?= nav_active($module['active']) ?>">
                         <?= htmlspecialchars($module['label']) ?>
+                        <?php if (!empty($module['badge'])): ?><span class="rss-nav-badge"><?= (int)$module['badge'] > 99 ? '99+' : (int)$module['badge'] ?></span><?php endif; ?>
                         <?php if ($module['soon']): ?><span>Soon</span><?php endif; ?>
                     </a>
                 <?php endforeach; ?>
@@ -107,7 +111,7 @@ $showCalendarSubnav = str_contains($currentPath, '/tools/');
             <?php else: ?>
                 <?php foreach ($suiteModules as $module): ?>
                     <a href="<?= htmlspecialchars($module['href']) ?>" class="<?= nav_active($module['active']) ?>">
-                        <?= htmlspecialchars($module['label']) ?><?= $module['soon'] ? ' (Soon)' : '' ?>
+                        <?= htmlspecialchars($module['label']) ?><?= !empty($module['badge']) ? ' (' . ((int)$module['badge'] > 99 ? '99+' : (int)$module['badge']) . ')' : '' ?><?= $module['soon'] ? ' (Soon)' : '' ?>
                     </a>
                 <?php endforeach; ?>
             <?php endif; ?>
@@ -213,6 +217,19 @@ $showCalendarSubnav = str_contains($currentPath, '/tools/');
     font-size:.68rem;
     text-transform:uppercase;
     letter-spacing:.04em;
+  }
+
+  .rss-suite-nav .rss-nav-badge {
+    min-width: 1.35rem;
+    height: 1.35rem;
+    display: inline-grid;
+    place-items: center;
+    padding: 0 .35rem;
+    background: #f4d57a;
+    color: #101010;
+    font-size: .72rem;
+    font-weight: 800;
+    line-height: 1;
   }
 
   .tools-subheader {

@@ -12,6 +12,31 @@ if (!Auth::isLoggedIn()) {
 
 $user = Auth::currentUser($pdo);
 $userId = (int)($user['id'] ?? 0);
+$errors = [];
+$successMessage = flash_get('success');
+
+if (is_post()) {
+    if (!csrf_verify($_POST['_csrf'] ?? null)) {
+        $errors[] = 'Security check failed. Please try again.';
+    }
+
+    $action = (string)($_POST['action'] ?? '');
+    if (!$errors && $action === 'delete_request') {
+        $requestId = (int)($_POST['request_id'] ?? 0);
+        if ($requestId <= 0) {
+            $errors[] = 'Choose a booking request to delete.';
+        } else {
+            $deleteStmt = $pdo->prepare("DELETE FROM booking_requests WHERE id = ? AND requester_user_id = ? LIMIT 1");
+            $deleteStmt->execute([$requestId, $userId]);
+            if ($deleteStmt->rowCount() > 0) {
+                flash_set('success', 'Booking request deleted.');
+                redirect($siteBase . '/my-bookings.php');
+            }
+            $errors[] = 'That booking request could not be found.';
+        }
+    }
+}
+
 $selectedId = (int)($_GET['id'] ?? 0);
 
 $requestsStmt = $pdo->prepare("
@@ -81,12 +106,18 @@ $trialUrl = $siteBase . '/studio/member/pricing.php';
     .bookings-layout { display:grid; grid-template-columns:minmax(260px,.85fr) minmax(0,1.35fr); gap:1rem; align-items:start; }
     .booking-panel { border:1px solid rgba(255,255,255,.08); border-radius:8px; background:rgba(255,255,255,.045); padding:1rem; }
     .booking-list { display:grid; gap:.6rem; }
-    .booking-list a { display:block; padding:.8rem; border-radius:8px; border:1px solid rgba(255,255,255,.08); text-decoration:none; color:rgba(255,255,255,.9); }
-    .booking-list a.active, .booking-list a:hover { border-color:rgba(212,175,55,.45); background:rgba(212,175,55,.1); color:#f4d57a; }
+    .booking-list-item { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:.5rem; align-items:center; padding:.2rem; border-radius:8px; border:1px solid rgba(255,255,255,.08); }
+    .booking-list-item.active, .booking-list-item:hover { border-color:rgba(212,175,55,.45); background:rgba(212,175,55,.1); }
+    .booking-list a { display:block; min-width:0; padding:.6rem; text-decoration:none; color:rgba(255,255,255,.9); }
+    .booking-list-item.active a, .booking-list-item:hover a { color:#f4d57a; }
+    .booking-delete-button { border:1px solid rgba(255,255,255,.16); background:transparent; color:rgba(255,255,255,.75); border-radius:999px; min-height:34px; padding:.25rem .7rem; font:inherit; font-size:.78rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; cursor:pointer; }
+    .booking-delete-button:hover { border-color:rgba(255,104,104,.55); color:#ffb0b0; }
     .booking-meta { color:rgba(255,255,255,.68); font-size:.92rem; }
     .bid-row { display:grid; gap:.45rem; padding:.85rem 0; border-top:1px solid rgba(255,255,255,.08); }
     .bid-row:first-child { border-top:0; }
     .bid-amount { color:#f4d57a; font-weight:800; }
+    .booking-alert { margin:0 0 1rem; padding:.85rem 1rem; border-radius:8px; border:1px solid rgba(212,175,55,.28); background:rgba(212,175,55,.12); color:rgba(255,255,255,.9); }
+    .booking-alert.error { border-color:rgba(255,104,104,.35); background:rgba(255,104,104,.1); }
     @media (max-width: 860px) { .bookings-layout { grid-template-columns:1fr; } }
   </style>
 </head>
@@ -101,6 +132,14 @@ $trialUrl = $siteBase . '/studio/member/pricing.php';
     <a class="btn btn-primary" href="<?= e($siteBase . '/booking-request.php') ?>">Create Booking</a>
   </div>
 
+  <?php if ($successMessage): ?>
+    <div class="booking-alert"><?= e($successMessage) ?></div>
+  <?php endif; ?>
+
+  <?php if ($errors): ?>
+    <div class="booking-alert error"><?= e(implode(' ', $errors)) ?></div>
+  <?php endif; ?>
+
   <?php if (!$requests): ?>
     <section class="booking-panel">
       <p class="muted">No booking requests yet.</p>
@@ -113,10 +152,18 @@ $trialUrl = $siteBase . '/studio/member/pricing.php';
         <div class="booking-list">
           <?php foreach ($requests as $request): ?>
             <?php $dateText = !empty($request['event_date']) ? date('M j, Y', strtotime((string)$request['event_date'])) : 'Date TBD'; ?>
-            <a class="<?= (int)$request['id'] === $selectedId ? 'active' : '' ?>" href="<?= e($siteBase . '/my-bookings.php?id=' . (int)$request['id']) ?>">
-              <strong><?= e((string)($request['event_title'] ?: 'Untitled event')) ?></strong>
-              <div class="booking-meta"><?= e($dateText) ?> &middot; <?= (int)$request['invite_count'] ?> invited</div>
-            </a>
+            <div class="booking-list-item <?= (int)$request['id'] === $selectedId ? 'active' : '' ?>">
+              <a href="<?= e($siteBase . '/my-bookings.php?id=' . (int)$request['id']) ?>">
+                <strong><?= e((string)($request['event_title'] ?: 'Untitled event')) ?></strong>
+                <div class="booking-meta"><?= e($dateText) ?> &middot; <?= (int)$request['invite_count'] ?> invited</div>
+              </a>
+              <form method="post" onsubmit="return confirm('Delete this booking request?');">
+                <input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>">
+                <input type="hidden" name="action" value="delete_request">
+                <input type="hidden" name="request_id" value="<?= (int)$request['id'] ?>">
+                <button class="booking-delete-button" type="submit">Delete</button>
+              </form>
+            </div>
           <?php endforeach; ?>
         </div>
       </aside>

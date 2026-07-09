@@ -24,6 +24,10 @@ function directory_profile_visibility_columns_ready(PDO $pdo): bool {
         && directory_column_exists($pdo, 'setmaxx_public_profiles', 'directory_show_songlist');
 }
 
+function directory_profile_description_ready(PDO $pdo): bool {
+    return directory_column_exists($pdo, 'setmaxx_public_profiles', 'directory_description');
+}
+
 function directory_user_has_request_page_access(PDO $pdo, int $userId): bool {
     if ($userId <= 0) return false;
     $slugs = rss_tools_product_slugs();
@@ -73,6 +77,7 @@ $artists = [];
 $states = [];
 $directoryReady = directory_public_profiles_ready($pdo);
 $visibilityReady = $directoryReady && directory_profile_visibility_columns_ready($pdo);
+$descriptionReady = $directoryReady && directory_profile_description_ready($pdo);
 $songsReady = rss_table_exists($pdo, 'setmaxx_songs');
 $linksReady = rss_table_exists($pdo, 'setmaxx_public_links');
 
@@ -155,6 +160,7 @@ if ($directoryReady) {
             pp.artist_name,
             pp.website_url,
             pp.logo_path,
+            " . ($descriptionReady ? "pp.directory_description" : "NULL") . " AS directory_description,
             " . ($visibilityReady ? "pp.directory_show_song_count" : "1") . " AS directory_show_song_count,
             " . ($visibilityReady ? "pp.directory_show_songlist" : "0") . " AS directory_show_songlist,
             u.display_name,
@@ -165,7 +171,7 @@ if ($directoryReady) {
         " . ($songsReady ? "LEFT JOIN setmaxx_songs s ON s.user_id = pp.user_id AND s.is_active = 1" : "") . "
         " . ($linksReady ? "LEFT JOIN setmaxx_public_links spl ON spl.user_id = pp.user_id" : "") . "
         {$where}
-        GROUP BY pp.user_id, pp.directory_state, pp.artist_name, pp.website_url, pp.logo_path" . ($visibilityReady ? ", pp.directory_show_song_count, pp.directory_show_songlist" : "") . ", u.display_name" . ($linksReady ? ", spl.public_token" : "") . "
+        GROUP BY pp.user_id, pp.directory_state, pp.artist_name, pp.website_url, pp.logo_path" . ($descriptionReady ? ", pp.directory_description" : "") . ($visibilityReady ? ", pp.directory_show_song_count, pp.directory_show_songlist" : "") . ", u.display_name" . ($linksReady ? ", spl.public_token" : "") . "
         HAVING COALESCE(NULLIF(pp.artist_name, ''), NULLIF(u.display_name, '')) IS NOT NULL
         ORDER BY
             CASE WHEN pp.directory_state IS NULL OR pp.directory_state = '' THEN 1 ELSE 0 END,
@@ -218,6 +224,9 @@ $siteBase = $isLocal ? '/ns_studio' : '';
     .directory-photo-modal[hidden] { display:none; }
     .directory-photo-dialog { position:relative; width:min(92vw, 760px); }
     .directory-photo-dialog img { width:100%; max-height:82vh; object-fit:contain; border-radius:8px; background:#050713; box-shadow:0 24px 80px rgba(0,0,0,.45); }
+    .directory-photo-info { margin-top:.85rem; padding:1rem; border-radius:8px; background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.1); }
+    .directory-photo-info h3 { margin:0 0 .25rem; }
+    .directory-photo-info p { margin:.25rem 0 0; color:rgba(255,255,255,.76); }
     .directory-photo-close { position:absolute; top:-14px; right:-14px; width:38px; height:38px; border-radius:999px; border:1px solid rgba(255,255,255,.2); background:#10131f; color:#fff; font-size:1.3rem; line-height:1; cursor:pointer; }
     .directory-photo-close:hover, .directory-photo-close:focus-visible { color:#f4d57a; border-color:rgba(212,175,55,.5); }
     @media (max-width: 980px) { .directory-grid { grid-template-columns:repeat(2, minmax(0, 1fr)); } }
@@ -259,7 +268,7 @@ $siteBase = $isLocal ? '/ns_studio' : '';
         ?>
         <article class="directory-card">
           <?php if ($logoUrl !== ''): ?>
-            <button type="button" class="directory-image-button" data-photo="<?= e($logoUrl) ?>" data-name="<?= e($name) ?>" onclick="return window.openDirectoryPhoto ? window.openDirectoryPhoto(this) : false;" aria-label="View larger image for <?= e($name) ?>">
+            <button type="button" class="directory-image-button" data-photo="<?= e($logoUrl) ?>" data-name="<?= e($name) ?>" data-state="<?= e((string)($artist['directory_state'] ?: 'State not set')) ?>" data-description="<?= e(trim((string)($artist['directory_description'] ?? ''))) ?>" onclick="return window.openDirectoryPhoto ? window.openDirectoryPhoto(this) : false;" aria-label="View larger image for <?= e($name) ?>">
               <img class="directory-image" src="<?= e($logoUrl) ?>" alt="">
             </button>
           <?php else: ?>
@@ -295,6 +304,11 @@ $siteBase = $isLocal ? '/ns_studio' : '';
   <div class="directory-photo-dialog" role="dialog" aria-modal="true" aria-label="Artist image preview">
     <button type="button" class="directory-photo-close" aria-label="Close image preview">&times;</button>
     <img src="" alt="">
+    <div class="directory-photo-info">
+      <h3></h3>
+      <p data-directory-photo-state></p>
+      <p data-directory-photo-description></p>
+    </div>
   </div>
 </div>
 <script>
@@ -302,11 +316,17 @@ window.openDirectoryPhoto = function (trigger) {
   const modal = document.getElementById('directoryPhotoModal');
   if (!modal || !trigger) return false;
   const image = modal.querySelector('img');
+  const title = modal.querySelector('h3');
+  const state = modal.querySelector('[data-directory-photo-state]');
+  const description = modal.querySelector('[data-directory-photo-description]');
   const closeButton = modal.querySelector('.directory-photo-close');
   if (!image || !closeButton) return false;
   window.directoryPhotoLastTrigger = trigger;
   image.src = trigger.getAttribute('data-photo') || '';
   image.alt = trigger.getAttribute('data-name') || 'Artist image';
+  if (title) title.textContent = trigger.getAttribute('data-name') || '';
+  if (state) state.textContent = trigger.getAttribute('data-state') || '';
+  if (description) description.textContent = trigger.getAttribute('data-description') || 'No description yet.';
   modal.hidden = false;
   closeButton.focus();
   return false;

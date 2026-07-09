@@ -7,6 +7,7 @@ $_SESSION['auth_brand'] = 'rss';
 $user = Auth::currentUser($pdo);
 $userId = (int)($user['id'] ?? 0);
 $err = null;
+$artistGenreOptions = ['tribute', 'variety', 'pop', 'rock', 'originals', 'acoustic', 'alternative', 'reggae', 'country', 'blues', 'funk', 'jazz', 'dj', 'polka', 'mariachi', 'R&B', 'bluegrass'];
 
 if (Auth::accountTypeColumnExists($pdo) && Auth::accountTypeForUser($pdo, $userId) !== 'artist') {
 	Auth::updateAccountType($pdo, $userId, 'artist');
@@ -52,7 +53,9 @@ $profileReady = rss_onboarding_table_exists($pdo, 'setmaxx_public_profiles')
 	&& rss_onboarding_column_exists($pdo, 'directory_state')
 	&& rss_onboarding_column_exists($pdo, 'artist_name')
 	&& rss_onboarding_column_exists($pdo, 'website_url')
-	&& rss_onboarding_column_exists($pdo, 'logo_path');
+	&& rss_onboarding_column_exists($pdo, 'logo_path')
+	&& rss_onboarding_column_exists($pdo, 'directory_genres')
+	&& rss_onboarding_column_exists($pdo, 'directory_description');
 
 if (is_post()) {
 	if (!csrf_verify($_POST['_csrf'] ?? null)) {
@@ -64,6 +67,10 @@ if (is_post()) {
 			$artistName = rss_onboarding_clean_text($_POST['artist_name'] ?? '', 190);
 			$websiteUrl = rss_onboarding_clean_url($_POST['website_url'] ?? '');
 			$directoryState = rss_onboarding_clean_state($_POST['directory_state'] ?? '');
+			$postedGenres = isset($_POST['directory_genres']) && is_array($_POST['directory_genres']) ? $_POST['directory_genres'] : [];
+			$directoryGenres = array_values(array_intersect($artistGenreOptions, array_map('strval', $postedGenres)));
+			$directoryGenresText = implode(',', $directoryGenres);
+			$directoryDescription = rss_onboarding_clean_text($_POST['directory_description'] ?? '', 700);
 			$logoPath = null;
 
 			if (!$artistName) throw new RuntimeException('Add your artist or band name.');
@@ -86,10 +93,10 @@ if (is_post()) {
 			}
 
 			$pdo->prepare(
-				"INSERT INTO setmaxx_public_profiles (user_id, directory_visible, directory_state, directory_show_song_count, directory_show_songlist, artist_name, website_url, logo_path)
-				 VALUES (?, 1, ?, 1, 0, ?, ?, ?)
-				 ON DUPLICATE KEY UPDATE directory_visible = VALUES(directory_visible), directory_state = VALUES(directory_state), artist_name = VALUES(artist_name), website_url = VALUES(website_url), logo_path = COALESCE(VALUES(logo_path), logo_path)"
-			)->execute([$userId, $directoryState, $artistName, $websiteUrl, $logoPath]);
+				"INSERT INTO setmaxx_public_profiles (user_id, directory_visible, directory_state, directory_show_song_count, directory_show_songlist, directory_genres, directory_description, artist_name, website_url, logo_path)
+				 VALUES (?, 1, ?, 1, 0, ?, ?, ?, ?, ?)
+				 ON DUPLICATE KEY UPDATE directory_visible = VALUES(directory_visible), directory_state = VALUES(directory_state), directory_genres = VALUES(directory_genres), directory_description = VALUES(directory_description), artist_name = VALUES(artist_name), website_url = VALUES(website_url), logo_path = COALESCE(VALUES(logo_path), logo_path)"
+			)->execute([$userId, $directoryState, $directoryGenresText !== '' ? $directoryGenresText : null, $directoryDescription, $artistName, $websiteUrl, $logoPath]);
 
 			flash_set('success', 'Your artist profile is ready.');
 			redirect(base_url('member/settings.php?brand=rss'));
@@ -140,6 +147,19 @@ $trialUrl = base_url('member/pricing.php');
     <div class="form-field">
       <label style="margin-top:1rem;">Directory state</label>
       <input type="text" name="directory_state" maxlength="2" placeholder="IL" value="<?= e((string)($_POST['directory_state'] ?? '')) ?>">
+    </div>
+    <fieldset class="form-field" style="margin-top:1rem;">
+      <legend>Genres</legend>
+      <div class="checkbox-grid">
+        <?php $selectedGenres = isset($_POST['directory_genres']) && is_array($_POST['directory_genres']) ? array_map('strval', $_POST['directory_genres']) : []; ?>
+        <?php foreach ($artistGenreOptions as $genre): ?>
+          <label><input type="checkbox" name="directory_genres[]" value="<?= e($genre) ?>" <?= in_array($genre, $selectedGenres, true) ? 'checked' : '' ?>> <?= e($genre) ?></label>
+        <?php endforeach; ?>
+      </div>
+    </fieldset>
+    <div class="form-field">
+      <label style="margin-top:1rem;">Band description</label>
+      <textarea name="directory_description" rows="3" placeholder="A sentence or two about your band."><?= e((string)($_POST['directory_description'] ?? '')) ?></textarea>
     </div>
     <div class="form-field">
       <label style="margin-top:1rem;">Profile image</label>

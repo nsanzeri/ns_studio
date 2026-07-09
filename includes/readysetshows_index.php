@@ -606,10 +606,10 @@ $screens = [
                 </span>
             </a>
             <nav class="rss-nav" aria-label="Ready Set Shows navigation">
-                <a href="<?= htmlspecialchars($bookBandUrl, ENT_QUOTES, 'UTF-8') ?>">Book a Band</a>
-                <a href="<?= htmlspecialchars($artistRegisterUrl, ENT_QUOTES, 'UTF-8') ?>">Register Your Band</a>
+                <a href="<?= htmlspecialchars($bookBandUrl, ENT_QUOTES, 'UTF-8') ?>">Hire an Artist</a>
+                <a href="<?= htmlspecialchars($artistRegisterUrl, ENT_QUOTES, 'UTF-8') ?>">Join as Artist</a>
                 <a class="rss-nav-login" href="<?= htmlspecialchars($loginUrl, ENT_QUOTES, 'UTF-8') ?>">Log In</a>
-                <a class="rss-nav-primary" href="<?= htmlspecialchars($artistRegisterUrl, ENT_QUOTES, 'UTF-8') ?>">Join as Artist</a>
+                <a class="rss-nav-primary" href="<?= htmlspecialchars($pricingUrl, ENT_QUOTES, 'UTF-8') ?>">Pricing</a>
             </nav>
         </div>
     </header>
@@ -632,15 +632,15 @@ $screens = [
                     <div class="rss-paths" aria-label="Choose how to use Ready Set Shows">
                         <a class="rss-path-card" href="<?= htmlspecialchars($bookBandUrl, ENT_QUOTES, 'UTF-8') ?>">
                             <span class="rss-path-icon"><i class="fa-solid fa-calendar-plus"></i></span>
-                            <h2>Book a band</h2>
+                            <h2>Hire an artist</h2>
                             <p>Create one event request and invite multiple artists to bid on the date.</p>
                             <span class="rss-path-cta">Start a booking <i class="fa-solid fa-arrow-right"></i></span>
                         </a>
                         <a class="rss-path-card" href="<?= htmlspecialchars($artistRegisterUrl, ENT_QUOTES, 'UTF-8') ?>">
                             <span class="rss-path-icon"><i class="fa-solid fa-guitar"></i></span>
                             <h2>Join as artist</h2>
-                            <p>List your band, manage gig tools, respond faster, and keep the business side organized.</p>
-                            <span class="rss-path-cta">Register your band <i class="fa-solid fa-arrow-right"></i></span>
+                            <p>List your artist profile, manage gig tools, respond faster, and keep the business side organized.</p>
+                            <span class="rss-path-cta">Join as artist <i class="fa-solid fa-arrow-right"></i></span>
                         </a>
                     </div>
                     <div class="rss-hero-note">
@@ -794,11 +794,11 @@ $screens = [
                 <div class="rss-final-box">
                     <div>
                         <h2>Ready to make the gig work harder for you?</h2>
-                        <p>Book a band for your event, or join as an artist and let Ready Set Shows handle more of the busy work.</p>
+                        <p>Hire an artist for your event, or join as an artist and let Ready Set Shows handle more of the busy work.</p>
                     </div>
                     <div class="rss-actions">
-                        <a class="btn btn-primary" href="<?= htmlspecialchars($bookBandUrl, ENT_QUOTES, 'UTF-8') ?>">Book a Band</a>
-                        <a class="btn btn-outline" href="<?= htmlspecialchars($artistRegisterUrl, ENT_QUOTES, 'UTF-8') ?>">Join as Artist</a>
+                        <a class="btn btn-primary" href="<?= htmlspecialchars($bookBandUrl, ENT_QUOTES, 'UTF-8') ?>">Hire an Artist</a>
+                        <a class="btn btn-outline" href="<?= htmlspecialchars($pricingUrl, ENT_QUOTES, 'UTF-8') ?>">Pricing</a>
                     </div>
                 </div>
             </div>

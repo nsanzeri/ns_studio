@@ -73,7 +73,7 @@ if (!function_exists('rss_render_suite_menu')) {
                 ['label' => 'Finance', 'meta' => 'Gig income tracking', 'href' => $studioBase . '/finance/index.php', 'active' => rss_header_is_active_path($currentPath, '/finance/'), 'soon' => false],
                 ['label' => 'Publish', 'meta' => 'Promo copy writer', 'href' => $studioBase . '/publishing/index.php', 'active' => rss_header_is_active_path($currentPath, '/publishing/'), 'soon' => false],
                 ['label' => 'Directory', 'meta' => 'Public artist discovery', 'href' => $ctx['site_base'] . '/directory.php', 'active' => basename($currentPath) === 'directory.php', 'soon' => false],
-                ['label' => 'Requests', 'meta' => 'Booking requests', 'href' => $ctx['site_base'] . '/artist-bookings.php', 'active' => basename($currentPath) === 'artist-bookings.php', 'soon' => false, 'badge' => $pendingBookingCount],
+                ['label' => 'Leads', 'meta' => 'Booking leads', 'href' => $ctx['site_base'] . '/artist-bookings.php', 'active' => basename($currentPath) === 'artist-bookings.php', 'soon' => false, 'badge' => $pendingBookingCount],
             ];
         $buttonId = $idPrefix . 'SuiteMenuToggle';
         $panelId = $idPrefix . 'SuiteMenuPanel';
@@ -132,7 +132,7 @@ if (!function_exists('rss_render_account_menu')) {
                 ['label' => 'Finance', 'href' => $studioBase . '/finance/index.php', 'active' => rss_header_is_active_path($currentPath, '/finance/'), 'soon' => false],
                 ['label' => 'Publish', 'href' => $studioBase . '/publishing/index.php', 'active' => rss_header_is_active_path($currentPath, '/publishing/'), 'soon' => false],
                 ['label' => 'Directory', 'href' => $ctx['site_base'] . '/directory.php', 'active' => basename($currentPath) === 'directory.php', 'soon' => false],
-                ['label' => 'Requests', 'href' => $ctx['site_base'] . '/artist-bookings.php', 'active' => basename($currentPath) === 'artist-bookings.php', 'soon' => false, 'badge' => $pendingBookingCount],
+                ['label' => 'Leads', 'href' => $ctx['site_base'] . '/artist-bookings.php', 'active' => basename($currentPath) === 'artist-bookings.php', 'soon' => false, 'badge' => $pendingBookingCount],
             ];
         $buttonId = $idPrefix . 'AccountMenuToggle';
         $panelId = $idPrefix . 'AccountMenuPanel';

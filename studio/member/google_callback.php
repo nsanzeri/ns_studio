@@ -55,6 +55,10 @@ sync_user_entitlements($pdo, $userId);
 Auth::login($userId);
 
 $next = $_SESSION['login_next'] ?? Auth::defaultPostLoginUrl($pdo, $userId);
+$accountType = Auth::accountTypeForUser($pdo, $userId);
+if ($accountType === 'artist' && str_contains((string)$next, '/booking-request.php')) {
+	$next = Auth::defaultPostLoginUrl($pdo, $userId);
+}
 if (empty($_SESSION['login_next']) && $requestedAccountType === 'artist') {
 	$next = base_url('member/artist_onboarding.php');
 }

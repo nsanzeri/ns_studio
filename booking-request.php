@@ -141,6 +141,9 @@ if (!Auth::isLoggedIn()) {
 }
 
 $currentUser = Auth::currentUser($pdo);
+if ($currentUser && Auth::accountTypeForUser($pdo, (int)$currentUser['id']) === 'artist') {
+    redirect($siteBase . '/artist-bookings.php');
+}
 $artists = $ready ? booking_fetch_directory_artists($pdo, $profilesReady, $directoryMetaReady) : [];
 $artistByUserId = [];
 $artistStates = [];

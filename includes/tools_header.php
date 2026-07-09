@@ -5,6 +5,7 @@ $currentPage = basename($currentPath);
 $isLocal = str_contains($currentPath, '/ns_studio/');
 $siteBase   = $isLocal ? '/ns_studio' : '';
 $studioBase = $siteBase . '/studio';
+$rssHomeUrl = $siteBase . '/index.php' . ($isLocal ? '?rss_preview=1' : '');
 require_once __DIR__ . '/rss_header_widgets.php';
 
 $isLoggedIn = class_exists('Auth') && Auth::isLoggedIn();
@@ -41,7 +42,7 @@ $suiteModules = $headerAccountType === 'customer'
 		['label' => 'Finance', 'href' => $studioBase . '/finance/index.php', 'active' => str_contains($currentPath, '/finance/'), 'soon' => false],
 		['label' => 'Publishing', 'href' => $studioBase . '/publishing/index.php', 'active' => str_contains($currentPath, '/publishing/'), 'soon' => false],
 		['label' => 'Directory', 'href' => $siteBase . '/directory.php', 'active' => $currentPage === 'directory.php', 'soon' => false],
-		['label' => 'Requests', 'href' => $siteBase . '/artist-bookings.php', 'active' => $currentPage === 'artist-bookings.php', 'soon' => false, 'badge' => $headerPendingBookingCount],
+		['label' => 'Leads', 'href' => $siteBase . '/artist-bookings.php', 'active' => $currentPage === 'artist-bookings.php', 'soon' => false, 'badge' => $headerPendingBookingCount],
 	];
 $showCalendarSubnav = str_contains($currentPath, '/tools/');
 ?>
@@ -124,7 +125,7 @@ $showCalendarSubnav = str_contains($currentPath, '/tools/');
             <?php endif; ?>
 
             <div class="tools-mobile-extra">
-                <a href="<?= htmlspecialchars($siteBase . '/index.php') ?>">Back to Main Site</a>
+                <a href="<?= htmlspecialchars($rssHomeUrl) ?>">Back to Main Site</a>
             </div>
         </div>
     </nav>

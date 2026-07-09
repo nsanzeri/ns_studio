@@ -4,6 +4,12 @@ require __DIR__ . '/studio/_private/_core/bootstrap.php';
 $isLocal = str_contains(str_replace('\\', '/', $_SERVER['PHP_SELF'] ?? ''), '/ns_studio/');
 $siteBase = $isLocal ? '/ns_studio' : '';
 
+function customer_booking_column_exists(PDO $pdo, string $columnName): bool {
+    $stmt = $pdo->prepare("SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'booking_requests' AND column_name = ? LIMIT 1");
+    $stmt->execute([$columnName]);
+    return (bool)$stmt->fetchColumn();
+}
+
 if (!Auth::isLoggedIn()) {
     $_SESSION['login_next'] = $siteBase . '/my-bookings.php' . (!empty($_SERVER['QUERY_STRING']) ? '?' . (string)$_SERVER['QUERY_STRING'] : '');
     $_SESSION['registration_account_type'] = 'customer';
@@ -14,6 +20,9 @@ $user = Auth::currentUser($pdo);
 $userId = (int)($user['id'] ?? 0);
 $errors = [];
 $successMessage = flash_get('success');
+$closureReady = customer_booking_column_exists($pdo, 'hired_invite_id')
+    && customer_booking_column_exists($pdo, 'closed_note')
+    && customer_booking_column_exists($pdo, 'closed_at');
 
 if (is_post()) {
     if (!csrf_verify($_POST['_csrf'] ?? null)) {
@@ -35,16 +44,78 @@ if (is_post()) {
             $errors[] = 'That booking request could not be found.';
         }
     }
+
+    if (!$errors && $action === 'close_request') {
+        $requestId = (int)($_POST['request_id'] ?? 0);
+        $hiredInviteId = (int)($_POST['hired_invite_id'] ?? 0);
+        $closedNote = trim((string)($_POST['closed_note'] ?? ''));
+        if (mb_strlen($closedNote) > 1000) $closedNote = mb_substr($closedNote, 0, 1000);
+
+        if (!$closureReady) {
+            $errors[] = 'The booking close flow needs the latest database migration before it can save.';
+        } elseif ($requestId <= 0) {
+            $errors[] = 'Choose a booking request to close.';
+        } else {
+            $ownerStmt = $pdo->prepare("SELECT id FROM booking_requests WHERE id = ? AND requester_user_id = ? LIMIT 1");
+            $ownerStmt->execute([$requestId, $userId]);
+            if (!$ownerStmt->fetchColumn()) {
+                $errors[] = 'That booking request could not be found.';
+            } else {
+                if ($hiredInviteId > 0) {
+                    $inviteCheck = $pdo->prepare("SELECT id FROM booking_invites WHERE id = ? AND request_id = ? LIMIT 1");
+                    $inviteCheck->execute([$hiredInviteId, $requestId]);
+                    if (!$inviteCheck->fetchColumn()) {
+                        $errors[] = 'Choose an invited artist for this booking.';
+                    }
+                }
+
+                if (!$errors) {
+                    $newStatus = $hiredInviteId > 0 ? 'fulfilled' : 'cancelled';
+                    $closeStmt = $pdo->prepare("
+                        UPDATE booking_requests
+                        SET status = ?, hired_invite_id = ?, closed_note = ?, closed_at = NOW()
+                        WHERE id = ? AND requester_user_id = ?
+                        LIMIT 1
+                    ");
+                    $closeStmt->execute([
+                        $newStatus,
+                        $hiredInviteId > 0 ? $hiredInviteId : null,
+                        $closedNote !== '' ? $closedNote : null,
+                        $requestId,
+                        $userId,
+                    ]);
+                    flash_set('success', $hiredInviteId > 0 ? 'Booking closed and marked as hired.' : 'Booking closed.');
+                    redirect($siteBase . '/my-bookings.php?id=' . $requestId);
+                }
+            }
+        }
+    }
 }
 
 $selectedId = (int)($_GET['id'] ?? 0);
 
+$closureSelect = $closureReady
+    ? ", br.hired_invite_id, br.closed_note, br.closed_at, COALESCE(NULLIF(hired_pp.artist_name, ''), NULLIF(hired_u.display_name, ''), hired_u.email, 'Artist') AS hired_artist_name"
+    : ", NULL AS hired_invite_id, NULL AS closed_note, NULL AS closed_at, NULL AS hired_artist_name";
+$closureJoin = $closureReady
+    ? "
+    LEFT JOIN booking_invites hired_bi ON hired_bi.id = br.hired_invite_id
+    LEFT JOIN users hired_u ON hired_u.id = hired_bi.target_user_id
+    LEFT JOIN setmaxx_public_profiles hired_pp ON hired_pp.user_id = hired_bi.target_user_id
+"
+    : "";
+$closureGroupBy = $closureReady
+    ? ", br.hired_invite_id, br.closed_note, br.closed_at, hired_pp.artist_name, hired_u.display_name, hired_u.email"
+    : "";
+
 $requestsStmt = $pdo->prepare("
     SELECT br.id, br.event_title, br.event_date, br.start_time, br.venue_name, br.city, br.state, br.budget_max, br.notes, br.status, br.created_at, COUNT(bi.id) AS invite_count
+    {$closureSelect}
     FROM booking_requests br
     LEFT JOIN booking_invites bi ON bi.request_id = br.id
+    {$closureJoin}
     WHERE br.requester_user_id = ?
-    GROUP BY br.id, br.event_title, br.event_date, br.start_time, br.venue_name, br.city, br.state, br.budget_max, br.notes, br.status, br.created_at
+    GROUP BY br.id, br.event_title, br.event_date, br.start_time, br.venue_name, br.city, br.state, br.budget_max, br.notes, br.status, br.created_at{$closureGroupBy}
     ORDER BY br.created_at DESC
 ");
 $requestsStmt->execute([$userId]);
@@ -116,6 +187,12 @@ $trialUrl = $siteBase . '/studio/member/pricing.php';
     .bid-row { display:grid; gap:.45rem; padding:.85rem 0; border-top:1px solid rgba(255,255,255,.08); }
     .bid-row:first-child { border-top:0; }
     .bid-amount { color:#f4d57a; font-weight:800; }
+    .booking-status-pill { display:inline-flex; align-items:center; min-height:24px; padding:.18rem .5rem; border-radius:999px; background:rgba(212,175,55,.14); color:#f4d57a; font-size:.78rem; font-weight:800; text-transform:capitalize; }
+    .booking-close-panel { margin:1.25rem 0 0; padding:1rem; border-radius:8px; border:1px solid rgba(212,175,55,.22); background:rgba(212,175,55,.08); }
+    .booking-close-panel h3 { margin-top:0; }
+    .booking-close-grid { display:grid; grid-template-columns:1fr; gap:.8rem; }
+    .booking-close-panel select,
+    .booking-close-panel textarea { background:#090a12; color:#fff; }
     .booking-alert { margin:0 0 1rem; padding:.85rem 1rem; border-radius:8px; border:1px solid rgba(212,175,55,.28); background:rgba(212,175,55,.12); color:rgba(255,255,255,.9); }
     .booking-alert.error { border-color:rgba(255,104,104,.35); background:rgba(255,104,104,.1); }
     @media (max-width: 860px) { .bookings-layout { grid-template-columns:1fr; } }
@@ -155,7 +232,10 @@ $trialUrl = $siteBase . '/studio/member/pricing.php';
             <div class="booking-list-item <?= (int)$request['id'] === $selectedId ? 'active' : '' ?>">
               <a href="<?= e($siteBase . '/my-bookings.php?id=' . (int)$request['id']) ?>">
                 <strong><?= e((string)($request['event_title'] ?: 'Untitled event')) ?></strong>
-                <div class="booking-meta"><?= e($dateText) ?> &middot; <?= (int)$request['invite_count'] ?> invited</div>
+                <div class="booking-meta">
+                  <?= e($dateText) ?> &middot; <?= (int)$request['invite_count'] ?> invited
+                  <?php if ((string)$request['status'] !== 'open'): ?> &middot; <span class="booking-status-pill"><?= e((string)$request['status']) ?></span><?php endif; ?>
+                </div>
               </a>
               <form method="post" onsubmit="return confirm('Delete this booking request?');">
                 <input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>">
@@ -184,6 +264,22 @@ $trialUrl = $siteBase . '/studio/member/pricing.php';
             <p><?= nl2br(e((string)$selectedRequest['notes'])) ?></p>
           <?php endif; ?>
 
+          <?php if ((string)$selectedRequest['status'] !== 'open'): ?>
+            <div class="booking-close-panel">
+              <h3>Event closed</h3>
+              <p class="booking-meta" style="margin:0;">
+                Status: <?= e((string)$selectedRequest['status']) ?>
+                <?php if (!empty($selectedRequest['closed_at'])): ?> &middot; Closed <?= e(date('M j, Y', strtotime((string)$selectedRequest['closed_at']))) ?><?php endif; ?>
+              </p>
+              <?php if (!empty($selectedRequest['hired_artist_name'])): ?>
+                <p><strong>Hired:</strong> <?= e((string)$selectedRequest['hired_artist_name']) ?></p>
+              <?php else: ?>
+                <p class="muted">No hired artist was selected.</p>
+              <?php endif; ?>
+              <?php if (!empty($selectedRequest['closed_note'])): ?><p><?= nl2br(e((string)$selectedRequest['closed_note'])) ?></p><?php endif; ?>
+            </div>
+          <?php endif; ?>
+
           <h3 style="margin-top:1.5rem;">Artist Responses</h3>
           <?php if (!$invites): ?>
             <p class="muted">No artists were invited.</p>
@@ -203,6 +299,37 @@ $trialUrl = $siteBase . '/studio/member/pricing.php';
                 <?php endif; ?>
               </div>
             <?php endforeach; ?>
+          <?php endif; ?>
+
+          <?php if ((string)$selectedRequest['status'] === 'open'): ?>
+            <div class="booking-close-panel">
+              <h3>Close this event</h3>
+              <?php if (!$closureReady): ?>
+                <p class="muted">Run the latest booking close migration before this can be saved.</p>
+              <?php else: ?>
+                <form method="post" class="form">
+                  <input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>">
+                  <input type="hidden" name="action" value="close_request">
+                  <input type="hidden" name="request_id" value="<?= (int)$selectedRequest['id'] ?>">
+                  <div class="booking-close-grid">
+                    <div class="form-field">
+                      <label>Who did you hire?</label>
+                      <select name="hired_invite_id">
+                        <option value="0">No one / not through Ready Set Shows</option>
+                        <?php foreach ($invites as $invite): ?>
+                          <option value="<?= (int)$invite['id'] ?>"><?= e((string)$invite['artist_name']) ?><?= !empty($invite['bid_amount']) ? ' - $' . e(number_format((float)$invite['bid_amount'], 0)) : '' ?></option>
+                        <?php endforeach; ?>
+                      </select>
+                    </div>
+                    <div class="form-field">
+                      <label>Closing note</label>
+                      <textarea name="closed_note" rows="3" placeholder="Optional note for your records."></textarea>
+                    </div>
+                  </div>
+                  <button class="btn btn-primary" style="margin-top:1rem;" type="submit">Close Event</button>
+                </form>
+              <?php endif; ?>
+            </div>
           <?php endif; ?>
         <?php endif; ?>
       </section>

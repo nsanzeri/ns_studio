@@ -5,11 +5,18 @@ $currentPage = basename($currentPath);
 $isLocal = str_contains($currentPath, '/ns_studio/');
 $siteBase   = $isLocal ? '/ns_studio' : '';
 $studioBase = $siteBase . '/studio';
+$rssHomeUrl = $siteBase . '/index.php' . ($isLocal ? '?rss_preview=1' : '');
 
 require_once __DIR__ . '/rss_header_widgets.php';
 
 $trialStatus = null;
 $headerPdo = (isset($pdo) && $pdo instanceof PDO) ? $pdo : ($GLOBALS['pdo'] ?? null);
+$isLoggedIn = class_exists('Auth') && Auth::isLoggedIn();
+$headerUserId = $isLoggedIn && class_exists('Auth') ? Auth::userId() : null;
+$headerAccountType = ($isLoggedIn && $headerPdo instanceof PDO && $headerUserId) ? Auth::accountTypeForUser($headerPdo, (int)$headerUserId) : '';
+$headerPendingBookingCount = ($headerAccountType === 'artist' && function_exists('rss_artist_pending_booking_count') && $headerPdo instanceof PDO && $headerUserId)
+    ? rss_artist_pending_booking_count($headerPdo, (int)$headerUserId)
+    : 0;
 if ($headerPdo instanceof PDO && function_exists('rss_get_current_user_trial_status')) {
     $trialStatus = rss_get_current_user_trial_status($headerPdo);
 }
@@ -21,13 +28,20 @@ if (!function_exists('nav_active')) {
     }
 }
 
-$suiteModules = [
-    ['label' => 'Calendar', 'href' => $studioBase . '/tools/index.php', 'active' => str_contains($currentPath, '/tools/'), 'soon' => false],
-    ['label' => 'SetMaxx', 'href' => $studioBase . '/setmaxx/index.php', 'active' => str_contains($currentPath, '/setmaxx/'), 'soon' => false],
-    ['label' => 'Finance', 'href' => $studioBase . '/finance/index.php', 'active' => str_contains($currentPath, '/finance/'), 'soon' => false],
-    ['label' => 'Publishing', 'href' => $studioBase . '/publishing/index.php', 'active' => str_contains($currentPath, '/publishing/'), 'soon' => false],
-    ['label' => 'Directory', 'href' => $siteBase . '/directory.php', 'active' => $currentPage === 'directory.php', 'soon' => false],
-];
+$suiteModules = $headerAccountType === 'customer'
+    ? [
+        ['label' => 'Directory', 'href' => $siteBase . '/directory.php', 'active' => $currentPage === 'directory.php', 'soon' => false],
+        ['label' => 'Hire an Artist', 'href' => $siteBase . '/booking-request.php', 'active' => $currentPage === 'booking-request.php', 'soon' => false],
+        ['label' => 'My Bookings', 'href' => $siteBase . '/my-bookings.php', 'active' => $currentPage === 'my-bookings.php', 'soon' => false],
+    ]
+    : [
+        ['label' => 'Calendar', 'href' => $studioBase . '/tools/index.php', 'active' => str_contains($currentPath, '/tools/'), 'soon' => false],
+        ['label' => 'SetMaxx', 'href' => $studioBase . '/setmaxx/index.php', 'active' => str_contains($currentPath, '/setmaxx/'), 'soon' => false],
+        ['label' => 'Finance', 'href' => $studioBase . '/finance/index.php', 'active' => str_contains($currentPath, '/finance/'), 'soon' => false],
+        ['label' => 'Publishing', 'href' => $studioBase . '/publishing/index.php', 'active' => str_contains($currentPath, '/publishing/'), 'soon' => false],
+        ['label' => 'Directory', 'href' => $siteBase . '/directory.php', 'active' => $currentPage === 'directory.php', 'soon' => false],
+        ['label' => 'Leads', 'href' => $siteBase . '/artist-bookings.php', 'active' => $currentPage === 'artist-bookings.php', 'soon' => false, 'badge' => $headerPendingBookingCount],
+    ];
 ?>
 <header class="site-header setmaxx-site-header">
     <div class="container setmaxx-header-inner">
@@ -54,6 +68,7 @@ $suiteModules = [
             <?php foreach ($suiteModules as $module): ?>
                 <a href="<?= htmlspecialchars($module['href']) ?>" class="<?= nav_active($module['active']) ?>">
                     <?= htmlspecialchars($module['label']) ?>
+                    <?php if (!empty($module['badge'])): ?><span class="rss-nav-badge"><?= (int)$module['badge'] > 99 ? '99+' : (int)$module['badge'] ?></span><?php endif; ?>
                     <?php if ($module['soon']): ?><span>Soon</span><?php endif; ?>
                 </a>
             <?php endforeach; ?>
@@ -87,7 +102,7 @@ $suiteModules = [
             <div class="setmaxx-mobile-section">Ready Set Shows</div>
             <?php foreach ($suiteModules as $module): ?>
                 <a href="<?= htmlspecialchars($module['href']) ?>" class="<?= nav_active($module['active']) ?>">
-                    <?= htmlspecialchars($module['label']) ?><?= $module['soon'] ? ' (Soon)' : '' ?>
+                    <?= htmlspecialchars($module['label']) ?><?= !empty($module['badge']) ? ' (' . ((int)$module['badge'] > 99 ? '99+' : (int)$module['badge']) . ')' : '' ?><?= $module['soon'] ? ' (Soon)' : '' ?>
                 </a>
             <?php endforeach; ?>
             <div class="setmaxx-mobile-section">SetMaxx</div>
@@ -100,7 +115,7 @@ $suiteModules = [
             <a href="<?= htmlspecialchars($studioBase . '/setmaxx/history.php') ?>" class="<?= nav_active($currentPage === 'history.php' || $currentPage === 'session.php') ?>">History</a>
             <a href="<?= htmlspecialchars($studioBase . '/setmaxx/payments.php') ?>" class="<?= nav_active($currentPage === 'payments.php') ?>">Payments</a>
             <div class="setmaxx-mobile-extra">
-                <a href="<?= htmlspecialchars($siteBase . '/index.php') ?>">Back to Main Site</a>
+                <a href="<?= htmlspecialchars($rssHomeUrl) ?>">Back to Main Site</a>
             </div>
         </div>
     </nav>
@@ -167,6 +182,18 @@ $suiteModules = [
     font-size:.68rem;
     text-transform:uppercase;
     letter-spacing:.04em;
+  }
+  .rss-suite-nav .rss-nav-badge {
+    min-width:1.35rem;
+    height:1.35rem;
+    display:inline-grid;
+    place-items:center;
+    padding:0 .35rem;
+    background:#f4d57a;
+    color:#101010;
+    font-size:.72rem;
+    font-weight:800;
+    line-height:1;
   }
   .setmaxx-subheader {
     border-top:1px solid rgba(255,255,255,.055);

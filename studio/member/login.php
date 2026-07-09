@@ -40,6 +40,9 @@ if (is_post()) {
 			Auth::touchLogin($pdo, $userId);
 			sync_user_entitlements($pdo, $userId);
 			$next = $_SESSION['login_next'] ?? Auth::defaultPostLoginUrl($pdo, $userId);
+			if (Auth::accountTypeForUser($pdo, $userId) === 'artist' && str_contains((string)$next, '/booking-request.php')) {
+				$next = Auth::defaultPostLoginUrl($pdo, $userId);
+			}
 			unset($_SESSION['login_next']);
 			unset($_SESSION['auth_brand']);
 			redirect($next);

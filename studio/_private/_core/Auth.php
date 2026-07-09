@@ -165,6 +165,9 @@ class Auth {
     if ($accountType === 'customer') {
       return self::siteBasePath() . '/booking-request.php';
     }
+    if ($accountType === 'artist') {
+      return self::siteBasePath() . '/artist-bookings.php';
+    }
 
     return base_url('member/library.php');
   }

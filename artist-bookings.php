@@ -22,7 +22,27 @@ $declineReasons = [
     'other' => 'Other',
 ];
 
+function artist_booking_request_column_exists(PDO $pdo, string $columnName): bool {
+    $stmt = $pdo->prepare("SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'booking_requests' AND column_name = ? LIMIT 1");
+    $stmt->execute([$columnName]);
+    return (bool)$stmt->fetchColumn();
+}
+
 function artist_booking_invite(PDO $pdo, int $inviteId, int $userId): ?array {
+    $closureReady = artist_booking_request_column_exists($pdo, 'hired_invite_id')
+        && artist_booking_request_column_exists($pdo, 'closed_note')
+        && artist_booking_request_column_exists($pdo, 'closed_at');
+    $closureSelect = $closureReady
+        ? "br.hired_invite_id, br.closed_note, br.closed_at, COALESCE(NULLIF(hired_pp.artist_name, ''), NULLIF(hired_u.display_name, ''), hired_u.email, 'Artist') AS hired_artist_name,"
+        : "NULL AS hired_invite_id, NULL AS closed_note, NULL AS closed_at, NULL AS hired_artist_name,";
+    $closureJoin = $closureReady
+        ? "
+        LEFT JOIN booking_invites hired_bi ON hired_bi.id = br.hired_invite_id
+        LEFT JOIN users hired_u ON hired_u.id = hired_bi.target_user_id
+        LEFT JOIN setmaxx_public_profiles hired_pp ON hired_pp.user_id = hired_bi.target_user_id
+    "
+        : "";
+
     $stmt = $pdo->prepare("
         SELECT
             bi.id AS invite_id,
@@ -41,10 +61,13 @@ function artist_booking_invite(PDO $pdo, int $inviteId, int $userId): ?array {
             br.state,
             br.budget_max,
             br.notes,
+            br.status AS request_status,
+            {$closureSelect}
             bb.amount AS bid_amount,
             bb.message AS bid_message
         FROM booking_invites bi
         JOIN booking_requests br ON br.id = bi.request_id
+        {$closureJoin}
         LEFT JOIN booking_bids bb ON bb.invite_id = bi.id AND bb.bidder_user_id = bi.target_user_id AND bb.status IN ('sent', 'accepted')
         WHERE bi.id = ?
           AND bi.target_user_id = ?
@@ -63,6 +86,8 @@ if (is_post()) {
         $invite = artist_booking_invite($pdo, $inviteId, $userId);
         if (!$invite) {
             $err = 'That booking request was not found for your account.';
+        } elseif ((string)($invite['request_status'] ?? 'open') !== 'open') {
+            $err = 'This event has been closed by the customer.';
         } else {
             $action = (string)($_POST['action'] ?? '');
             if ($action === 'quote') {
@@ -109,12 +134,14 @@ $listStmt = $pdo->prepare("
         br.city,
         br.state,
         br.budget_max,
+        br.status AS request_status,
         COALESCE(bb.amount, bi.quote_amount) AS bid_amount
     FROM booking_invites bi
     JOIN booking_requests br ON br.id = bi.request_id
     LEFT JOIN booking_bids bb ON bb.invite_id = bi.id AND bb.bidder_user_id = bi.target_user_id AND bb.status IN ('sent', 'accepted')
     WHERE bi.target_user_id = ?
     ORDER BY
+        CASE br.status WHEN 'open' THEN 1 ELSE 2 END,
         CASE bi.status WHEN 'pending' THEN 1 WHEN 'accepted' THEN 2 WHEN 'declined' THEN 3 ELSE 4 END,
         br.event_date IS NULL,
         br.event_date ASC,
@@ -136,7 +163,7 @@ $trialUrl = $siteBase . '/studio/member/pricing.php';
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Booking Requests | Ready Set Shows</title>
+  <title>Booking Leads | Ready Set Shows</title>
   <link rel="stylesheet" href="<?= e($siteBase . '/assets/css/style.css') ?>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -157,6 +184,9 @@ $trialUrl = $siteBase . '/studio/member/pricing.php';
     .artist-response-summary h3 { margin:0 0 .55rem; }
     .artist-response-summary p { margin:.35rem 0 0; }
     .artist-response-amount { color:#f4d57a; font-size:1.35rem; font-weight:800; }
+    .artist-closed-summary { margin:1rem 0; padding:1rem; border-radius:8px; border:1px solid rgba(255,255,255,.12); background:rgba(255,255,255,.055); }
+    .artist-closed-summary h3 { margin:0 0 .55rem; }
+    .artist-status-pill { display:inline-flex; align-items:center; min-height:24px; padding:.18rem .5rem; border-radius:999px; background:rgba(212,175,55,.14); color:#f4d57a; font-size:.78rem; font-weight:800; text-transform:capitalize; }
     .artist-quote-input { appearance:textfield; -moz-appearance:textfield; }
     .artist-quote-input::-webkit-outer-spin-button,
     .artist-quote-input::-webkit-inner-spin-button { -webkit-appearance:none; margin:0; }
@@ -166,26 +196,29 @@ $trialUrl = $siteBase . '/studio/member/pricing.php';
 <body>
 <?php include __DIR__ . '/includes/tools_header.php'; ?>
 <main class="container artist-booking-shell">
-  <h1>Booking Requests</h1>
-  <p class="muted">Review event requests, send a quote, or decline when it is not the right fit.</p>
+  <h1>Booking Leads</h1>
+  <p class="muted">Review event leads, send a quote, or decline when it is not the right fit.</p>
 
   <?php if ($err): ?><div class="alert" style="margin:1rem 0;"><?= e($err) ?></div><?php endif; ?>
   <?php if ($ok): ?><div class="alert" style="margin:1rem 0;"><?= e($ok) ?></div><?php endif; ?>
 
   <?php if (!$invites): ?>
     <section class="artist-panel">
-      <p class="muted">No booking requests yet.</p>
+      <p class="muted">No booking leads yet.</p>
     </section>
   <?php else: ?>
     <div class="artist-booking-layout">
       <aside class="artist-panel">
-        <h2 class="form-title">Requests</h2>
+        <h2 class="form-title">Leads</h2>
         <div class="artist-invite-list">
           <?php foreach ($invites as $invite): ?>
             <?php $dateText = !empty($invite['event_date']) ? date('M j, Y', strtotime((string)$invite['event_date'])) : 'Date TBD'; ?>
             <a class="<?= (int)$invite['id'] === $selectedId ? 'active' : '' ?>" href="<?= e($siteBase . '/artist-bookings.php?invite=' . (int)$invite['id']) ?>">
               <strong><?= e((string)($invite['event_title'] ?: 'Untitled event')) ?></strong>
-              <div class="artist-meta"><?= e($dateText) ?> &middot; <?= e((string)$invite['status']) ?><?= !empty($invite['bid_amount']) ? ' &middot; $' . e(number_format((float)$invite['bid_amount'], 0)) : '' ?></div>
+              <div class="artist-meta">
+                <?= e($dateText) ?> &middot; <?= e((string)$invite['status']) ?><?= !empty($invite['bid_amount']) ? ' &middot; $' . e(number_format((float)$invite['bid_amount'], 0)) : '' ?>
+                <?php if ((string)$invite['request_status'] !== 'open'): ?> &middot; <span class="artist-status-pill">closed</span><?php endif; ?>
+              </div>
             </a>
           <?php endforeach; ?>
         </div>
@@ -197,6 +230,7 @@ $trialUrl = $siteBase . '/studio/member/pricing.php';
         <?php else: ?>
           <?php $dateText = !empty($selectedInvite['event_date']) ? date('M j, Y', strtotime((string)$selectedInvite['event_date'])) : 'Date TBD'; ?>
           <?php $inviteStatus = (string)$selectedInvite['invite_status']; ?>
+          <?php $requestStatus = (string)($selectedInvite['request_status'] ?? 'open'); ?>
           <h2><?= e((string)($selectedInvite['event_title'] ?: 'Untitled event')) ?></h2>
           <p class="artist-meta">
             <?= e($dateText) ?>
@@ -205,6 +239,21 @@ $trialUrl = $siteBase . '/studio/member/pricing.php';
             <?php if (!empty($selectedInvite['budget_max'])): ?> &middot; Budget up to $<?= e(number_format((float)$selectedInvite['budget_max'], 0)) ?><?php endif; ?>
           </p>
           <?php if (!empty($selectedInvite['notes'])): ?><p><?= nl2br(e((string)$selectedInvite['notes'])) ?></p><?php endif; ?>
+
+          <?php if ($requestStatus !== 'open'): ?>
+            <div class="artist-closed-summary">
+              <h3>Event closed</h3>
+              <?php if ($requestStatus === 'fulfilled' && (int)($selectedInvite['hired_invite_id'] ?? 0) === (int)$selectedInvite['invite_id']): ?>
+                <p>The customer marked you as hired for this event.</p>
+              <?php elseif ($requestStatus === 'fulfilled' && !empty($selectedInvite['hired_artist_name'])): ?>
+                <p>The customer closed this event and marked <?= e((string)$selectedInvite['hired_artist_name']) ?> as hired.</p>
+              <?php else: ?>
+                <p>The customer closed this event without selecting a hired artist.</p>
+              <?php endif; ?>
+              <?php if (!empty($selectedInvite['closed_at'])): ?><p class="artist-meta">Closed <?= e(date('M j, Y', strtotime((string)$selectedInvite['closed_at']))) ?></p><?php endif; ?>
+              <?php if (!empty($selectedInvite['closed_note'])): ?><p><?= nl2br(e((string)$selectedInvite['closed_note'])) ?></p><?php endif; ?>
+            </div>
+          <?php endif; ?>
 
           <?php if ($inviteStatus === 'accepted'): ?>
             <?php
@@ -224,12 +273,13 @@ $trialUrl = $siteBase . '/studio/member/pricing.php';
             </div>
           <?php endif; ?>
 
-          <div class="artist-action-buttons">
-            <button class="btn btn-primary" type="button" data-artist-action="quote"><?= $inviteStatus === 'accepted' ? 'Edit Quote' : 'Quote' ?></button>
-            <button class="btn btn-outline" type="button" data-artist-action="decline"><?= $inviteStatus === 'declined' ? 'Edit Decline' : 'Decline' ?></button>
-          </div>
+          <?php if ($requestStatus === 'open'): ?>
+            <div class="artist-action-buttons">
+              <button class="btn btn-primary" type="button" data-artist-action="quote"><?= $inviteStatus === 'accepted' ? 'Edit Quote' : 'Quote' ?></button>
+              <button class="btn btn-outline" type="button" data-artist-action="decline"><?= $inviteStatus === 'declined' ? 'Edit Decline' : 'Decline' ?></button>
+            </div>
 
-          <div class="artist-action-panel <?= $inviteStatus === 'pending' ? 'is-open' : '' ?>" data-artist-panel="quote">
+            <div class="artist-action-panel <?= $inviteStatus === 'pending' ? 'is-open' : '' ?>" data-artist-panel="quote">
             <form class="form card" method="post" style="padding:1.15rem;">
               <h3 class="form-title"><?= $inviteStatus === 'accepted' ? 'Edit Quote' : 'Send Quote' ?></h3>
               <input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>">
@@ -245,9 +295,9 @@ $trialUrl = $siteBase . '/studio/member/pricing.php';
               </div>
               <button class="btn btn-primary" style="margin-top:1rem;"><?= $inviteStatus === 'accepted' ? 'Save Quote' : 'Send Quote' ?></button>
             </form>
-          </div>
+            </div>
 
-          <div class="artist-action-panel" data-artist-panel="decline">
+            <div class="artist-action-panel" data-artist-panel="decline">
             <form class="form card" method="post" style="padding:1.15rem;">
               <h3 class="form-title"><?= $inviteStatus === 'declined' ? 'Edit Decline' : 'Decline' ?></h3>
               <input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>">
@@ -267,7 +317,8 @@ $trialUrl = $siteBase . '/studio/member/pricing.php';
               </div>
               <button class="btn btn-outline" style="margin-top:1rem;"><?= $inviteStatus === 'declined' ? 'Save Decline' : 'Decline Request' ?></button>
             </form>
-          </div>
+            </div>
+          <?php endif; ?>
         <?php endif; ?>
       </section>
     </div>

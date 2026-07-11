@@ -1,8 +1,39 @@
 <?php
 require __DIR__ . '/../_private/_core/bootstrap.php';
 
+function login_safe_next_path(string $next): string
+{
+	$next = trim($next);
+	if ($next === '' || !str_starts_with($next, '/') || str_starts_with($next, '//')) {
+		return '';
+	}
+	if (preg_match('/[\x00-\x1F\x7F]/', $next)) {
+		return '';
+	}
+
+	$parts = parse_url($next);
+	if ($parts === false || isset($parts['scheme']) || isset($parts['host'])) {
+		return '';
+	}
+
+	return $next;
+}
+
+$requestedNext = login_safe_next_path((string)($_GET['next'] ?? ''));
+if ($requestedNext !== '') {
+	$_SESSION['login_next'] = $requestedNext;
+	if (($_GET['brand'] ?? '') !== 'rss') {
+		unset($_SESSION['auth_brand']);
+	}
+}
+
 if (Auth::isLoggedIn()) {
 	$userId = Auth::userId();
+	$next = login_safe_next_path((string)($_SESSION['login_next'] ?? ''));
+	if ($next !== '') {
+		unset($_SESSION['login_next']);
+		redirect($next);
+	}
 	redirect($userId ? Auth::defaultPostLoginUrl($pdo, (int)$userId) : base_url('member/library.php'));
 }
 
@@ -39,7 +70,7 @@ if (is_post()) {
 			Auth::login($userId);
 			Auth::touchLogin($pdo, $userId);
 			sync_user_entitlements($pdo, $userId);
-			$next = $_SESSION['login_next'] ?? Auth::defaultPostLoginUrl($pdo, $userId);
+			$next = login_safe_next_path((string)($_SESSION['login_next'] ?? '')) ?: Auth::defaultPostLoginUrl($pdo, $userId);
 			if (Auth::accountTypeForUser($pdo, $userId) === 'artist' && str_contains((string)$next, '/booking-request.php')) {
 				$next = Auth::defaultPostLoginUrl($pdo, $userId);
 			}

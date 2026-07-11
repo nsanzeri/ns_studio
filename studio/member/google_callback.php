@@ -13,6 +13,24 @@ function rss_google_redirect_uri(): string
 	return (string)env('GOOGLE_REDIRECT_URI');
 }
 
+function google_login_safe_next_path(string $next): string
+{
+	$next = trim($next);
+	if ($next === '' || !str_starts_with($next, '/') || str_starts_with($next, '//')) {
+		return '';
+	}
+	if (preg_match('/[\x00-\x1F\x7F]/', $next)) {
+		return '';
+	}
+
+	$parts = parse_url($next);
+	if ($parts === false || isset($parts['scheme']) || isset($parts['host'])) {
+		return '';
+	}
+
+	return $next;
+}
+
 if (!isset($_GET['state']) || !hash_equals((string)($_SESSION['google_oauth_state'] ?? ''), (string)$_GET['state'])) {
 	http_response_code(400);
 	echo 'Invalid Google login state.';
@@ -54,7 +72,7 @@ if ($requestedAccountType === 'artist' && Auth::accountTypeColumnExists($pdo) &&
 sync_user_entitlements($pdo, $userId);
 Auth::login($userId);
 
-$next = $_SESSION['login_next'] ?? Auth::defaultPostLoginUrl($pdo, $userId);
+$next = google_login_safe_next_path((string)($_SESSION['login_next'] ?? '')) ?: Auth::defaultPostLoginUrl($pdo, $userId);
 $accountType = Auth::accountTypeForUser($pdo, $userId);
 if ($accountType === 'artist' && str_contains((string)$next, '/booking-request.php')) {
 	$next = Auth::defaultPostLoginUrl($pdo, $userId);

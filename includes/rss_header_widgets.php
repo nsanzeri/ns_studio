@@ -117,9 +117,16 @@ if (!function_exists('rss_render_account_menu')) {
         $rssLogoutPages = ['directory.php', 'booking-request.php', 'my-bookings.php', 'artist-bookings.php', 'artist-bid.php'];
         $isRssLogoutContext = $idPrefix !== 'public'
             || (($_SESSION['auth_brand'] ?? '') === 'rss')
-            || str_contains($currentPath, '/studio/')
             || in_array(basename($currentPath), $rssLogoutPages, true);
         $logoutUrl = $studioBase . '/member/logout.php' . ($isRssLogoutContext ? '?brand=rss' : '');
+        $requestUri = str_replace('\\', '/', (string)($_SERVER['REQUEST_URI'] ?? $currentPath));
+        $loginParams = [];
+        if ($isRssLogoutContext) {
+            $loginParams['brand'] = 'rss';
+        } elseif (str_starts_with($requestUri, '/') && !str_starts_with($requestUri, '//')) {
+            $loginParams['next'] = $requestUri;
+        }
+        $loginUrl = $studioBase . '/member/login.php' . ($loginParams ? '?' . http_build_query($loginParams) : '');
         $modules = $accountType === 'customer'
             ? [
                 ['label' => 'Directory', 'href' => $ctx['site_base'] . '/directory.php', 'active' => basename($currentPath) === 'directory.php', 'soon' => false],
@@ -177,7 +184,7 @@ if (!function_exists('rss_render_account_menu')) {
                             <?php endforeach; ?>
                         </div>
                     <?php endif; ?>
-                    <a href="<?= htmlspecialchars($studioBase . '/member/login.php') ?>">Log in</a>
+                    <a href="<?= htmlspecialchars($loginUrl) ?>">Log in</a>
                     <a href="<?= htmlspecialchars($studioBase . '/member/register.php') ?>">Create account</a>
                 <?php endif; ?>
             </div>

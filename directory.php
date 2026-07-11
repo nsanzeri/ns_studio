@@ -185,6 +185,12 @@ if ($directoryReady) {
 
 $isLocal = str_contains(str_replace('\\', '/', $_SERVER['PHP_SELF'] ?? ''), '/ns_studio/');
 $siteBase = $isLocal ? '/ns_studio' : '';
+$directoryViewerAccountType = '';
+if (class_exists('Auth') && Auth::isLoggedIn()) {
+    $directoryViewerId = Auth::userId();
+    $directoryViewerAccountType = $directoryViewerId ? Auth::accountTypeForUser($pdo, (int)$directoryViewerId) : '';
+}
+$showQuoteAction = $directoryViewerAccountType !== 'artist';
 ?>
 <!doctype html>
 <html lang="en">
@@ -283,7 +289,9 @@ $siteBase = $isLocal ? '/ns_studio' : '';
               <?php endif; ?>
             </div>
             <div class="directory-actions">
-              <a class="directory-bid-action" href="<?= e($siteBase . '/booking-request.php?artists[]=' . (int)$artist['user_id']) ?>">Request Bid</a>
+              <?php if ($showQuoteAction): ?>
+                <a class="directory-bid-action" href="<?= e($siteBase . '/booking-request.php?artists[]=' . (int)$artist['user_id']) ?>">Get Quote</a>
+              <?php endif; ?>
               <?php if (!empty($artist['website_url'])): ?>
                 <a href="<?= e((string)$artist['website_url']) ?>" target="_blank" rel="noopener">Website</a>
               <?php endif; ?>

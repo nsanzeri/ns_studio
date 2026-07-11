@@ -54,6 +54,38 @@ if (!function_exists('product_file_map')) {
     }
 }
 
+if (!function_exists('ensure_product_row_for_key')) {
+    function ensure_product_row_for_key(PDO $pdo, string $productKey, array $meta): array
+    {
+        $productKey = trim($productKey);
+        if ($productKey === '') {
+            throw new RuntimeException('Missing product key.');
+        }
+
+        $title = trim((string)($meta['title'] ?? $productKey));
+        $filePath = trim((string)($meta['file_path'] ?? ''));
+
+        $pdo->prepare(
+            "INSERT INTO products (slug, name, kind, file_path)
+             VALUES (?, ?, 'digital', ?)
+             ON DUPLICATE KEY UPDATE
+                name = VALUES(name),
+                kind = VALUES(kind),
+                file_path = VALUES(file_path)"
+        )->execute([$productKey, $title !== '' ? $title : $productKey, $filePath !== '' ? $filePath : null]);
+
+        $stmt = $pdo->prepare('SELECT id, slug, name, kind, file_path FROM products WHERE slug = ? LIMIT 1');
+        $stmt->execute([$productKey]);
+        $product = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$product) {
+            throw new RuntimeException('No product row found for slug: ' . $productKey);
+        }
+
+        return $product;
+    }
+}
+
 if (!function_exists('subscription_plan_map')) {
     function subscription_plan_map(): array
     {

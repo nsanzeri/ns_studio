@@ -5,7 +5,25 @@ require_once __DIR__ . '/../_private/config/stripe.php';
 
 $products = product_file_map();
 $user = Auth::currentUser($pdo);
+if ($user) {
+  Auth::syncEntitlementsByEmail($pdo, (int)$user['id']);
+}
 $toolsAccess = $user ? rss_tools_access_badge($pdo) : ['state' => 'free', 'label' => 'Free plan'];
+$blueprintProduct = ensure_product_row_for_key($pdo, 'btb', $products['btb'] ?? []);
+$blueprintOwned = false;
+if ($user) {
+  $stmt = $pdo->prepare("
+    SELECT 1
+    FROM entitlements
+    WHERE user_id = ?
+      AND product_id = ?
+      AND status = 'active'
+      AND (expires_at IS NULL OR expires_at > NOW())
+    LIMIT 1
+  ");
+  $stmt->execute([(int)$user['id'], (int)$blueprintProduct['id']]);
+  $blueprintOwned = (bool)$stmt->fetchColumn();
+}
 $requestHost = strtolower((string)($_SERVER['HTTP_HOST'] ?? ''));
 $requestHost = preg_replace('/:\d+$/', '', $requestHost);
 $isReadySetShowsHost = in_array($requestHost, ['readysetshows.com', 'www.readysetshows.com'], true);
@@ -506,10 +524,15 @@ if ($isReadySetShowsHost) {
           <p class="product-description">
             A practical guide to sounding bigger, tighter, and more professional with backing tracks — built for solo musicians and small acts.
           </p>
-          <?php if (Auth::isLoggedIn()): ?>
-            <p class="muted" style="margin-top:.8rem;">Already have an account? Your purchases will appear in My Products.</p>
+          <?php if ($blueprintOwned): ?>
+            <p class="muted" style="margin-top:.8rem;">You own this product. Download it anytime from your account.</p>
+            <a class="btn btn-primary" href="<?= e(rss_studio_root_url() . '/member/download.php?product_id=' . (int)$blueprintProduct['id']) ?>">Download Blueprint</a>
+          <?php else: ?>
+            <?php if (Auth::isLoggedIn()): ?>
+              <p class="muted" style="margin-top:.8rem;">Already bought it? Use the same checkout email and it will appear here automatically.</p>
+            <?php endif; ?>
+            <a class="btn btn-primary" href="<?= e(rss_studio_root_url() . '/shop/blueprint.php') ?>">View Product</a>
           <?php endif; ?>
-          <a class="btn btn-primary" href="<?= e(rss_studio_root_url() . '/shop/blueprint.php') ?>">View Product</a>
         </div>
         <a href="<?= e(rss_studio_root_url() . '/shop/blueprint.php') ?>">
           <img src="<?= e(base_url('../assets/img/BackingTrackBlueprint.png')) ?>" alt="Backing Track Blueprint cover">

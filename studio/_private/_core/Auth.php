@@ -198,10 +198,12 @@ class Auth {
       INSERT INTO entitlements (user_id, product_id, source, status, expires_at)
       SELECT DISTINCT ?, p.id, 'purchase', 'active', NULL
       FROM purchases pu
-      JOIN download_tokens dt
+      LEFT JOIN download_tokens dt
         ON dt.checkout_session_id = pu.stripe_checkout_session_id
       JOIN products p
-        ON p.slug = dt.product_key
+        ON p.id = pu.product_id
+        OR (pu.product_id IS NULL AND p.id = dt.product_id)
+        OR (pu.product_id IS NULL AND dt.product_id IS NULL AND p.slug = dt.product_key)
       LEFT JOIN entitlements e
         ON e.user_id = ?
        AND e.product_id = p.id

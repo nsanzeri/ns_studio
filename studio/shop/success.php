@@ -72,6 +72,11 @@ try {
 	
 	$email = $session->customer_details->email ?? null;
 	$meta = $products[$product_key];
+	$product = ensure_product_row_for_key($pdo, $product_key, $meta);
+	$productId = (int)$product['id'];
+	$livemode = !empty($session->livemode) ? 1 : 0;
+	$paymentIntentId = is_string($session->payment_intent ?? null) ? (string)$session->payment_intent : (string)($session->payment_intent->id ?? '');
+	$customerId = is_string($session->customer ?? null) ? (string)$session->customer : (string)($session->customer->id ?? '');
 	
 	$expires_at = (new DateTimeImmutable('now'))
 	->add(new DateInterval('PT' . max(1, (int)$meta['expires_minutes']) . 'M'))
@@ -79,14 +84,80 @@ try {
 	
 	// 3) Mint token immediately (idempotent)
 	$pdo->beginTransaction();
+
+	$purchaseEmail = strtolower(trim((string)$email));
+	if ($purchaseEmail !== '') {
+		$pdo->prepare(
+			"INSERT INTO purchases
+				(stripe_checkout_session_id, stripe_payment_intent_id, stripe_customer_id, purchaser_email, product_id, amount_total, currency, livemode, status, paid_at)
+			 VALUES
+				(?, ?, ?, ?, ?, ?, ?, ?, 'paid', NOW())
+			 ON DUPLICATE KEY UPDATE
+				stripe_payment_intent_id = VALUES(stripe_payment_intent_id),
+				stripe_customer_id = VALUES(stripe_customer_id),
+				purchaser_email = VALUES(purchaser_email),
+				product_id = VALUES(product_id),
+				amount_total = VALUES(amount_total),
+				currency = VALUES(currency),
+				status = 'paid',
+				paid_at = COALESCE(paid_at, VALUES(paid_at))"
+		)->execute([
+			$session_id,
+			$paymentIntentId !== '' ? $paymentIntentId : null,
+			$customerId !== '' ? $customerId : null,
+			$purchaseEmail,
+			$productId,
+			$session->amount_total ?? null,
+			$session->currency ?? null,
+			$livemode,
+		]);
+	}
+
+	$stmt = $pdo->prepare("SELECT id FROM purchases WHERE stripe_checkout_session_id = ? AND livemode = ? LIMIT 1");
+	$stmt->execute([$session_id, $livemode]);
+	$purchaseId = (int)($stmt->fetchColumn() ?: 0);
+
+	if ($purchaseId > 0) {
+		$pdo->prepare(
+			"INSERT IGNORE INTO purchase_items
+				(purchase_id, product_id, quantity, unit_amount, line_amount_total, metadata_json)
+			 VALUES
+				(?, ?, 1, ?, ?, ?)"
+		)->execute([
+			$purchaseId,
+			$productId,
+			$session->amount_total ?? null,
+			$session->amount_total ?? null,
+			json_encode([
+				'source' => 'success_page_fallback',
+				'checkout_session_id' => $session_id,
+				'product_key' => $product_key,
+			], JSON_UNESCAPED_SLASHES),
+		]);
+	}
+
+	if ($purchaseEmail !== '') {
+		$stmt = $pdo->prepare('SELECT id FROM users WHERE email = ? LIMIT 1');
+		$stmt->execute([$purchaseEmail]);
+		$userId = (int)($stmt->fetchColumn() ?: 0);
+
+		if ($userId > 0) {
+			$pdo->prepare(
+				"INSERT IGNORE INTO entitlements
+					(user_id, product_id, source, status, expires_at)
+				 VALUES
+					(?, ?, 'purchase', 'active', NULL)"
+			)->execute([$userId, $productId]);
+		}
+	}
 	
 	$token = bin2hex(random_bytes(32));
 	try {
 		$pdo->prepare("
 			INSERT INTO download_tokens
-				(token, checkout_session_id, purchaser_email, product_key, file_path, expires_at, uses_remaining)
+				(token, checkout_session_id, purchaser_email, product_key, file_path, expires_at, uses_remaining, purchase_id, product_id)
 			VALUES
-				(?, ?, ?, ?, ?, ?, ?)
+				(?, ?, ?, ?, ?, ?, ?, ?, ?)
 		")->execute([
 				$token,
 				$session_id,
@@ -95,6 +166,8 @@ try {
 				$meta['file_path'],
 				$expires_at,
 				(int)$meta['uses'],
+				$purchaseId > 0 ? $purchaseId : null,
+				$productId,
 		]);
 	} catch (PDOException $e) {
 		$sqlState = $e->getCode();
@@ -110,6 +183,26 @@ try {
 			$stmt->execute([$session_id, $product_key]);
 			$existing = $stmt->fetch(PDO::FETCH_ASSOC);
 			$token = $existing['token'] ?? $token;
+
+			$pdo->prepare(
+				"UPDATE download_tokens
+				 SET purchaser_email = ?,
+				     file_path = ?,
+				     expires_at = ?,
+				     uses_remaining = ?,
+				     purchase_id = COALESCE(purchase_id, ?),
+				     product_id = COALESCE(product_id, ?)
+				 WHERE checkout_session_id = ? AND product_key = ?"
+			)->execute([
+				$email,
+				$meta['file_path'],
+				$expires_at,
+				(int)$meta['uses'],
+				$purchaseId > 0 ? $purchaseId : null,
+				$productId,
+				$session_id,
+				$product_key,
+			]);
 		} else {
 			throw $e;
 		}

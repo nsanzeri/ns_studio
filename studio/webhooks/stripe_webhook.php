@@ -327,16 +327,9 @@ if (!function_exists('handle_paid_product_checkout')) {
             throw new RuntimeException('Missing customer email');
         }
 
-        $stmt = $pdo->prepare('SELECT id, slug, name, file_path FROM products WHERE slug = ? LIMIT 1');
-        $stmt->execute([$productKey]);
-        $product = $stmt->fetch(PDO::FETCH_ASSOC);
-
-        if (!$product) {
-            throw new RuntimeException('No product row found for slug: ' . $productKey);
-        }
-
-        $productId = (int)$product['id'];
         $meta = $products[$productKey];
+        $product = ensure_product_row_for_key($pdo, $productKey, $meta);
+        $productId = (int)$product['id'];
         $expiresAt = (new DateTimeImmutable('now'))->add(new DateInterval('PT' . (int)$meta['expires_minutes'] . 'M'));
 
         $pdo->beginTransaction();

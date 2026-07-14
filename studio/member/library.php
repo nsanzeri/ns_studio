@@ -74,6 +74,13 @@ $items = array_values(array_filter($items, static function (array $it) use ($too
 			'trial_url'   => rss_tool_trial_url(),
 			'settings_url'=> base_url('member/settings.php'),
 	];
+	$toolsPrimaryActionLabel = $toolsState === 'free' ? 'Open Free Tools' : 'Open Ready Set Shows';
+	$toolsSecondaryActionUrl = $toolsState === 'free'
+			? $toolsActions['trial_url']
+			: ($toolsState === 'paid' ? $toolsActions['settings_url'] : $toolsActions['pricing_url']);
+	$toolsSecondaryActionLabel = $toolsState === 'free'
+			? 'Start Free Trial'
+			: ($toolsState === 'trial' ? 'View Pro Plan' : 'Manage Subscription');
 $requestHost = strtolower((string)($_SERVER['HTTP_HOST'] ?? ''));
 $requestHost = preg_replace('/:\d+$/', '', $requestHost);
 $accountType = Auth::normalizeAccountType((string)($user['account_type'] ?? 'artist'));
@@ -93,7 +100,6 @@ $isReadySetShowsHost = in_array($requestHost, ['readysetshows.com', 'www.readyse
 
   <style>
     @media (max-width: 820px) {
-      main details { grid-column: 1 / -1; }
       main .card > div[style*="grid-template-columns"] { grid-template-columns: 1fr !important; }
     }
   </style>
@@ -115,8 +121,7 @@ if ($isReadySetShowsHost) {
   </div>
 
   <div style="margin-top:1.25rem; display:grid; gap:1rem;">
-    <div class="card" style="padding:1.25rem; border-color:rgba(212,175,55,.28);">
-      <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:1rem; flex-wrap:wrap;">
+    <div class="card" style="padding:1.15rem; border-color:rgba(212,175,55,.28); display:flex; align-items:center; justify-content:space-between; gap:1rem; flex-wrap:wrap;">
         <div style="max-width:720px;">
           <div style="display:flex; align-items:center; gap:.55rem; flex-wrap:wrap;">
             <div style="font-weight:700; font-size:1.2rem;">Ready Set Shows Pro</div>
@@ -127,60 +132,15 @@ if ($isReadySetShowsHost) {
           <div class="muted" style="font-size:0.94rem; margin-top:.25rem;">
             <?= e($toolsBadge['description']) ?>
           </div>
-          <p class="muted" style="margin:.75rem 0 0; max-width:680px;">
-              Your working-musician toolkit: calendar availability, setlist planning, publishing, finance tracking, and Pro upgrades for the higher-value workflows.
+          <p class="muted" style="margin:.45rem 0 0; max-width:680px;">
+              Calendar, SetMaxx, Finance, Publishing, booking leads, and the working-musician tools in one place.
           </p>
         </div>
 
-        <div style="display:flex; gap:.65rem; flex-wrap:wrap;">
-          <a class="btn btn-outline" href="<?= e($toolsActions['launch_url']) ?>">Open Calendar Tools</a>
-          <a class="btn btn-outline" href="<?= e(base_url('setmaxx/index.php')) ?>">Open Set Maxx</a>
-          <?php if ($toolsState === 'free'): ?>
-            <a class="btn btn-primary" href="<?= e($toolsActions['trial_url']) ?>">Start Free Trial</a>
-          <?php else: ?>
-            <a class="btn btn-primary" href="<?= e($toolsState === 'paid' ? $toolsActions['settings_url'] : $toolsActions['pricing_url']) ?>">
-              <?= $toolsState === 'trial' ? 'View Pro Plan' : 'Manage Subscription' ?>
-            </a>
-          <?php endif; ?>
+        <div style="display:flex; gap:.65rem; flex-wrap:wrap; align-items:center;">
+          <a class="btn btn-primary" href="<?= e($toolsActions['launch_url']) ?>"><?= e($toolsPrimaryActionLabel) ?></a>
+          <a class="btn btn-outline" href="<?= e($toolsSecondaryActionUrl) ?>"><?= e($toolsSecondaryActionLabel) ?></a>
         </div>
-      </div>
-
-      <div style="display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.85rem; margin-top:1.15rem;">
-        <details open style="border:1px solid rgba(255,255,255,.08); border-radius:18px; padding:1rem; background:rgba(255,255,255,.03);">
-          <summary style="cursor:pointer; font-weight:700;">Availability & Calendar Tools</summary>
-          <p class="muted" style="margin:.65rem 0 .75rem;">Find open dates across calendars, format availability for clients, and prepare gig data for real-world musician workflows.</p>
-          <ul class="muted" style="margin:0; padding-left:1.2rem; font-size:.92rem;">
-            <li>Multi-calendar availability checking</li>
-            <li>Bandsintown bulk-upload prep</li>
-            <li>Multiple date-output formats</li>
-            <li>Printable/client-friendly calendar views</li>
-          </ul>
-        </details>
-
-        <details style="border:1px solid rgba(255,255,255,.08); border-radius:18px; padding:1rem; background:rgba(255,255,255,.03);">
-          <summary style="cursor:pointer; font-weight:700;">Set Maxx</summary>
-          <p class="muted" style="margin:.65rem 0 .75rem;">Build your song catalog and generate setlists for free, then upgrade when you want live public request pages.</p>
-          <ul class="muted" style="margin:0 0 .85rem; padding-left:1.2rem; font-size:.92rem;">
-            <li>Song catalog management</li>
-            <li>Setlist generation and planning</li>
-            <li>Pro live gig request pages</li>
-            <li>Pro request queue, played, and decline workflow</li>
-          </ul>
-          <a class="btn btn-outline" href="<?= e(base_url('setmaxx/index.php')) ?>">Launch Set Maxx</a>
-        </details>
-
-        <details style="border:1px solid rgba(255,255,255,.08); border-radius:18px; padding:1rem; background:rgba(255,255,255,.03);">
-          <summary style="cursor:pointer; font-weight:700;">Publishing Tools</summary>
-          <p class="muted" style="margin:.65rem 0 .85rem;">Generate promo blurbs, social captions, newsletter copy, and date-list copy from your gig ledger.</p>
-          <a class="btn btn-outline" href="<?= e(base_url('publishing/index.php')) ?>">Launch Publishing</a>
-        </details>
-
-        <details style="border:1px solid rgba(255,255,255,.08); border-radius:18px; padding:1rem; background:rgba(255,255,255,.03);">
-          <summary style="cursor:pointer; font-weight:700;">Finance</summary>
-          <p class="muted" style="margin:.65rem 0 .85rem;">Track gig records, guarantees, tips, year comparisons, and average gig value from your finance dashboard.</p>
-          <a class="btn btn-outline" href="<?= e(base_url('finance/index.php')) ?>">Launch Finance</a>
-        </details>
-      </div>
     </div>
 
     <?php if (!$items): ?>

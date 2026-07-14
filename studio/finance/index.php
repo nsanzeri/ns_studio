@@ -6,8 +6,10 @@ if ($year < 2000 || $year > ((int)date('Y') + 2)) $year = (int)date('Y');
 $range = (string)($_GET['range'] ?? 'year');
 if ($range !== 'all') $range = 'year';
 $previousYear = $year - 1;
+$compareYear = (int)($_GET['compare_year'] ?? $previousYear);
 
 $summary = [
+    'last_week' => ['gigs' => 0, 'gross_cents' => 0, 'tips_cents' => 0, 'net_cents' => 0],
     'week' => ['gigs' => 0, 'gross_cents' => 0, 'tips_cents' => 0, 'net_cents' => 0],
     'month' => ['gigs' => 0, 'gross_cents' => 0, 'tips_cents' => 0, 'net_cents' => 0],
     'year' => ['gigs' => 0, 'gross_cents' => 0, 'tips_cents' => 0, 'net_cents' => 0],
@@ -16,6 +18,7 @@ $monthlyRows = [];
 $previousMonthlyRows = [];
 $memberRows = [];
 $availableYears = [];
+$comparisonYears = [];
 $overview = [
     'gigs' => 0,
     'guarantee_cents' => 0,
@@ -26,6 +29,7 @@ $overview = [
 $highestNetGig = null;
 $lowestNetGig = null;
 $biggestMonth = null;
+$smallestMonth = null;
 $chartRows = [];
 $chartLabels = [];
 $chartValues = [];
@@ -52,6 +56,15 @@ if ($financeReady) {
         $year = $availableYears[0];
         $previousYear = $year - 1;
     }
+    $comparisonYears = array_values(array_filter($availableYears, static fn($value) => (int)$value < $year));
+    if ($comparisonYears) {
+        if (!in_array($compareYear, $comparisonYears, true)) {
+            $compareYear = in_array($previousYear, $comparisonYears, true) ? $previousYear : max($comparisonYears);
+        }
+    } else {
+        $compareYear = $previousYear;
+    }
+    $previousYear = $compareYear;
 
     $summarySql = "
         SELECT
@@ -68,6 +81,7 @@ if ($financeReady) {
         WHERE g.user_id = ?
     ";
     $ranges = [
+        'last_week' => ["g.starts_at >= DATE_SUB(DATE_SUB(CURDATE(), INTERVAL WEEKDAY(CURDATE()) DAY), INTERVAL 7 DAY) AND g.starts_at < DATE_SUB(CURDATE(), INTERVAL WEEKDAY(CURDATE()) DAY)"],
         'week' => ["g.starts_at >= DATE_SUB(CURDATE(), INTERVAL WEEKDAY(CURDATE()) DAY) AND g.starts_at < DATE_ADD(DATE_SUB(CURDATE(), INTERVAL WEEKDAY(CURDATE()) DAY), INTERVAL 7 DAY)"],
         'month' => ["YEAR(g.starts_at) = YEAR(CURDATE()) AND MONTH(g.starts_at) = MONTH(CURDATE())"],
         'year' => ["YEAR(g.starts_at) = ?"],
@@ -207,6 +221,25 @@ if ($financeReady) {
     ");
     $biggestMonthStmt->execute($overviewParams);
     $biggestMonth = $biggestMonthStmt->fetch(PDO::FETCH_ASSOC) ?: null;
+
+    $smallestMonthStmt = $pdo->prepare("
+        SELECT
+          YEAR(g.starts_at) AS year_num,
+          MONTH(g.starts_at) AS month_num,
+          COALESCE(SUM(g.guarantee_cents + g.tips_cents - COALESCE(p.payout_cents, 0)), 0) AS net_cents
+        FROM finance_gigs g
+        LEFT JOIN (
+          SELECT gig_id, SUM(amount_cents) AS payout_cents
+          FROM finance_gig_payouts
+          GROUP BY gig_id
+        ) p ON p.gig_id = g.id
+        WHERE {$overviewWhere}
+        GROUP BY YEAR(g.starts_at), MONTH(g.starts_at)
+        ORDER BY net_cents ASC, YEAR(g.starts_at) ASC, MONTH(g.starts_at) ASC
+        LIMIT 1
+    ");
+    $smallestMonthStmt->execute($overviewParams);
+    $smallestMonth = $smallestMonthStmt->fetch(PDO::FETCH_ASSOC) ?: null;
 }
 
 $previousByMonth = [];
@@ -261,6 +294,39 @@ $gigAverageGuarantee = (int)round((int)$overview['guarantee_cents'] / $gigCount)
 $gigAverageTips = (int)round((int)$overview['tips_cents'] / $gigCount);
 $gigAverageCombined = (int)round((int)$overview['gross_cents'] / $gigCount);
 $overviewLabel = $range === 'all' ? 'All years' : (string)$year;
+$overviewStats = [
+    ['label' => 'Total gigs', 'value' => (string)(int)$overview['gigs']],
+    ['label' => $range === 'all' ? 'All-time total' : 'Yearly total', 'value' => finance_money((int)$overview['gross_cents'])],
+    ['label' => 'Guarantee total', 'value' => finance_money((int)$overview['guarantee_cents'])],
+    ['label' => 'Tips total', 'value' => finance_money((int)$overview['tips_cents'])],
+    ['label' => 'Yearly avg guarantee', 'value' => finance_money($gigAverageGuarantee)],
+    ['label' => 'Yearly avg tips', 'value' => finance_money($gigAverageTips)],
+    ['label' => 'Yearly avg combined', 'value' => finance_money($gigAverageCombined)],
+    ['label' => 'Monthly avg guarantee', 'value' => finance_money($monthlyAverageGuarantee)],
+    ['label' => 'Monthly avg tips', 'value' => finance_money($monthlyAverageTips)],
+    ['label' => 'Monthly avg combined', 'value' => finance_money($monthlyAverageCombined)],
+    [
+        'label' => 'Highest net gig',
+        'value' => $highestNetGig ? finance_money((int)$highestNetGig['net_cents']) : '$0.00',
+        'detail' => $highestNetGig ? (string)$highestNetGig['title'] . ' · ' . (new DateTime((string)$highestNetGig['starts_at']))->format('M j') : '',
+    ],
+    [
+        'label' => 'Lowest net gig',
+        'value' => $lowestNetGig ? finance_money((int)$lowestNetGig['net_cents']) : '$0.00',
+        'detail' => $lowestNetGig ? (string)$lowestNetGig['title'] . ' · ' . (new DateTime((string)$lowestNetGig['starts_at']))->format('M j') : '',
+    ],
+    [
+        'label' => 'Biggest month',
+        'value' => $biggestMonth ? finance_money((int)$biggestMonth['net_cents']) : '$0.00',
+        'detail' => $biggestMonth ? date($range === 'all' ? 'M Y' : 'F', mktime(0, 0, 0, (int)$biggestMonth['month_num'], 1, (int)$biggestMonth['year_num'])) : '',
+    ],
+    [
+        'label' => 'Smallest month',
+        'value' => $smallestMonth ? finance_money((int)$smallestMonth['net_cents']) : '$0.00',
+        'detail' => $smallestMonth ? date($range === 'all' ? 'M Y' : 'F', mktime(0, 0, 0, (int)$smallestMonth['month_num'], 1, (int)$smallestMonth['year_num'])) : '',
+    ],
+];
+$overviewStatRows = array_chunk($overviewStats, 3);
 $monthlyTotals = ['gigs' => 0, 'guarantee_cents' => 0, 'tips_cents' => 0, 'net_cents' => 0];
 foreach ($monthlyRows as $row) {
     $monthlyTotals['gigs'] += (int)$row['gigs'];
@@ -338,36 +404,31 @@ finance_page_head('Finance | Ready Set Shows');
         <?php endif; ?>
       </div>
 
-      <div class="finance-overview-stats">
-        <div class="finance-stat-mini"><span>Gig total</span><strong><?= (int)$overview['gigs'] ?></strong></div>
-        <div class="finance-stat-mini"><span>Tips total</span><strong><?= finance_money((int)$overview['tips_cents']) ?></strong></div>
-        <div class="finance-stat-mini"><span>Monthly avg guarantee</span><strong><?= finance_money($monthlyAverageGuarantee) ?></strong></div>
-        <div class="finance-stat-mini"><span>Monthly avg tips</span><strong><?= finance_money($monthlyAverageTips) ?></strong></div>
-        <div class="finance-stat-mini"><span>Monthly avg combined</span><strong><?= finance_money($monthlyAverageCombined) ?></strong></div>
-        <div class="finance-stat-mini"><span>Avg guarantee per gig</span><strong><?= finance_money($gigAverageGuarantee) ?></strong></div>
-        <div class="finance-stat-mini"><span>Avg tips per gig</span><strong><?= finance_money($gigAverageTips) ?></strong></div>
-        <div class="finance-stat-mini"><span>Avg combined per gig</span><strong><?= finance_money($gigAverageCombined) ?></strong></div>
-        <div class="finance-stat-mini"><span><?= $range === 'all' ? 'All-time total' : 'Yearly total' ?></span><strong><?= finance_money((int)$overview['gross_cents']) ?></strong></div>
-        <div class="finance-stat-mini">
-          <span>Highest net gig</span>
-          <strong><?= $highestNetGig ? finance_money((int)$highestNetGig['net_cents']) : '$0.00' ?></strong>
-          <?php if ($highestNetGig): ?><em><?= e((string)$highestNetGig['title']) ?> &middot; <?= e((new DateTime((string)$highestNetGig['starts_at']))->format('M j')) ?></em><?php endif; ?>
-        </div>
-        <div class="finance-stat-mini">
-          <span>Lowest net gig</span>
-          <strong><?= $lowestNetGig ? finance_money((int)$lowestNetGig['net_cents']) : '$0.00' ?></strong>
-          <?php if ($lowestNetGig): ?><em><?= e((string)$lowestNetGig['title']) ?> &middot; <?= e((new DateTime((string)$lowestNetGig['starts_at']))->format('M j')) ?></em><?php endif; ?>
-        </div>
-        <div class="finance-stat-mini">
-          <span>Biggest month</span>
-          <strong><?= $biggestMonth ? finance_money((int)$biggestMonth['net_cents']) : '$0.00' ?></strong>
-          <?php if ($biggestMonth): ?><em><?= e(date($range === 'all' ? 'M Y' : 'F', mktime(0, 0, 0, (int)$biggestMonth['month_num'], 1, (int)$biggestMonth['year_num']))) ?></em><?php endif; ?>
-        </div>
+      <div class="finance-table-wrap finance-overview-table-wrap">
+        <table class="finance-overview-table">
+          <tbody>
+            <?php foreach ($overviewStatRows as $statRow): ?>
+              <tr>
+                <?php for ($i = 0; $i < 3; $i++): $stat = $statRow[$i] ?? null; ?>
+                  <?php if ($stat): ?>
+                    <th><?= e((string)$stat['label']) ?></th>
+                    <td>
+                      <strong><?= e((string)$stat['value']) ?></strong>
+                      <?php if (!empty($stat['detail'])): ?><em><?= e((string)$stat['detail']) ?></em><?php endif; ?>
+                    </td>
+                  <?php else: ?>
+                    <th></th><td></td>
+                  <?php endif; ?>
+                <?php endfor; ?>
+              </tr>
+            <?php endforeach; ?>
+          </tbody>
+        </table>
       </div>
     </section>
 
     <section class="finance-grid" style="margin-bottom:1rem;">
-      <?php foreach (['week' => 'This week', 'month' => 'This month', 'year' => (string)$year] as $key => $label): ?>
+      <?php foreach (['last_week' => 'Last week', 'week' => 'This week', 'month' => 'This month', 'year' => (string)$year] as $key => $label): ?>
         <div class="finance-card finance-stat">
           <span class="finance-pill"><?= e($label) ?></span>
           <strong><?= finance_money((int)$summary[$key]['net_cents']) ?></strong>
@@ -410,13 +471,30 @@ finance_page_head('Finance | Ready Set Shows');
         <?php endif; ?>
       </div>
       <div class="finance-card">
-        <h2 style="margin-top:0;">Previous year comparison</h2>
+        <div style="display:flex; justify-content:space-between; gap:1rem; align-items:flex-start; flex-wrap:wrap;">
+          <div>
+            <h2 style="margin:0;">Previous year comparison</h2>
+            <p class="finance-muted" style="margin:.35rem 0 0;">Compare <?= (int)$year ?> against an earlier year.</p>
+          </div>
+          <?php if ($comparisonYears): ?>
+            <form method="get" class="finance-compare-form">
+              <input type="hidden" name="year" value="<?= (int)$year ?>">
+              <?php if ($range === 'all'): ?><input type="hidden" name="range" value="all"><?php endif; ?>
+              <label for="compareYear">Compare to</label>
+              <select id="compareYear" name="compare_year" onchange="this.form.submit()">
+                <?php foreach ($comparisonYears as $availableCompareYear): ?>
+                  <option value="<?= (int)$availableCompareYear ?>" <?= (int)$availableCompareYear === (int)$compareYear ? 'selected' : '' ?>><?= (int)$availableCompareYear ?></option>
+                <?php endforeach; ?>
+              </select>
+            </form>
+          <?php endif; ?>
+        </div>
         <?php if (!$monthlyRows || !$previousMonthlyRows): ?>
-          <p class="finance-muted">Comparison appears once there is data for both <?= (int)$year ?> and <?= (int)$previousYear ?>.</p>
+          <p class="finance-muted">Comparison appears once there is data for both <?= (int)$year ?> and <?= (int)$compareYear ?>.</p>
         <?php else: ?>
           <div class="finance-table-wrap">
             <table class="finance-table" style="min-width:620px;">
-              <thead><tr><th>Month</th><th><?= (int)$year ?> Net</th><th><?= (int)$previousYear ?> Net</th><th>Change</th></tr></thead>
+              <thead><tr><th>Month</th><th><?= (int)$year ?> Net</th><th><?= (int)$compareYear ?> Net</th><th>Change</th></tr></thead>
               <tbody>
                 <?php foreach ($monthlyRows as $row): $prev = $previousByMonth[(int)$row['month_num']] ?? null; $changeCents = (int)$row['net_cents'] - (int)($prev['net_cents'] ?? 0); ?>
                   <tr>

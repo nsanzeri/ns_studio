@@ -5,6 +5,7 @@ $songCount = 0;
 $sessionCount = 0;
 $liveSession = null;
 $lifetimeDollarsCents = 0;
+$averagePlatformTipsPerSession = 0;
 $recentRequests = [];
 
 if ($tablesReady) {
@@ -15,6 +16,16 @@ if ($tablesReady) {
     $stmt = $pdo->prepare("SELECT COUNT(*) FROM setmaxx_gig_sessions WHERE user_id = ?");
     $stmt->execute([$userId]);
     $sessionCount = (int)$stmt->fetchColumn();
+
+    if (
+        setmaxx_table_exists($pdo, 'finance_gigs')
+        && setmaxx_column_exists($pdo, 'finance_gigs', 'platform_tips_cents')
+        && $sessionCount > 0
+    ) {
+        $stmt = $pdo->prepare("SELECT COALESCE(SUM(platform_tips_cents), 0) FROM finance_gigs WHERE user_id = ?");
+        $stmt->execute([$userId]);
+        $averagePlatformTipsPerSession = (int)round(((int)$stmt->fetchColumn()) / $sessionCount);
+    }
 
     if (setmaxx_column_exists($pdo, 'setmaxx_requests', 'payment_method')) {
         $stmt = $pdo->prepare(
@@ -88,6 +99,7 @@ setmaxx_page_head('Set Maxx | Dashboard');
         <div class="setmaxx-list">
           <div class="setmaxx-row"><strong><?= (int)$songCount ?></strong><span class="setmaxx-meta">songs in catalog</span></div>
           <div class="setmaxx-row"><strong><?= (int)$sessionCount ?></strong><span class="setmaxx-meta">gig sessions created</span></div>
+          <div class="setmaxx-row"><strong><?= e(setmaxx_money($averagePlatformTipsPerSession)) ?></strong><span class="setmaxx-meta">avg platform tips per saved session</span></div>
           <div class="setmaxx-row"><strong><?= e(setmaxx_money($lifetimeDollarsCents)) ?></strong><span class="setmaxx-meta">lifetime request and tip dollars</span></div>
         </div>
       <?php endif; ?>

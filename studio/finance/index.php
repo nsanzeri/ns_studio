@@ -23,6 +23,7 @@ $overview = [
     'gigs' => 0,
     'guarantee_cents' => 0,
     'tips_cents' => 0,
+    'platform_tips_cents' => 0,
     'gross_cents' => 0,
     'active_months' => 0,
 ];
@@ -144,6 +145,7 @@ if ($financeReady) {
           COUNT(*) AS gigs,
           COALESCE(SUM(g.guarantee_cents), 0) AS guarantee_cents,
           COALESCE(SUM(g.tips_cents), 0) AS tips_cents,
+          COALESCE(SUM(g.platform_tips_cents), 0) AS platform_tips_cents,
           COALESCE(SUM(g.guarantee_cents + g.tips_cents), 0) AS gross_cents,
           COUNT(DISTINCT DATE_FORMAT(g.starts_at, '%Y-%m')) AS active_months
         FROM finance_gigs g
@@ -299,6 +301,7 @@ $overviewStats = [
     ['label' => $range === 'all' ? 'All-time total' : 'Yearly total', 'value' => finance_money((int)$overview['gross_cents'])],
     ['label' => 'Guarantee total', 'value' => finance_money((int)$overview['guarantee_cents'])],
     ['label' => 'Tips total', 'value' => finance_money((int)$overview['tips_cents'])],
+    ['label' => 'Platform tips', 'value' => finance_money((int)$overview['platform_tips_cents'])],
     ['label' => 'Yearly avg guarantee', 'value' => finance_money($gigAverageGuarantee)],
     ['label' => 'Yearly avg tips', 'value' => finance_money($gigAverageTips)],
     ['label' => 'Yearly avg combined', 'value' => finance_money($gigAverageCombined)],

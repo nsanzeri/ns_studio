@@ -31,6 +31,13 @@ function google_login_safe_next_path(string $next): string
 	return $next;
 }
 
+function google_login_default_post_login_url(PDO $pdo, int $userId, bool $isReadySetShowsContext): string
+{
+	return $isReadySetShowsContext
+		? Auth::defaultPostLoginUrl($pdo, $userId)
+		: base_url('member/library.php');
+}
+
 if (!isset($_GET['state']) || !hash_equals((string)($_SESSION['google_oauth_state'] ?? ''), (string)$_GET['state'])) {
 	http_response_code(400);
 	echo 'Invalid Google login state.';
@@ -66,16 +73,23 @@ if (!$email || !$sub) {
 
 $userId = Auth::upsertGoogleUser($pdo, $sub, $email, $name ?: null);
 $requestedAccountType = isset($_SESSION['registration_account_type']) ? Auth::normalizeAccountType((string)$_SESSION['registration_account_type']) : '';
+$requestHost = strtolower((string)($_SERVER['HTTP_HOST'] ?? ''));
+$requestHost = preg_replace('/:\d+$/', '', $requestHost);
+$nextPath = google_login_safe_next_path((string)($_SESSION['login_next'] ?? ''));
+$isReadySetShowsContext = in_array($requestHost, ['readysetshows.com', 'www.readysetshows.com'], true)
+	|| (($_SESSION['auth_brand'] ?? '') === 'rss' && $nextPath === '')
+	|| $requestedAccountType !== ''
+	|| str_contains($nextPath, '/booking-request.php');
 if ($requestedAccountType === 'artist' && Auth::accountTypeColumnExists($pdo) && Auth::accountTypeForUser($pdo, $userId) === 'customer') {
 	Auth::updateAccountType($pdo, $userId, 'artist');
 }
 sync_user_entitlements($pdo, $userId);
 Auth::login($userId);
 
-$next = google_login_safe_next_path((string)($_SESSION['login_next'] ?? '')) ?: Auth::defaultPostLoginUrl($pdo, $userId);
+$next = $nextPath ?: google_login_default_post_login_url($pdo, $userId, $isReadySetShowsContext);
 $accountType = Auth::accountTypeForUser($pdo, $userId);
 if ($accountType === 'artist' && str_contains((string)$next, '/booking-request.php')) {
-	$next = Auth::defaultPostLoginUrl($pdo, $userId);
+	$next = google_login_default_post_login_url($pdo, $userId, $isReadySetShowsContext);
 }
 if (empty($_SESSION['login_next']) && $requestedAccountType === 'artist') {
 	$next = base_url('member/artist_onboarding.php');

@@ -19,12 +19,42 @@ function login_safe_next_path(string $next): string
 	return $next;
 }
 
+$requestHost = strtolower((string)($_SERVER['HTTP_HOST'] ?? ''));
+$requestHost = preg_replace('/:\d+$/', '', $requestHost);
+$explicitRssBrand = (($_GET['brand'] ?? '') === 'rss');
 $requestedNext = login_safe_next_path((string)($_GET['next'] ?? ''));
+if ($requestedNext === '') {
+	$referrer = str_replace('\\', '/', (string)($_SERVER['HTTP_REFERER'] ?? ''));
+	$referrerHost = strtolower((string)(parse_url($referrer, PHP_URL_HOST) ?: ''));
+	$referrerHost = preg_replace('/:\d+$/', '', $referrerHost);
+	$referrerPath = str_replace('\\', '/', (string)(parse_url($referrer, PHP_URL_PATH) ?: ''));
+	$referrerQuery = (string)(parse_url($referrer, PHP_URL_QUERY) ?: '');
+	if (($referrerHost === '' || $referrerHost === $requestHost) && str_contains($referrerPath, '/studio/shop/')) {
+		$requestedNext = login_safe_next_path($referrerPath . ($referrerQuery !== '' ? '?' . $referrerQuery : ''));
+	}
+}
 if ($requestedNext !== '') {
 	$_SESSION['login_next'] = $requestedNext;
-	if (($_GET['brand'] ?? '') !== 'rss') {
+	if (!$explicitRssBrand) {
 		unset($_SESSION['auth_brand']);
 	}
+}
+if ($explicitRssBrand) {
+	$_SESSION['auth_brand'] = 'rss';
+}
+
+$nextPath = (string)($_SESSION['login_next'] ?? '');
+$isReadySetShowsHost = in_array($requestHost, ['readysetshows.com', 'www.readysetshows.com'], true)
+	|| $explicitRssBrand
+	|| (($_SESSION['auth_brand'] ?? '') === 'rss' && $requestedNext === '')
+	|| isset($_SESSION['registration_account_type'])
+	|| str_contains($nextPath, '/booking-request.php');
+
+function login_default_post_login_url(PDO $pdo, int $userId, bool $isReadySetShowsContext): string
+{
+	return $isReadySetShowsContext
+		? Auth::defaultPostLoginUrl($pdo, $userId)
+		: base_url('member/library.php');
 }
 
 if (Auth::isLoggedIn()) {
@@ -34,21 +64,11 @@ if (Auth::isLoggedIn()) {
 		unset($_SESSION['login_next']);
 		redirect($next);
 	}
-	redirect($userId ? Auth::defaultPostLoginUrl($pdo, (int)$userId) : base_url('member/library.php'));
+	redirect($userId ? login_default_post_login_url($pdo, (int)$userId, $isReadySetShowsHost) : base_url('member/library.php'));
 }
 
 $err = null;
 $googleClientId = env('GOOGLE_CLIENT_ID', '');
-$requestHost = strtolower((string)($_SERVER['HTTP_HOST'] ?? ''));
-$requestHost = preg_replace('/:\d+$/', '', $requestHost);
-if (($_GET['brand'] ?? '') === 'rss') {
-	$_SESSION['auth_brand'] = 'rss';
-}
-$nextPath = (string)($_SESSION['login_next'] ?? '');
-$isReadySetShowsHost = in_array($requestHost, ['readysetshows.com', 'www.readysetshows.com'], true)
-	|| (($_SESSION['auth_brand'] ?? '') === 'rss')
-	|| isset($_SESSION['registration_account_type'])
-	|| str_contains($nextPath, '/booking-request.php');
 $loginUrl = base_url('member/login.php');
 $trialUrl = base_url('member/pricing.php');
 
@@ -70,9 +90,9 @@ if (is_post()) {
 			Auth::login($userId);
 			Auth::touchLogin($pdo, $userId);
 			sync_user_entitlements($pdo, $userId);
-			$next = login_safe_next_path((string)($_SESSION['login_next'] ?? '')) ?: Auth::defaultPostLoginUrl($pdo, $userId);
+			$next = login_safe_next_path((string)($_SESSION['login_next'] ?? '')) ?: login_default_post_login_url($pdo, $userId, $isReadySetShowsHost);
 			if (Auth::accountTypeForUser($pdo, $userId) === 'artist' && str_contains((string)$next, '/booking-request.php')) {
-				$next = Auth::defaultPostLoginUrl($pdo, $userId);
+				$next = login_default_post_login_url($pdo, $userId, $isReadySetShowsHost);
 			}
 			unset($_SESSION['login_next']);
 			unset($_SESSION['auth_brand']);

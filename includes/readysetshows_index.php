@@ -1,4 +1,6 @@
 <?php
+require_once __DIR__ . '/../studio/_private/_core/bootstrap.php';
+
 $currentPath = str_replace('\\', '/', $_SERVER['SCRIPT_NAME'] ?? '');
 $isLocal = str_contains($currentPath, '/ns_studio/');
 $siteBase = $isLocal ? '/ns_studio' : '';
@@ -11,6 +13,17 @@ $shopUrl = $studioBase . '/shop/index.php';
 $bookBandUrl = $siteBase . '/booking-request.php';
 $artistRegisterUrl = $studioBase . '/member/register.php?account_type=artist&brand=rss';
 $screensBase = $assetBase . '/img/readysetshows';
+$isLoggedIn = class_exists('Auth') && Auth::isLoggedIn();
+$currentUser = ($isLoggedIn && isset($pdo) && $pdo instanceof PDO) ? Auth::currentUser($pdo) : null;
+$accountType = $isLoggedIn && $currentUser ? Auth::normalizeAccountType((string)($currentUser['account_type'] ?? 'artist')) : '';
+$artistPathUrl = $isLoggedIn ? $readySetShowsUrl : $artistRegisterUrl;
+$artistPathTitle = $isLoggedIn ? 'Open artist tools' : 'Join as artist';
+$artistPathCopy = $isLoggedIn
+    ? 'Open your Ready Set Shows tools and keep the business side organized.'
+    : 'List your artist profile, manage gig tools, respond faster, and keep the business side organized.';
+$artistPathCta = $isLoggedIn ? 'Open tools' : 'Join as artist';
+$primaryNavUrl = $isLoggedIn ? $readySetShowsUrl : $pricingUrl;
+$primaryNavLabel = $isLoggedIn ? 'Open Ready Set Shows' : 'Pricing';
 
 $screens = [
     'availability' => $screensBase . '/calendar-availability.png',
@@ -140,6 +153,10 @@ $screens = [
             color: #111 !important;
             background: var(--rss-gold);
             font-weight: 800 !important;
+        }
+
+        .rss-nav-login {
+            border: 1px solid rgba(255,255,255,.2);
         }
 
         .rss-hero {
@@ -573,14 +590,33 @@ $screens = [
         }
 
         @media (max-width: 620px) {
-            .rss-brand-tagline,
-            .rss-nav-login {
+            .rss-brand-tagline {
                 display: none;
             }
 
             .rss-brand-mark {
                 width: 40px;
                 height: 40px;
+            }
+
+            .rss-nav {
+                gap: .35rem;
+            }
+
+            .rss-nav a {
+                padding: .55rem .68rem;
+                font-size: .86rem;
+            }
+
+            .rss-nav-guest .rss-nav-login {
+                color: #111;
+                background: var(--rss-gold);
+                border-color: var(--rss-gold);
+                font-weight: 800;
+            }
+
+            .rss-nav-guest .rss-nav-primary {
+                display: none;
             }
 
             .rss-hero-content {
@@ -605,11 +641,13 @@ $screens = [
                     <span class="rss-brand-tagline">Live requests, setlists, and gig tools</span>
                 </span>
             </a>
-            <nav class="rss-nav" aria-label="Ready Set Shows navigation">
+            <nav class="rss-nav <?= $isLoggedIn ? 'rss-nav-auth' : 'rss-nav-guest' ?>" aria-label="Ready Set Shows navigation">
                 <a href="<?= htmlspecialchars($bookBandUrl, ENT_QUOTES, 'UTF-8') ?>">Hire an Artist</a>
-                <a href="<?= htmlspecialchars($artistRegisterUrl, ENT_QUOTES, 'UTF-8') ?>">Join as Artist</a>
-                <a class="rss-nav-login" href="<?= htmlspecialchars($loginUrl, ENT_QUOTES, 'UTF-8') ?>">Log In</a>
-                <a class="rss-nav-primary" href="<?= htmlspecialchars($pricingUrl, ENT_QUOTES, 'UTF-8') ?>">Pricing</a>
+                <a href="<?= htmlspecialchars($artistPathUrl, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($artistPathTitle, ENT_QUOTES, 'UTF-8') ?></a>
+                <?php if (!$isLoggedIn): ?>
+                    <a class="rss-nav-login" href="<?= htmlspecialchars($loginUrl, ENT_QUOTES, 'UTF-8') ?>">Log In</a>
+                <?php endif; ?>
+                <a class="rss-nav-primary" href="<?= htmlspecialchars($primaryNavUrl, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($primaryNavLabel, ENT_QUOTES, 'UTF-8') ?></a>
             </nav>
         </div>
     </header>
@@ -636,11 +674,11 @@ $screens = [
                             <p>Create one event request and invite multiple artists to bid on the date.</p>
                             <span class="rss-path-cta">Start a booking <i class="fa-solid fa-arrow-right"></i></span>
                         </a>
-                        <a class="rss-path-card" href="<?= htmlspecialchars($artistRegisterUrl, ENT_QUOTES, 'UTF-8') ?>">
+                        <a class="rss-path-card" href="<?= htmlspecialchars($artistPathUrl, ENT_QUOTES, 'UTF-8') ?>">
                             <span class="rss-path-icon"><i class="fa-solid fa-guitar"></i></span>
-                            <h2>Join as artist</h2>
-                            <p>List your artist profile, manage gig tools, respond faster, and keep the business side organized.</p>
-                            <span class="rss-path-cta">Join as artist <i class="fa-solid fa-arrow-right"></i></span>
+                            <h2><?= htmlspecialchars($artistPathTitle, ENT_QUOTES, 'UTF-8') ?></h2>
+                            <p><?= htmlspecialchars($artistPathCopy, ENT_QUOTES, 'UTF-8') ?></p>
+                            <span class="rss-path-cta"><?= htmlspecialchars($artistPathCta, ENT_QUOTES, 'UTF-8') ?> <i class="fa-solid fa-arrow-right"></i></span>
                         </a>
                     </div>
                     <div class="rss-hero-note">
@@ -798,7 +836,7 @@ $screens = [
                     </div>
                     <div class="rss-actions">
                         <a class="btn btn-primary" href="<?= htmlspecialchars($bookBandUrl, ENT_QUOTES, 'UTF-8') ?>">Hire an Artist</a>
-                        <a class="btn btn-outline" href="<?= htmlspecialchars($pricingUrl, ENT_QUOTES, 'UTF-8') ?>">Pricing</a>
+                        <a class="btn btn-outline" href="<?= htmlspecialchars($primaryNavUrl, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($primaryNavLabel, ENT_QUOTES, 'UTF-8') ?></a>
                     </div>
                 </div>
             </div>

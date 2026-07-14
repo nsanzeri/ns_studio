@@ -444,7 +444,7 @@ finance_page_head('Finance | Ready Set Shows');
           <p class="finance-muted">No finance rows for <?= (int)$year ?> yet.</p>
         <?php else: ?>
           <div class="finance-table-wrap">
-            <table class="finance-table" style="min-width:620px;">
+            <table class="finance-table finance-summary-table">
               <thead><tr><th>Month</th><th>Gigs</th><th>Guarantee</th><th>Tips</th><th>Net</th></tr></thead>
               <tbody>
                 <?php foreach ($monthlyRows as $row): ?>
@@ -473,7 +473,7 @@ finance_page_head('Finance | Ready Set Shows');
       <div class="finance-card">
         <div style="display:flex; justify-content:space-between; gap:1rem; align-items:flex-start; flex-wrap:wrap;">
           <div>
-            <h2 style="margin:0;">Previous year comparison</h2>
+            <h2 style="margin:0;">Year comparison</h2>
             <p class="finance-muted" style="margin:.35rem 0 0;">Compare <?= (int)$year ?> against another year.</p>
           </div>
           <?php if ($comparisonYears): ?>
@@ -493,7 +493,7 @@ finance_page_head('Finance | Ready Set Shows');
           <p class="finance-muted">Comparison appears once there is data for both <?= (int)$year ?> and <?= (int)$compareYear ?>.</p>
         <?php else: ?>
           <div class="finance-table-wrap">
-            <table class="finance-table" style="min-width:620px;">
+            <table class="finance-table finance-summary-table">
               <thead><tr><th>Month</th><th><?= (int)$year ?> Net</th><th><?= (int)$compareYear ?> Net</th><th>Change</th></tr></thead>
               <tbody>
                 <?php foreach ($monthlyRows as $row): $prev = $previousByMonth[(int)$row['month_num']] ?? null; $changeCents = (int)$row['net_cents'] - (int)($prev['net_cents'] ?? 0); ?>

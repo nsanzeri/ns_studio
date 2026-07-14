@@ -30,6 +30,8 @@ function finance_import_header_map(array $header): array {
         'title' => ['title', 'event', 'eventtitle', 'gigevent', 'gigname', 'gigtitle', 'name'],
         'guarantee' => ['guarantee', 'guaranteed', 'guaranteedpay', 'fee', 'pay', 'basepay', 'guaranteeamount'],
         'tips' => ['tips', 'tip', 'tipamount'],
+        'cash_tips' => ['cashtips', 'cashtip', 'cashgratuity', 'cashtipamount'],
+        'platform_tips' => ['platformtips', 'platformtip', 'onlinetips', 'onlinetip', 'digitaltips', 'digitaltip', 'cardtips', 'cardtip'],
     ];
     $map = [];
     foreach ($header as $index => $label) {
@@ -164,12 +166,12 @@ function finance_import_gig_records(PDO $pdo, int $userId, array $rows): array {
     $findExisting = $pdo->prepare("SELECT id FROM finance_gigs WHERE user_id = ? AND starts_at = ? AND title = ? AND guarantee_cents = ? AND tips_cents = ? LIMIT 1");
     $insert = $pdo->prepare("
         INSERT INTO finance_gigs
-          (user_id, title, starts_at, ends_at, guarantee_cents, tips_cents, imported_at)
-        VALUES (?, ?, ?, NULL, ?, ?, NOW())
+          (user_id, title, starts_at, ends_at, guarantee_cents, tips_cents, cash_tips_cents, platform_tips_cents, imported_at)
+        VALUES (?, ?, ?, NULL, ?, ?, ?, ?, NOW())
     ");
     $update = $pdo->prepare("
         UPDATE finance_gigs
-        SET guarantee_cents = ?, tips_cents = ?, imported_at = COALESCE(imported_at, NOW())
+        SET guarantee_cents = ?, tips_cents = ?, cash_tips_cents = ?, platform_tips_cents = ?, imported_at = COALESCE(imported_at, NOW())
         WHERE id = ? AND user_id = ?
     ");
     $imported = 0;
@@ -188,15 +190,21 @@ function finance_import_gig_records(PDO $pdo, int $userId, array $rows): array {
         $rowYear = (int)$date->format('Y');
         $years[$rowYear] = ($years[$rowYear] ?? 0) + 1;
         $guaranteeCents = finance_parse_money(finance_import_row_value($row, $map, 'guarantee'));
-        $tipsCents = finance_parse_money(finance_import_row_value($row, $map, 'tips'));
+        $cashTipsCents = finance_parse_money(finance_import_row_value($row, $map, 'cash_tips'));
+        $platformTipsCents = finance_parse_money(finance_import_row_value($row, $map, 'platform_tips'));
+        $legacyTipsCents = finance_parse_money(finance_import_row_value($row, $map, 'tips'));
+        if ($cashTipsCents <= 0 && $platformTipsCents <= 0 && $legacyTipsCents > 0) {
+            $platformTipsCents = $legacyTipsCents;
+        }
+        $tipsCents = $cashTipsCents + $platformTipsCents;
 
         $findExisting->execute([$userId, $startsAt, $title, $guaranteeCents, $tipsCents]);
         $existingId = (int)($findExisting->fetchColumn() ?: 0);
         if ($existingId > 0) {
-            $update->execute([$guaranteeCents, $tipsCents, $existingId, $userId]);
+            $update->execute([$guaranteeCents, $tipsCents, $cashTipsCents, $platformTipsCents, $existingId, $userId]);
             $updated++;
         } else {
-            $insert->execute([$userId, $title, $startsAt, $guaranteeCents, $tipsCents]);
+            $insert->execute([$userId, $title, $startsAt, $guaranteeCents, $tipsCents, $cashTipsCents, $platformTipsCents]);
             $imported++;
         }
     }
@@ -232,6 +240,7 @@ if ($financeReady && is_post()) {
                 $update = $pdo->prepare("
                     UPDATE finance_gigs
                     SET title = ?, starts_at = ?, guarantee_cents = ?, tips_cents = ?,
+                        cash_tips_cents = ?, platform_tips_cents = ?,
                         is_taxable = ?, miles = ?, notes = ?
                     WHERE id = ? AND user_id = ?
                 ");
@@ -257,11 +266,15 @@ if ($financeReady && is_post()) {
                     if (!$ownGig->fetchColumn()) continue;
                     $startsAt = trim((string)($row['starts_at'] ?? ''));
                     $dt = new DateTime($startsAt);
+                    $cashTipsCents = finance_parse_money($row['cash_tips'] ?? '');
+                    $platformTipsCents = finance_parse_money($row['platform_tips'] ?? '');
                     $update->execute([
                         $title,
                         $dt->format('Y-m-d H:i:s'),
                         finance_parse_money($row['guarantee'] ?? ''),
-                        finance_parse_money($row['tips'] ?? ''),
+                        $cashTipsCents + $platformTipsCents,
+                        $cashTipsCents,
+                        $platformTipsCents,
                         !empty($row['is_taxable']) ? 1 : 0,
                         max(0, (float)($row['miles'] ?? 0)),
                         finance_clean_text($row['notes'] ?? '', 2000),
@@ -524,7 +537,7 @@ finance_page_head('Finance | Gig Ledger');
           </div>
           <div class="finance-field">
             <label>Columns</label>
-            <div class="finance-muted">Use headers: date, event title, guarantee, tips. Headerless files are read in that order. Do not use commas in numbers over 999 unless the value is quoted, because commas are treated as column separators.</div>
+          <div class="finance-muted">Use headers: date, event title, guarantee, cash tips, platform tips. A legacy tips column still imports as platform tips. Headerless files are read as date, event title, guarantee, tips.</div>
           </div>
         </div>
         <?php if (!$isProUser): ?>
@@ -552,15 +565,16 @@ finance_page_head('Finance | Gig Ledger');
       <?php else: ?>
         <div class="finance-table-wrap">
           <table class="finance-table finance-gig-ledger-table">
-            <thead><tr><th class="finance-select-col"><input class="finance-check" type="checkbox" data-finance-select-all aria-label="Select all gigs"></th><th class="finance-date-col">Date</th><th>Event title</th><th>Guarantee</th><th>Tips</th><th>Taxable</th><th>Miles</th><th>Money out</th><th>Net</th><th>Notes</th></tr></thead>
+            <thead><tr><th class="finance-select-col"><input class="finance-check" type="checkbox" data-finance-select-all aria-label="Select all gigs"></th><th class="finance-date-col">Date</th><th>Event title</th><th>Guarantee</th><th>Cash tips</th><th>Platform tips</th><th>Taxable</th><th>Miles</th><th>Money out</th><th>Net</th><th>Notes</th></tr></thead>
             <tbody>
-              <?php foreach ($gigs as $gig): $gigId = (int)$gig['id']; $gigPayouts = $payoutsByGig[$gigId] ?? []; $payoutTotal = (int)($gig['payout_cents'] ?? 0); $net = (int)$gig['guarantee_cents'] + (int)$gig['tips_cents'] - $payoutTotal; ?>
+              <?php foreach ($gigs as $gig): $gigId = (int)$gig['id']; $gigPayouts = $payoutsByGig[$gigId] ?? []; $payoutTotal = (int)($gig['payout_cents'] ?? 0); $cashTipsCents = (int)($gig['cash_tips_cents'] ?? 0); $platformTipsCents = (int)($gig['platform_tips_cents'] ?? 0); $net = (int)$gig['guarantee_cents'] + $cashTipsCents + $platformTipsCents - $payoutTotal; ?>
                 <tr>
                   <td class="finance-select-col"><input class="finance-check" type="checkbox" name="selected_gig_ids[]" value="<?= $gigId ?>"></td>
                   <td class="finance-date-col"><input class="finance-input finance-date-input" type="date" name="gigs[<?= $gigId ?>][starts_at]" value="<?= e((new DateTime((string)$gig['starts_at']))->format('Y-m-d')) ?>"></td>
                   <td><input class="finance-input" name="gigs[<?= $gigId ?>][title]" value="<?= e($gig['title']) ?>"></td>
                   <td><input class="finance-input" name="gigs[<?= $gigId ?>][guarantee]" value="<?= e(number_format((int)$gig['guarantee_cents'] / 100, 2, '.', '')) ?>"></td>
-                  <td><input class="finance-input" name="gigs[<?= $gigId ?>][tips]" value="<?= e(number_format((int)$gig['tips_cents'] / 100, 2, '.', '')) ?>"></td>
+                  <td class="finance-tip-col"><input class="finance-input" name="gigs[<?= $gigId ?>][cash_tips]" value="<?= e(number_format($cashTipsCents / 100, 2, '.', '')) ?>"></td>
+                  <td class="finance-tip-col"><input class="finance-input" name="gigs[<?= $gigId ?>][platform_tips]" value="<?= e(number_format($platformTipsCents / 100, 2, '.', '')) ?>"></td>
                   <td class="finance-check-cell"><input class="finance-check" type="checkbox" name="gigs[<?= $gigId ?>][is_taxable]" value="1" <?= !empty($gig['is_taxable']) ? 'checked' : '' ?>></td>
                   <td><input class="finance-input" name="gigs[<?= $gigId ?>][miles]" value="<?= e((string)$gig['miles']) ?>"></td>
                   <td class="finance-moneyout-cell">

@@ -10,6 +10,8 @@ CREATE TABLE IF NOT EXISTS `finance_gigs` (
   `ends_at` datetime DEFAULT NULL,
   `guarantee_cents` int(10) unsigned NOT NULL DEFAULT 0,
   `tips_cents` int(10) unsigned NOT NULL DEFAULT 0,
+  `cash_tips_cents` int(10) unsigned NOT NULL DEFAULT 0,
+  `platform_tips_cents` int(10) unsigned NOT NULL DEFAULT 0,
   `is_taxable` tinyint(1) NOT NULL DEFAULT 1,
   `miles` decimal(8,1) NOT NULL DEFAULT 0.0,
   `notes` text DEFAULT NULL,

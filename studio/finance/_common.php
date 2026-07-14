@@ -48,6 +48,8 @@ function finance_tables_ready(PDO $pdo): bool {
         && finance_table_exists($pdo, 'finance_gig_payouts')
         && finance_table_exists($pdo, 'calendars')
         && finance_column_exists($pdo, 'finance_gigs', 'is_taxable')
+        && finance_column_exists($pdo, 'finance_gigs', 'cash_tips_cents')
+        && finance_column_exists($pdo, 'finance_gigs', 'platform_tips_cents')
         && finance_column_exists($pdo, 'finance_gig_payouts', 'payout_type');
 }
 
@@ -328,17 +330,22 @@ function finance_page_head(string $title): void { ?>
     .finance-table th, .finance-table td { padding:.75rem; border-bottom:1px solid rgba(255,255,255,.07); text-align:left; vertical-align:top; }
     .finance-table th { color:#f4d35e; font-size:.78rem; letter-spacing:.08em; text-transform:uppercase; }
     .finance-table tfoot th { border-top:1px solid rgba(255,255,255,.14); border-bottom:none; color:#fff; background:rgba(255,255,255,.035); }
+    .finance-summary-table { min-width:500px !important; table-layout:auto; }
+    .finance-summary-table th, .finance-summary-table td { padding:.48rem .62rem; white-space:nowrap; }
+    .finance-summary-table th:first-child, .finance-summary-table td:first-child { width:30%; }
+    .finance-summary-table th:not(:first-child), .finance-summary-table td:not(:first-child) { width:17.5%; }
     .finance-positive { color:#7effbf !important; }
     .finance-negative { color:#ff8d8d !important; }
     .finance-table input, .finance-table textarea { min-width:92px; }
     .finance-table textarea { min-width:160px; min-height:42px; resize:vertical; }
-    .finance-gig-ledger-table { min-width:900px; }
+    .finance-gig-ledger-table { min-width:1040px; }
     .finance-gig-ledger-table th, .finance-gig-ledger-table td { padding:.42rem .5rem; }
     .finance-gig-ledger-table .finance-input, .finance-gig-ledger-table .finance-textarea, .finance-gig-ledger-table .finance-select { padding:.48rem .58rem; border-radius:10px; font-size:.92rem; }
     .finance-gig-ledger-table .finance-textarea { min-height:34px; }
     .finance-gig-ledger-table .finance-select-col { width:34px; min-width:34px; text-align:center; padding-left:.35rem; padding-right:.35rem; }
     .finance-gig-ledger-table .finance-date-col { width:142px; min-width:142px; }
     .finance-gig-ledger-table .finance-date-input { width:132px; min-width:132px; }
+    .finance-gig-ledger-table .finance-tip-col { min-width:96px; }
     .finance-gig-ledger-table .finance-moneyout-cell { min-width:150px; }
     .finance-gig-ledger-table .finance-moneyout-button { padding:.4rem .62rem; }
     .finance-check-cell { text-align:center; }
@@ -414,7 +421,7 @@ function finance_flash(array $messages, array $errors): void {
 function finance_install_notice(): void { ?>
   <div class="finance-card">
     <h2 style="margin-top:0;">Finance setup required</h2>
-    <p class="finance-muted">Run <code>migrations/013_finance_gigs.sql</code>, <code>migrations/014_finance_payouts_refactor.sql</code>, and <code>migrations/015_finance_expense_types.sql</code>, then refresh this page.</p>
+    <p class="finance-muted">Run <code>migrations/013_finance_gigs.sql</code>, <code>migrations/014_finance_payouts_refactor.sql</code>, <code>migrations/015_finance_expense_types.sql</code>, and <code>migrations/026_finance_tip_splits.sql</code>, then refresh this page.</p>
   </div>
 <?php }
 

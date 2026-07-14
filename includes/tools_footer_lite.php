@@ -47,6 +47,42 @@ document.addEventListener('DOMContentLoaded', function () {
         yearEl.textContent = new Date().getFullYear();
     }
 
+    const navToggle = document.getElementById('toolsNavToggle');
+    const mobileNav = document.getElementById('toolsMobileNav');
+
+    if (navToggle && mobileNav && !navToggle.dataset.mobileNavReady) {
+        navToggle.dataset.mobileNavReady = '1';
+        navToggle.addEventListener('click', function () {
+            const willOpen = mobileNav.hasAttribute('hidden');
+            if (willOpen) {
+                mobileNav.removeAttribute('hidden');
+            } else {
+                mobileNav.setAttribute('hidden', '');
+            }
+            navToggle.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+            navToggle.classList.toggle('is-active', willOpen);
+        });
+
+        mobileNav.querySelectorAll('a').forEach(function (link) {
+            link.addEventListener('click', function () {
+                mobileNav.setAttribute('hidden', '');
+                navToggle.setAttribute('aria-expanded', 'false');
+                navToggle.classList.remove('is-active');
+            });
+        });
+
+        document.addEventListener('click', function (event) {
+            const clickedInsideNav = mobileNav.contains(event.target);
+            const clickedToggle = navToggle.contains(event.target);
+
+            if (!clickedInsideNav && !clickedToggle && !mobileNav.hasAttribute('hidden')) {
+                mobileNav.setAttribute('hidden', '');
+                navToggle.setAttribute('aria-expanded', 'false');
+                navToggle.classList.remove('is-active');
+            }
+        });
+    }
+
     const backToTop = document.getElementById('backToTop');
     if (backToTop) {
         window.addEventListener('scroll', function () {

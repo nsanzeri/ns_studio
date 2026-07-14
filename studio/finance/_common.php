@@ -317,7 +317,7 @@ function finance_page_head(string $title): void { ?>
   <style>
     .finance-shell { padding: 2rem 0 4rem; }
     .finance-card { background: rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08); border-radius:24px; padding:1.35rem; box-shadow:0 16px 34px rgba(0,0,0,.18); }
-    .finance-grid { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:1rem; }
+    .finance-grid { display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:1rem; }
     .finance-two { display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
     .finance-stack { display:grid; gap:1rem; }
     .finance-field { display:grid; gap:.45rem; }
@@ -378,6 +378,17 @@ function finance_page_head(string $title): void { ?>
     .finance-stat-mini { border:1px solid rgba(255,255,255,.08); border-radius:14px; padding:.85rem; background:rgba(255,255,255,.035); display:grid; gap:.2rem; }
     .finance-stat-mini strong { color:#fff; font-size:1.12rem; }
     .finance-stat-mini em { color:rgba(255,255,255,.62); font-size:.78rem; font-style:normal; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .finance-overview-table-wrap { margin-top:1rem; }
+    .finance-overview-table { width:100%; border-collapse:collapse; min-width:820px; }
+    .finance-overview-table th,
+    .finance-overview-table td { padding:.55rem .7rem; border-bottom:1px solid rgba(255,255,255,.07); vertical-align:top; }
+    .finance-overview-table th { width:13%; color:#f4d35e; font-size:.72rem; letter-spacing:.07em; text-transform:uppercase; text-align:left; font-weight:700; background:rgba(255,255,255,.025); }
+    .finance-overview-table td { width:20%; color:#fff; }
+    .finance-overview-table strong { display:block; font-size:1rem; color:#fff; }
+    .finance-overview-table em { display:block; margin-top:.15rem; color:rgba(255,255,255,.62); font-size:.74rem; font-style:normal; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:220px; }
+    .finance-compare-form { display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; }
+    .finance-compare-form label { color:rgba(255,255,255,.66); font-size:.78rem; text-transform:uppercase; letter-spacing:.07em; font-weight:700; }
+    .finance-compare-form select { padding:.52rem .75rem; border-radius:999px; border:1px solid rgba(255,255,255,.14); background:#151323; color:#fff; font:inherit; font-weight:700; }
     .alert { border-radius:16px; padding:.95rem 1rem; margin-bottom:1rem; }
     .alert-success { background:rgba(51,176,102,.16); border:1px solid rgba(51,176,102,.28); }
     .alert-error { background:rgba(199,64,64,.16); border:1px solid rgba(199,64,64,.28); }

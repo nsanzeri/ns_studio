@@ -56,10 +56,10 @@ if ($financeReady) {
         $year = $availableYears[0];
         $previousYear = $year - 1;
     }
-    $comparisonYears = array_values(array_filter($availableYears, static fn($value) => (int)$value < $year));
+    $comparisonYears = array_values(array_filter($availableYears, static fn($value) => (int)$value !== $year));
     if ($comparisonYears) {
         if (!in_array($compareYear, $comparisonYears, true)) {
-            $compareYear = in_array($previousYear, $comparisonYears, true) ? $previousYear : max($comparisonYears);
+            $compareYear = in_array($previousYear, $comparisonYears, true) ? $previousYear : $comparisonYears[0];
         }
     } else {
         $compareYear = $previousYear;
@@ -428,7 +428,7 @@ finance_page_head('Finance | Ready Set Shows');
     </section>
 
     <section class="finance-grid" style="margin-bottom:1rem;">
-      <?php foreach (['last_week' => 'Last week', 'week' => 'This week', 'month' => 'This month', 'year' => (string)$year] as $key => $label): ?>
+      <?php foreach (['week' => 'This week', 'last_week' => 'Last week', 'month' => 'This month', 'year' => (string)$year] as $key => $label): ?>
         <div class="finance-card finance-stat">
           <span class="finance-pill"><?= e($label) ?></span>
           <strong><?= finance_money((int)$summary[$key]['net_cents']) ?></strong>
@@ -474,7 +474,7 @@ finance_page_head('Finance | Ready Set Shows');
         <div style="display:flex; justify-content:space-between; gap:1rem; align-items:flex-start; flex-wrap:wrap;">
           <div>
             <h2 style="margin:0;">Previous year comparison</h2>
-            <p class="finance-muted" style="margin:.35rem 0 0;">Compare <?= (int)$year ?> against an earlier year.</p>
+            <p class="finance-muted" style="margin:.35rem 0 0;">Compare <?= (int)$year ?> against another year.</p>
           </div>
           <?php if ($comparisonYears): ?>
             <form method="get" class="finance-compare-form">

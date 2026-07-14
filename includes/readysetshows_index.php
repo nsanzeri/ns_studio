@@ -16,12 +16,6 @@ $screensBase = $assetBase . '/img/readysetshows';
 $isLoggedIn = class_exists('Auth') && Auth::isLoggedIn();
 $currentUser = ($isLoggedIn && isset($pdo) && $pdo instanceof PDO) ? Auth::currentUser($pdo) : null;
 $accountType = $isLoggedIn && $currentUser ? Auth::normalizeAccountType((string)($currentUser['account_type'] ?? 'artist')) : '';
-$artistPathUrl = $isLoggedIn ? $readySetShowsUrl : $artistRegisterUrl;
-$artistPathTitle = $isLoggedIn ? 'Open artist tools' : 'Join as artist';
-$artistPathCopy = $isLoggedIn
-    ? 'Open your Ready Set Shows tools and keep the business side organized.'
-    : 'List your artist profile, manage gig tools, respond faster, and keep the business side organized.';
-$artistPathCta = $isLoggedIn ? 'Open tools' : 'Join as artist';
 $primaryNavUrl = $isLoggedIn ? $readySetShowsUrl : $pricingUrl;
 $primaryNavLabel = $isLoggedIn ? 'Open Ready Set Shows' : 'Pricing';
 
@@ -643,8 +637,8 @@ $screens = [
             </a>
             <nav class="rss-nav <?= $isLoggedIn ? 'rss-nav-auth' : 'rss-nav-guest' ?>" aria-label="Ready Set Shows navigation">
                 <a href="<?= htmlspecialchars($bookBandUrl, ENT_QUOTES, 'UTF-8') ?>">Hire an Artist</a>
-                <a href="<?= htmlspecialchars($artistPathUrl, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($artistPathTitle, ENT_QUOTES, 'UTF-8') ?></a>
                 <?php if (!$isLoggedIn): ?>
+                    <a href="<?= htmlspecialchars($artistRegisterUrl, ENT_QUOTES, 'UTF-8') ?>">Join as Artist</a>
                     <a class="rss-nav-login" href="<?= htmlspecialchars($loginUrl, ENT_QUOTES, 'UTF-8') ?>">Log In</a>
                 <?php endif; ?>
                 <a class="rss-nav-primary" href="<?= htmlspecialchars($primaryNavUrl, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($primaryNavLabel, ENT_QUOTES, 'UTF-8') ?></a>
@@ -674,12 +668,14 @@ $screens = [
                             <p>Create one event request and invite multiple artists to bid on the date.</p>
                             <span class="rss-path-cta">Start a booking <i class="fa-solid fa-arrow-right"></i></span>
                         </a>
-                        <a class="rss-path-card" href="<?= htmlspecialchars($artistPathUrl, ENT_QUOTES, 'UTF-8') ?>">
+                        <?php if (!$isLoggedIn): ?>
+                        <a class="rss-path-card" href="<?= htmlspecialchars($artistRegisterUrl, ENT_QUOTES, 'UTF-8') ?>">
                             <span class="rss-path-icon"><i class="fa-solid fa-guitar"></i></span>
-                            <h2><?= htmlspecialchars($artistPathTitle, ENT_QUOTES, 'UTF-8') ?></h2>
-                            <p><?= htmlspecialchars($artistPathCopy, ENT_QUOTES, 'UTF-8') ?></p>
-                            <span class="rss-path-cta"><?= htmlspecialchars($artistPathCta, ENT_QUOTES, 'UTF-8') ?> <i class="fa-solid fa-arrow-right"></i></span>
+                            <h2>Join as artist</h2>
+                            <p>List your artist profile, manage gig tools, respond faster, and keep the business side organized.</p>
+                            <span class="rss-path-cta">Join as artist <i class="fa-solid fa-arrow-right"></i></span>
                         </a>
+                        <?php endif; ?>
                     </div>
                     <div class="rss-hero-note">
                         <span><i class="fa-solid fa-check"></i> We know how hard it is to be a working musician.</span>

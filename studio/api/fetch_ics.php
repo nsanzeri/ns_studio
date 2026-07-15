@@ -139,6 +139,22 @@ function ics_unfold(string $raw): array
     return $out;
 }
 
+function calendar_datetime(string $raw, DateTimeZone $tz): DateTime
+{
+    $date = new DateTime($raw, $tz);
+    $date->setTimezone($tz);
+    return $date;
+}
+
+function calendar_ics_text(string $value): string
+{
+    return str_replace(
+        ['\\,', '\\;', '\\n', '\\N', '\\\\'],
+        [',', ';', "\n", "\n", '\\'],
+        $value
+    );
+}
+
 function parse_exdates(array $event, DateTimeZone $tz): array
 {
     $dates = [];
@@ -164,7 +180,7 @@ function parse_exdates(array $event, DateTimeZone $tz): array
             }
 
             try {
-                $dt = new DateTime($clean, $tz);
+                $dt = calendar_datetime($clean, $tz);
                 $dates[$dt->format('Y-m-d')] = true;
             } catch (Throwable $e) {
             }
@@ -185,8 +201,8 @@ function expand_rrule_event(array $event, DateTime $rangeStart, DateTime $rangeE
     $dtStartRaw = preg_replace('/^.*:/', '', $event['DTSTART']);
     $dtEndRaw   = isset($event['DTEND']) ? preg_replace('/^.*:/', '', $event['DTEND']) : $dtStartRaw;
 
-    $baseStart = new DateTime($dtStartRaw, $tz);
-    $baseEnd   = new DateTime($dtEndRaw, $tz);
+    $baseStart = calendar_datetime($dtStartRaw, $tz);
+    $baseEnd   = calendar_datetime($dtEndRaw, $tz);
     $duration  = $baseEnd->getTimestamp() - $baseStart->getTimestamp();
 
     $allDay = (bool)preg_match('/^\d{8}$/', $dtStartRaw);
@@ -204,7 +220,7 @@ function expand_rrule_event(array $event, DateTime $rangeStart, DateTime $rangeE
     $interval = isset($rr['INTERVAL']) ? max(1, (int)$rr['INTERVAL']) : 1;
 
     if (!empty($rr['UNTIL'])) {
-        $until = new DateTime($rr['UNTIL'], $tz);
+        $until = calendar_datetime($rr['UNTIL'], $tz);
     } else {
         $until = clone $rangeEnd;
     }
@@ -215,7 +231,8 @@ function expand_rrule_event(array $event, DateTime $rangeStart, DateTime $rangeE
     $location    = $event['LOCATION'] ?? '';
     $description = $event['DESCRIPTION'] ?? '';
 
-    $pushOccurrence = function (DateTime $startOcc) use (&$results, $duration, $allDay, $summary, $location, $description): void {
+    $uid = $event['UID'] ?? '';
+    $pushOccurrence = function (DateTime $startOcc) use (&$results, $duration, $allDay, $summary, $location, $description, $uid): void {
         $occStart = clone $startOcc;
         $occEnd   = clone $startOcc;
 
@@ -227,6 +244,7 @@ function expand_rrule_event(array $event, DateTime $rangeStart, DateTime $rangeE
         }
 
         $results[] = [
+            'uid'         => $uid,
             'start'       => $occStart->format(DateTime::ATOM),
             'end'         => $occEnd->format(DateTime::ATOM),
             'summary'     => $summary,
@@ -382,8 +400,8 @@ foreach ($lines as $line) {
                 $dtStartRaw = preg_replace('/^.*:/', '', $event['DTSTART']);
                 $dtEndRaw   = isset($event['DTEND']) ? preg_replace('/^.*:/', '', $event['DTEND']) : $dtStartRaw;
 
-                $start = new DateTime($dtStartRaw, $tz);
-                $end   = new DateTime($dtEndRaw, $tz);
+                $start = calendar_datetime($dtStartRaw, $tz);
+                $end   = calendar_datetime($dtEndRaw, $tz);
 
                 $allDay = (bool)preg_match('/^\d{8}$/', $dtStartRaw);
                 if ($allDay) {
@@ -392,6 +410,7 @@ foreach ($lines as $line) {
 
                 if ($end >= $rangeStart && $start <= $rangeEnd) {
                     $events[] = [
+                        'uid'         => $event['UID'] ?? '',
                         'start'       => $start->format(DateTime::ATOM),
                         'end'         => $end->format(DateTime::ATOM),
                         'summary'     => $event['SUMMARY'] ?? 'No Summary',
@@ -416,10 +435,21 @@ foreach ($lines as $line) {
             }
             $event['EXDATE'][] = $value;
         } else {
-            $event[$keyUpper] = $value;
+            $event[$keyUpper] = calendar_ics_text($value);
         }
     }
 }
+
+foreach ($events as &$eventRow) {
+    $eventRow['event_key'] = hash('sha256', implode('|', [
+        (int)$calendarId,
+        (string)($eventRow['uid'] ?? ''),
+        (string)($eventRow['start'] ?? ''),
+        (string)($eventRow['summary'] ?? ''),
+        (string)($eventRow['location'] ?? ''),
+    ]));
+}
+unset($eventRow);
 
 echo json_encode([
     'success' => true,

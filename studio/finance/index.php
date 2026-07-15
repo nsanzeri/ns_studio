@@ -36,8 +36,6 @@ $chartLabels = [];
 $chartValues = [];
 $chartPoints = '';
 $chartAreaPoints = '';
-$mainGigCalendar = null;
-$mainGigRows = [];
 $chartMax = 0;
 $chartWidth = 900;
 $chartHeight = 220;
@@ -47,29 +45,6 @@ $chartPlotWidth = $chartWidth - ($chartPadX * 2);
 $chartPlotHeight = $chartHeight - ($chartPadY * 2);
 
 if ($financeReady) {
-    if (finance_column_exists($pdo, 'calendars', 'is_main_gig')) {
-        $mainCalStmt = $pdo->prepare("
-            SELECT id, name
-            FROM calendars
-            WHERE user_id = ? AND is_main_gig = 1
-            LIMIT 1
-        ");
-        $mainCalStmt->execute([$userId]);
-        $mainGigCalendar = $mainCalStmt->fetch(PDO::FETCH_ASSOC) ?: null;
-    }
-
-    if ($mainGigCalendar) {
-        $mainGigStmt = $pdo->prepare("
-            SELECT id, title, starts_at, location, guarantee_cents, tips_cents
-            FROM finance_gigs
-            WHERE user_id = ? AND calendar_id = ?
-            ORDER BY starts_at DESC
-            LIMIT 12
-        ");
-        $mainGigStmt->execute([$userId, (int)$mainGigCalendar['id']]);
-        $mainGigRows = $mainGigStmt->fetchAll(PDO::FETCH_ASSOC);
-    }
-
     $yearStmt = $pdo->prepare("
         SELECT DISTINCT YEAR(starts_at) AS gig_year
         FROM finance_gigs
@@ -380,7 +355,10 @@ finance_page_head('Finance | Ready Set Shows');
         <h1 style="margin:0 0 .35rem;">Finance</h1>
         <p class="finance-muted" style="margin:0;">Import gigs from your calendars, enrich the rows with pay details, and watch totals by week, month, and year.</p>
       </div>
-      <a class="btn btn-primary" href="<?= e(base_url('/finance/gigs.php')) ?>">Open gig ledger</a>
+      <div style="display:flex; gap:.65rem; flex-wrap:wrap;">
+        <a class="btn btn-primary" href="<?= e(base_url('/finance/gigs.php')) ?>">Open gig ledger</a>
+        <a class="btn btn-outline" href="<?= e(base_url('/finance/documents.php')) ?>">Contracts &amp; invoices</a>
+      </div>
     </div>
   </section>
 
@@ -463,51 +441,6 @@ finance_page_head('Finance | Ready Set Shows');
           <div class="finance-muted"><?= (int)$summary[$key]['gigs'] ?> gigs &middot; <?= finance_money((int)$summary[$key]['gross_cents'] - (int)$summary[$key]['tips_cents']) ?> guarantee &middot; <?= finance_money((int)$summary[$key]['tips_cents']) ?> tips</div>
         </div>
       <?php endforeach; ?>
-    </section>
-
-    <section class="finance-card" style="margin-bottom:1rem;">
-      <div style="display:flex; justify-content:space-between; gap:1rem; align-items:flex-start; flex-wrap:wrap;">
-        <div>
-          <h2 style="margin:0;">Finance documents</h2>
-          <p class="finance-muted" style="margin:.35rem 0 0;">
-            Contracts and invoices are generated from shows on your main gig calendar<?= $mainGigCalendar ? ': ' . e((string)$mainGigCalendar['name']) : '.' ?>
-          </p>
-        </div>
-        <a class="btn btn-outline" href="<?= e(base_url('/tools/calendars.php')) ?>">Set Main Calendar</a>
-      </div>
-      <?php if (!$mainGigCalendar): ?>
-        <p class="finance-muted">Choose a main gig calendar on the Calendars page to enable document generation for imported shows.</p>
-      <?php elseif (!$mainGigRows): ?>
-        <p class="finance-muted">No imported finance rows are linked to the main gig calendar yet. Import that calendar in the gig ledger first.</p>
-      <?php else: ?>
-        <div class="finance-table-wrap">
-          <table class="finance-table" style="min-width:760px;">
-            <thead><tr><th>Date</th><th>Show</th><th>Amount</th><th>Documents</th></tr></thead>
-            <tbody>
-              <?php foreach ($mainGigRows as $gig): ?>
-                <tr>
-                  <td><?= e((new DateTime((string)$gig['starts_at']))->format('M j, Y')) ?></td>
-                  <td>
-                    <strong><?= e((string)$gig['title']) ?></strong>
-                    <?php if (!empty($gig['location'])): ?><div class="finance-muted"><?= e((string)$gig['location']) ?></div><?php endif; ?>
-                  </td>
-                  <td><?= finance_money((int)$gig['guarantee_cents'] + (int)$gig['tips_cents']) ?></td>
-                  <td>
-                    <div class="finance-doc-actions">
-                      <?php if ($isProUser): ?>
-                        <a class="btn btn-outline" href="<?= e(base_url('/finance/document.php?type=contract&gig_id=' . (int)$gig['id'])) ?>" target="_blank" rel="noopener">Contract</a>
-                        <a class="btn btn-outline" href="<?= e(base_url('/finance/document.php?type=invoice&gig_id=' . (int)$gig['id'])) ?>" target="_blank" rel="noopener">Invoice</a>
-                      <?php else: ?>
-                        <a class="btn btn-outline" href="<?= e($upgradeUrl) ?>">Upgrade for documents</a>
-                      <?php endif; ?>
-                    </div>
-                  </td>
-                </tr>
-              <?php endforeach; ?>
-            </tbody>
-          </table>
-        </div>
-      <?php endif; ?>
     </section>
 
     <section class="finance-two">

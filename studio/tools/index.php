@@ -32,6 +32,17 @@ $dateTo   = $_GET['date_to'] ?? $defaultDateTo;
 
 $userTimezone = $user['timezone'] ?? 'America/Chicago';
 
+function tools_calendar_column_exists(PDO $pdo, string $columnName): bool {
+    static $cache = [];
+    if (array_key_exists($columnName, $cache)) return $cache[$columnName];
+    $stmt = $pdo->prepare("SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'calendars' AND column_name = ? LIMIT 1");
+    $stmt->execute([$columnName]);
+    return $cache[$columnName] = (bool)$stmt->fetchColumn();
+}
+
+$hasMainGigColumn = tools_calendar_column_exists($pdo, 'is_main_gig');
+$mainGigSelect = $hasMainGigColumn ? 'is_main_gig' : '0 AS is_main_gig';
+
 $calStmt = $pdo->prepare("
     SELECT
         id,
@@ -41,6 +52,7 @@ $calStmt = $pdo->prepare("
         ics_url,
         is_active,
         is_default,
+        {$mainGigSelect},
         sync_status,
         last_sync_at
     FROM calendars
@@ -63,14 +75,39 @@ if (!$selectedCalendarIds && $hasCalendars) {
 			);
 }
 
+$calendarMonthRaw = (string)($_GET['month'] ?? $today->format('Y-m-01'));
+try {
+    $calendarMonth = new DateTime($calendarMonthRaw);
+} catch (Throwable $e) {
+    $calendarMonth = new DateTime($today->format('Y-m-01'));
+}
+$calendarMonth->modify('first day of this month');
+$monthStart = $calendarMonth->format('Y-m-d');
+$monthEnd = (clone $calendarMonth)->modify('last day of this month')->format('Y-m-d');
+$monthPrev = (clone $calendarMonth)->modify('-1 month')->format('Y-m-01');
+$monthNext = (clone $calendarMonth)->modify('+1 month')->format('Y-m-01');
+$monthTitle = $calendarMonth->format('F Y');
+$monthDays = (int)$calendarMonth->format('t');
+$firstWeekday = (int)$calendarMonth->format('w');
+$selectedCalendarQuery = '';
+foreach ($selectedCalendarIds as $selectedCalendarId) {
+    $selectedCalendarQuery .= '&calendar_ids%5B%5D=' . (int)$selectedCalendarId;
+}
+$calendarMeta = array_map(static fn($calendar) => [
+    'id' => (int)$calendar['id'],
+    'name' => (string)$calendar['name'],
+    'color' => (string)($calendar['color'] ?: '#d4af37'),
+    'is_main_gig' => (int)($calendar['is_main_gig'] ?? 0) === 1,
+], $connectedCalendars);
+
 ?>
 <!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Availability | Ready Set Shows</title>
-  <meta name="description" content="Check shared availability across multiple calendars, print useful views, and export dates for Bands In Town.">
+  <title>Calendar | Ready Set Shows</title>
+  <meta name="description" content="View your connected calendars by month, check shared availability, and create show paperwork from your main gig calendar.">
   <link rel="stylesheet" href="<?= e(base_url('../assets/css/style.css')) ?>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -288,6 +325,123 @@ if (!$selectedCalendarIds && $hasCalendars) {
       white-space:nowrap;
     }
 
+    .calendar-month-card{
+      margin-bottom:1.5rem;
+    }
+
+    .calendar-month-head{
+      display:flex;
+      justify-content:space-between;
+      align-items:flex-start;
+      gap:1rem;
+      margin-bottom:1rem;
+      flex-wrap:wrap;
+    }
+
+    .calendar-month-actions{
+      display:flex;
+      gap:.5rem;
+      flex-wrap:wrap;
+    }
+
+    .calendar-month-grid{
+      display:grid;
+      grid-template-columns:repeat(7, minmax(0, 1fr));
+      border:1px solid rgba(255,255,255,.08);
+      border-radius:16px;
+      overflow:hidden;
+      background:rgba(255,255,255,.025);
+    }
+
+    .calendar-weekday,
+    .calendar-day{
+      border-right:1px solid rgba(255,255,255,.07);
+      border-bottom:1px solid rgba(255,255,255,.07);
+    }
+
+    .calendar-weekday:nth-child(7n),
+    .calendar-day:nth-child(7n){
+      border-right:0;
+    }
+
+    .calendar-weekday{
+      padding:.65rem .5rem;
+      color:#f4d35e;
+      font-size:.78rem;
+      font-weight:700;
+      letter-spacing:.08em;
+      text-transform:uppercase;
+      background:rgba(255,255,255,.035);
+    }
+
+    .calendar-day{
+      min-height:112px;
+      padding:.55rem;
+      display:grid;
+      align-content:start;
+      gap:.35rem;
+      min-width:0;
+      overflow:hidden;
+    }
+
+    .calendar-day.is-muted{
+      background:rgba(255,255,255,.018);
+    }
+
+    .calendar-day-number{
+      color:#fff;
+      font-weight:700;
+      font-size:.9rem;
+    }
+
+    .calendar-event-badge{
+      display:flex;
+      align-items:center;
+      gap:.4rem;
+      width:100%;
+      max-width:100%;
+      border:0;
+      border-radius:6px;
+      padding:.18rem .1rem;
+      background:transparent;
+      color:#fff;
+      font:inherit;
+      font-size:.78rem;
+      text-align:left;
+      cursor:pointer;
+      min-width:0;
+      overflow:hidden;
+    }
+
+    .calendar-event-badge:hover{
+      background:rgba(255,255,255,.06);
+    }
+
+    .calendar-event-badge span:last-child{
+      display:block;
+      min-width:0;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+    }
+
+    .calendar-color-square{
+      width:10px;
+      height:10px;
+      border-radius:3px;
+      flex:0 0 auto;
+      box-shadow:0 0 0 1px rgba(255,255,255,.25);
+    }
+
+    .calendar-modal[hidden]{display:none;}
+    .calendar-modal{position:fixed; inset:0; z-index:9998;}
+    .calendar-modal-backdrop{position:absolute; inset:0; background:rgba(0,0,0,.62); backdrop-filter:blur(4px);}
+    .calendar-modal-card{position:relative; z-index:2; width:min(560px, calc(100% - 2rem)); margin:10vh auto 0; padding:1.35rem; border-radius:22px; background:#151323; border:1px solid rgba(255,255,255,.12); box-shadow:0 24px 70px rgba(0,0,0,.45);}
+    .calendar-modal-close{position:absolute; top:.75rem; right:.85rem; width:36px; height:36px; border-radius:999px; border:1px solid rgba(255,255,255,.14); background:rgba(255,255,255,.05); color:#fff; cursor:pointer; font-size:1.4rem;}
+    .calendar-map-link{color:rgba(255,255,255,.72); text-decoration:none;}
+    .calendar-map-link:hover{color:#f4d35e; text-decoration:underline;}
+    .calendar-modal-actions{display:flex; gap:.55rem; flex-wrap:wrap; margin-top:1rem;}
+
     .empty-state{
       display:grid;
       gap:1rem;
@@ -399,6 +553,10 @@ if (!$selectedCalendarIds && $hasCalendars) {
       .results-header{
         flex-direction:column;
       }
+
+      .calendar-month-grid{
+        grid-template-columns:repeat(7, minmax(0, 1fr));
+      }
     }
 
     @media (max-width: 520px){
@@ -409,6 +567,57 @@ if (!$selectedCalendarIds && $hasCalendars) {
       .tools-card{
         padding:1rem;
         border-radius:18px;
+      }
+
+      .calendar-month-card{
+        padding:.75rem;
+      }
+
+      .calendar-month-head{
+        gap:.65rem;
+      }
+
+      .calendar-month-actions{
+        width:100%;
+        display:grid;
+        grid-template-columns:repeat(3, minmax(0, 1fr));
+        gap:.35rem;
+      }
+
+      .calendar-month-actions .btn{
+        justify-content:center;
+        padding:.55rem .25rem;
+        font-size:.68rem;
+        letter-spacing:.08em;
+      }
+
+      .calendar-weekday{
+        padding:.42rem .12rem;
+        font-size:.58rem;
+        text-align:center;
+      }
+
+      .calendar-day{
+        min-height:54px;
+        padding:.22rem;
+        gap:.12rem;
+      }
+
+      .calendar-day-number{
+        font-size:.72rem;
+      }
+
+      .calendar-event-badge{
+        gap:.18rem;
+        padding:.08rem 0;
+        font-size:.58rem;
+        line-height:1.15;
+      }
+
+      .calendar-color-square{
+        width:7px;
+        height:7px;
+        border-radius:2px;
       }
 
       .tools-topbar{
@@ -467,7 +676,7 @@ if (!$selectedCalendarIds && $hasCalendars) {
 
     <div class="tools-topbar">
       <div>
-        <h1>Availability</h1>
+        <h1>Calendar</h1>
       </div>
     </div>
 	<?php if (isset($_GET['trial_started'])): ?>
@@ -476,10 +685,50 @@ if (!$selectedCalendarIds && $hasCalendars) {
 	  </div>
 	<?php endif; ?>
 
+    <section class="tools-card calendar-month-card">
+      <div class="calendar-month-head">
+        <div>
+          <p class="eyebrow" style="margin-bottom:.45rem;">Calendar</p>
+          <h2 style="margin:0;"><?= e($monthTitle) ?></h2>
+          <p class="tools-muted" style="margin:.35rem 0 0;">Colored badges show events from your selected calendars.</p>
+        </div>
+        <div class="calendar-month-actions">
+          <a class="btn btn-secondary" href="<?= e(base_url('/tools/index.php?month=' . rawurlencode($monthPrev) . $selectedCalendarQuery)) ?>">Previous</a>
+          <a class="btn btn-secondary" href="<?= e(base_url('/tools/index.php?month=' . rawurlencode($today->format('Y-m-01')) . $selectedCalendarQuery)) ?>">Today</a>
+          <a class="btn btn-secondary" href="<?= e(base_url('/tools/index.php?month=' . rawurlencode($monthNext) . $selectedCalendarQuery)) ?>">Next</a>
+        </div>
+      </div>
+      <?php if (!$hasCalendars): ?>
+        <div class="demo-box" style="margin-top:0;">
+          <strong style="color:#fff;">No calendars connected yet</strong>
+          <p class="small-note" style="margin:.45rem 0 .9rem;">Connect one or more iCal feeds to see a working month view.</p>
+          <a class="btn btn-primary" href="<?= e(base_url('/tools/calendars.php')) ?>">Connect Calendars</a>
+        </div>
+      <?php else: ?>
+        <div class="calendar-month-grid" id="calendarMonthGrid" aria-label="<?= e($monthTitle) ?> event calendar">
+          <?php foreach (['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as $weekday): ?>
+            <div class="calendar-weekday"><?= e($weekday) ?></div>
+          <?php endforeach; ?>
+          <?php for ($i = 0; $i < $firstWeekday; $i++): ?>
+            <div class="calendar-day is-muted" aria-hidden="true"></div>
+          <?php endfor; ?>
+          <?php for ($day = 1; $day <= $monthDays; $day++): ?>
+            <?php $dateValue = $calendarMonth->format('Y-m-') . str_pad((string)$day, 2, '0', STR_PAD_LEFT); ?>
+            <div class="calendar-day" data-date="<?= e($dateValue) ?>">
+              <div class="calendar-day-number"><?= (int)$day ?></div>
+              <div class="calendar-day-events" data-events-for="<?= e($dateValue) ?>"></div>
+            </div>
+          <?php endfor; ?>
+        </div>
+        <div id="calendarMonthStatus" class="small-note" style="margin-top:.75rem;">Loading calendar events...</div>
+      <?php endif; ?>
+    </section>
+
     <div class="tools-layout">
       <aside class="tools-stack">
         <section class="tools-card">
           <form id="availabilityForm" method="get" action="<?= e(base_url('/tools/index.php')) ?>">
+            <input type="hidden" name="month" value="<?= e($monthStart) ?>">
             <div class="tools-stack">
               <div class="date-range-grid">
                 <div class="tools-field">
@@ -649,6 +898,18 @@ if (!$selectedCalendarIds && $hasCalendars) {
   </div>
 </main>
 
+<div id="calendarEventModal" class="calendar-modal" hidden>
+  <div class="calendar-modal-backdrop" onclick="closeCalendarEventModal()"></div>
+  <div class="calendar-modal-card" role="dialog" aria-modal="true" aria-labelledby="calendarEventTitle">
+    <button type="button" class="calendar-modal-close" onclick="closeCalendarEventModal()" aria-label="Close">&times;</button>
+    <p class="eyebrow" id="calendarEventCalendar" style="margin-bottom:.45rem;"></p>
+    <h2 id="calendarEventTitle" style="margin:0 2rem .5rem 0;"></h2>
+    <p class="tools-muted" id="calendarEventDate" style="margin:.35rem 0;"></p>
+    <a class="calendar-map-link" id="calendarEventLocation" style="display:block; margin:.35rem 0;" target="_blank" rel="noopener"></a>
+    <div class="calendar-modal-actions" id="calendarEventActions"></div>
+  </div>
+</div>
+
 <div id="upgradeModal" class="upgrade-modal" hidden>
   <div class="upgrade-modal-backdrop" onclick="closeUpgradeModal()"></div>
   <div class="upgrade-modal-card" role="dialog" aria-modal="true" aria-labelledby="upgradeModalTitle">
@@ -676,6 +937,12 @@ if (!$selectedCalendarIds && $hasCalendars) {
 const USER_TIMEZONE = <?= json_encode($userTimezone) ?>;
 const IS_PRO_USER = <?= $isProUser ? 'true' : 'false' ?>;
 const TOOL_USAGE_ENDPOINT = <?= json_encode(base_url('/api/log_tool_usage.php')) ?>;
+const CALENDAR_META = <?= json_encode($calendarMeta, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>;
+const CALENDAR_MONTH_START = <?= json_encode($monthStart) ?>;
+const CALENDAR_MONTH_END = <?= json_encode($monthEnd) ?>;
+const FINANCE_DOCUMENT_URL = <?= json_encode(base_url('/finance/document.php')) ?>;
+const FINANCE_GIGS_URL = <?= json_encode(base_url('/finance/gigs.php')) ?>;
+const UPGRADE_URL = <?= json_encode($upgradeUrl) ?>;
 let LAST_AVAILABILITY_RESULT_COUNT = 0;
 
 function trackToolUsage(payload) {
@@ -786,7 +1053,7 @@ function protectOutputElement(element) {
   return;
 }
 
-async function getICalEvents(calendarId, startDate, endDate) {
+async function fetchCalendarEvents(calendarId, startDate, endDate) {
   const url = `<?= e(base_url('/api/fetch_ics.php')) ?>?id=${encodeURIComponent(calendarId)}&start=${encodeURIComponent(startDate)}&end=${encodeURIComponent(endDate)}`;
   const res = await fetch(url, { credentials: "same-origin" });
 
@@ -800,10 +1067,143 @@ async function getICalEvents(calendarId, startDate, endDate) {
     throw new Error(data.error || "Unknown error");
   }
 
-  return data.events.map(ev => ({
+  return data.events || [];
+}
+
+async function getICalEvents(calendarId, startDate, endDate) {
+  const events = await fetchCalendarEvents(calendarId, startDate, endDate);
+  return events.map(ev => ({
     start: new Date(ev.start),
     end: new Date(ev.end)
   }));
+}
+
+function calendarDateKey(value) {
+  return String(value || "").slice(0, 10);
+}
+
+function formatCalendarEventDate(event) {
+  const start = new Date(event.start);
+  return start.toLocaleString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: USER_TIMEZONE
+  });
+}
+
+function closeCalendarEventModal() {
+  const modal = document.getElementById("calendarEventModal");
+  if (modal) modal.hidden = true;
+}
+
+function openCalendarEventModal(event, calendar) {
+  const modal = document.getElementById("calendarEventModal");
+  if (!modal) return;
+
+  document.getElementById("calendarEventCalendar").textContent = calendar.name || "Calendar";
+  document.getElementById("calendarEventTitle").textContent = event.summary || "Untitled event";
+  document.getElementById("calendarEventDate").textContent = formatCalendarEventDate(event);
+  const locationLink = document.getElementById("calendarEventLocation");
+  const location = (event.location || "").trim();
+  locationLink.textContent = location || "Address to be confirmed";
+  if (location) {
+    locationLink.href = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`;
+    locationLink.removeAttribute("aria-disabled");
+  } else {
+    locationLink.removeAttribute("href");
+    locationLink.setAttribute("aria-disabled", "true");
+  }
+
+  const actions = document.getElementById("calendarEventActions");
+  actions.innerHTML = "";
+  if (calendar.is_main_gig) {
+    const day = calendarDateKey(event.start);
+    const baseQuery = new URLSearchParams({
+      calendar_id: String(calendar.id),
+      event_key: event.event_key || "",
+      start: CALENDAR_MONTH_START,
+      end: CALENDAR_MONTH_END
+    });
+    const ledgerQuery = new URLSearchParams({
+      calendar_id: String(calendar.id),
+      start: day,
+      end: day,
+      preview: "1"
+    });
+    const links = [
+      ["Contract", IS_PRO_USER ? `${FINANCE_DOCUMENT_URL}?type=contract&${baseQuery.toString()}` : UPGRADE_URL, true],
+      ["Invoice", IS_PRO_USER ? `${FINANCE_DOCUMENT_URL}?type=invoice&${baseQuery.toString()}` : UPGRADE_URL, true],
+      ["Ledger", `${FINANCE_GIGS_URL}?${ledgerQuery.toString()}`, false]
+    ];
+    for (const [label, href, blank] of links) {
+      const a = document.createElement("a");
+      a.className = label === "Ledger" ? "btn btn-secondary" : "btn btn-primary";
+      a.href = href;
+      a.textContent = label;
+      if (blank) {
+        a.target = "_blank";
+        a.rel = "noopener";
+      }
+      actions.appendChild(a);
+    }
+  } else {
+    const note = document.createElement("p");
+    note.className = "tools-muted";
+    note.style.margin = "0";
+    note.textContent = "Document and ledger shortcuts are available for events on your main gig calendar.";
+    actions.appendChild(note);
+  }
+
+  modal.hidden = false;
+}
+
+async function renderCalendarMonth() {
+  const grid = document.getElementById("calendarMonthGrid");
+  const status = document.getElementById("calendarMonthStatus");
+  if (!grid || !CALENDAR_META.length) return;
+
+  const selected = new Set(getSelectedCalendarIds().map(String));
+  const calendars = CALENDAR_META.filter(calendar => selected.has(String(calendar.id)));
+  document.querySelectorAll(".calendar-day-events").forEach(el => { el.innerHTML = ""; });
+
+  if (!calendars.length) {
+    if (status) status.textContent = "Select at least one calendar to show events.";
+    return;
+  }
+
+  let rendered = 0;
+  try {
+    const eventGroups = await Promise.all(calendars.map(async calendar => ({
+      calendar,
+      events: await fetchCalendarEvents(calendar.id, CALENDAR_MONTH_START, CALENDAR_MONTH_END)
+    })));
+
+    for (const group of eventGroups) {
+      for (const event of group.events) {
+        const dateKey = calendarDateKey(event.start);
+        const slot = document.querySelector(`[data-events-for="${dateKey}"]`);
+        if (!slot) continue;
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "calendar-event-badge";
+        const square = document.createElement("span");
+        square.className = "calendar-color-square";
+        square.style.background = group.calendar.color || "#d4af37";
+        const label = document.createElement("span");
+        label.textContent = event.summary || group.calendar.name;
+        button.append(square, label);
+        button.addEventListener("click", () => openCalendarEventModal(event, group.calendar));
+        slot.appendChild(button);
+        rendered++;
+      }
+    }
+    if (status) status.textContent = rendered ? `${rendered} event${rendered === 1 ? "" : "s"} shown.` : "No events on selected calendars this month.";
+  } catch (err) {
+    if (status) status.textContent = "Could not load one or more calendars: " + (err?.message || "Unknown error");
+  }
 }
 
 function formatAvailabilityMonth(date) {
@@ -1043,6 +1443,10 @@ document.addEventListener("DOMContentLoaded", () => {
   if (form) {
     form.addEventListener("submit", findAvailableDates);
   }
+  renderCalendarMonth();
+  document.querySelectorAll("input[name='calendar_ids[]']").forEach(input => {
+    input.addEventListener("change", renderCalendarMonth);
+  });
 
   installLockedDateRange(['date_from', 'date_to']);
 

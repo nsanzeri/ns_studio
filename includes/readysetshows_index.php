@@ -747,7 +747,8 @@ $screens = [
                             <h3>Turn the audience into a revenue channel.</h3>
                             <p>Build your requestable song catalog, generate better sets, and open a public page that lets fans request, tip, join your list, leave reviews, and suggest songs.</p>
                             <div class="rss-checks">
-                                <span><i class="fa-solid fa-check"></i> Song catalog and setlist generator</span>
+                                <span><i class="fa-solid fa-check"></i> Song catalog and editable setlist generator</span>
+                                <span><i class="fa-solid fa-check"></i> Saved favorite setlists with Pro</span>
                                 <span><i class="fa-solid fa-check"></i> Public request page with card and Venmo options</span>
                                 <span><i class="fa-solid fa-check"></i> Emails, reviews, and song ideas for future shows</span>
                             </div>
@@ -791,7 +792,7 @@ $screens = [
                 <div class="rss-section-head" style="margin-bottom:0;">
                     <span class="rss-eyebrow">Free where it should be</span>
                     <h2>The musician&apos;s assistant we always wished we had.</h2>
-                    <p>Start with the tools that keep you organized. Calendar availability, song catalogs, setlist generation, Finance tracking, and Publishing tools help before you ever charge the crowd. Pro unlocks live request pages, payments, Bandsintown export, and spreadsheet import workflows that directly support paid operations.</p>
+                    <p>Start with the tools that keep you organized. Calendar availability, song catalogs, editable setlist generation, Finance tracking, and Publishing tools help before you ever charge the crowd. Pro unlocks saved setlists, live request pages, payments, Bandsintown export, and spreadsheet import workflows that directly support paid operations.</p>
                 </div>
                 <div class="rss-quote">
                     <strong>More signal. Less admin.</strong>

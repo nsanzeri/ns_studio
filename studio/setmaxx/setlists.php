@@ -182,6 +182,9 @@ if ($tablesReady && is_post()) {
                 $favoriteSetlists = $favoriteStmt->fetchAll(PDO::FETCH_ASSOC);
             }
         } elseif ($action === 'save_favorite') {
+            if (!$isProUser) {
+                $errors[] = 'Saving favorite setlists is included with Pro.';
+            } else {
             $name = mb_substr(trim((string)($_POST['favorite_name'] ?? '')), 0, 190);
             if ($name === '') $name = 'Favorite setlist';
             $payloadRaw = trim((string)($_POST['favorite_payload'] ?? ''));
@@ -205,6 +208,7 @@ if ($tablesReady && is_post()) {
                 $favoriteStmt = $pdo->prepare("SELECT id, name, sets_json, updated_at FROM setmaxx_favorite_setlists WHERE user_id = ? ORDER BY updated_at DESC LIMIT 8");
                 $favoriteStmt->execute([$userId]);
                 $favoriteSetlists = $favoriteStmt->fetchAll(PDO::FETCH_ASSOC);
+            }
             }
         } else {
         $where = ['user_id = ?'];
@@ -505,8 +509,16 @@ setmaxx_page_head('Set Maxx | Setlist Generator');
           <input type="hidden" name="criteria_json" value="<?= e(json_encode($filters)) ?>">
           <input type="hidden" name="favorite_payload" id="setmaxxFavoritePayload" value="">
           <div class="setmaxx-save-row">
-            <input class="setmaxx-input" name="favorite_name" value="<?= e('Setlist ' . date('M j, Y')) ?>" aria-label="Favorite setlist name">
-            <button class="btn btn-primary" type="submit">Save Favorite</button>
+            <?php if ($isProUser): ?>
+              <input class="setmaxx-input" name="favorite_name" value="<?= e('Setlist ' . date('M j, Y')) ?>" aria-label="Favorite setlist name">
+              <button class="btn btn-primary" type="submit">Save Favorite</button>
+            <?php else: ?>
+              <div class="setmaxx-pro-save-note">
+                <span class="setmaxx-pill">Pro</span>
+                <span>Save favorite setlists with Pro.</span>
+              </div>
+              <a class="btn btn-primary" href="<?= e($upgradeUrl) ?>">Upgrade</a>
+            <?php endif; ?>
           </div>
         <div class="setmaxx-generated-grid">
           <?php foreach ($generatedSets as $setNumber => $set): ?>
@@ -643,6 +655,7 @@ setmaxx_page_head('Set Maxx | Setlist Generator');
   .setmaxx-song-editor { margin-bottom:.45rem; }
   .setmaxx-song-editor .setmaxx-select { padding:.52rem .65rem; border-radius:10px; font-size:.88rem; }
   .setmaxx-save-row { display:grid; grid-template-columns:minmax(220px, 1fr) auto; gap:.75rem; align-items:center; margin-bottom:1rem; }
+  .setmaxx-pro-save-note { display:flex; align-items:center; gap:.65rem; min-height:44px; color:rgba(255,255,255,.78); }
   .setmaxx-favorite-row { display:grid; grid-template-columns:minmax(0, 1fr) auto; align-items:start; }
   .setmaxx-icon-button { width:34px; height:34px; display:inline-flex; align-items:center; justify-content:center; border-radius:999px; border:1px solid rgba(255,255,255,.14); background:rgba(255,255,255,.05); color:#fff; cursor:pointer; font-size:1.25rem; line-height:1; }
   .setmaxx-icon-button:hover, .setmaxx-icon-button:focus-visible { border-color:rgba(255,130,130,.55); background:rgba(255,130,130,.16); outline:none; }

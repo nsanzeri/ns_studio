@@ -105,6 +105,8 @@ $comparisonFeatures = [
 	['module' => 'SetMaxx', 'label' => 'Song metadata enrichment', 'free' => true, 'pro' => true],
 	['module' => 'SetMaxx', 'label' => 'Song catalog export and print tools', 'free' => true, 'pro' => true],
 	['module' => 'SetMaxx', 'label' => 'Setlist generator and planning tools', 'free' => true, 'pro' => true],
+	['module' => 'SetMaxx', 'label' => 'Editable generated setlists with song swaps', 'free' => true, 'pro' => true],
+	['module' => 'SetMaxx', 'label' => 'Saved favorite setlists', 'free' => false, 'pro' => true],
 	['module' => 'SetMaxx', 'label' => 'Live gig sessions', 'free' => false, 'pro' => true],
 	['module' => 'SetMaxx', 'label' => 'Public request pages with stable QR links', 'free' => false, 'pro' => true],
 	['module' => 'SetMaxx', 'label' => 'Live request dashboard with queue, played, and decline workflow', 'free' => false, 'pro' => true],

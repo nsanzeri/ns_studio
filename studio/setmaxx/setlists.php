@@ -39,6 +39,31 @@ function setmaxx_setlist_ensure_broad_genre(PDO $pdo): void {
     }
 }
 
+function setmaxx_setlist_ensure_favorites_table(PDO $pdo): void {
+    if (setmaxx_table_exists($pdo, 'setmaxx_favorite_setlists')) return;
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS `setmaxx_favorite_setlists` (
+          `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+          `user_id` int(10) unsigned NOT NULL,
+          `name` varchar(190) NOT NULL,
+          `criteria_json` longtext DEFAULT NULL,
+          `sets_json` longtext NOT NULL,
+          `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+          `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+          PRIMARY KEY (`id`),
+          KEY `idx_setmaxx_favorite_setlists_user` (`user_id`,`updated_at`),
+          CONSTRAINT `fk_setmaxx_favorite_setlists_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
+    ");
+}
+
+function setmaxx_setlist_difficulty_values(string $difficulty): array {
+    if ($difficulty === 'easy') return ['easy'];
+    if ($difficulty === 'medium') return ['easy', 'medium'];
+    if ($difficulty === 'hard') return ['easy', 'medium', 'hard'];
+    return [];
+}
+
 function setmaxx_setlist_tempo_value(array $song): int {
     return (int)($song['tempo_bpm'] ?? 0);
 }
@@ -122,9 +147,12 @@ $unknownLengthSongs = [];
 $matchingCount = 0;
 $sourceGenreOptions = [];
 $broadGenreOptions = [];
+$replacementSongOptions = [];
+$favoriteSetlists = [];
 
 if ($tablesReady) {
     setmaxx_setlist_ensure_broad_genre($pdo);
+    setmaxx_setlist_ensure_favorites_table($pdo);
     $sourceGenreStmt = $pdo->prepare("SELECT DISTINCT genre FROM setmaxx_songs WHERE user_id = ? AND genre IS NOT NULL AND genre <> '' ORDER BY genre ASC");
     $sourceGenreStmt->execute([$userId]);
     $sourceGenreOptions = array_map('strval', array_column($sourceGenreStmt->fetchAll(PDO::FETCH_ASSOC), 'genre'));
@@ -132,12 +160,53 @@ if ($tablesReady) {
     $broadGenreStmt = $pdo->prepare("SELECT DISTINCT broad_genre FROM setmaxx_songs WHERE user_id = ? AND broad_genre IS NOT NULL AND broad_genre <> '' ORDER BY broad_genre ASC");
     $broadGenreStmt->execute([$userId]);
     $broadGenreOptions = array_map('strval', array_column($broadGenreStmt->fetchAll(PDO::FETCH_ASSOC), 'broad_genre'));
+
+    $favoriteStmt = $pdo->prepare("SELECT id, name, sets_json, updated_at FROM setmaxx_favorite_setlists WHERE user_id = ? ORDER BY updated_at DESC LIMIT 8");
+    $favoriteStmt->execute([$userId]);
+    $favoriteSetlists = $favoriteStmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
 if ($tablesReady && is_post()) {
     if (!csrf_verify($_POST['_csrf'] ?? null)) {
         $errors[] = 'Your session expired. Refresh the page and try again.';
     } else {
+        $action = (string)($_POST['action'] ?? 'generate');
+        if ($action === 'delete_favorite') {
+            $favoriteId = (int)($_POST['favorite_id'] ?? 0);
+            if ($favoriteId > 0) {
+                $delete = $pdo->prepare("DELETE FROM setmaxx_favorite_setlists WHERE id = ? AND user_id = ?");
+                $delete->execute([$favoriteId, $userId]);
+                $messages[] = $delete->rowCount() > 0 ? 'Favorite setlist deleted.' : 'That favorite setlist was not found.';
+                $favoriteStmt = $pdo->prepare("SELECT id, name, sets_json, updated_at FROM setmaxx_favorite_setlists WHERE user_id = ? ORDER BY updated_at DESC LIMIT 8");
+                $favoriteStmt->execute([$userId]);
+                $favoriteSetlists = $favoriteStmt->fetchAll(PDO::FETCH_ASSOC);
+            }
+        } elseif ($action === 'save_favorite') {
+            $name = mb_substr(trim((string)($_POST['favorite_name'] ?? '')), 0, 190);
+            if ($name === '') $name = 'Favorite setlist';
+            $payloadRaw = trim((string)($_POST['favorite_payload'] ?? ''));
+            $payload = json_decode($payloadRaw, true);
+            if (!is_array($payload) || empty($payload['sets']) || !is_array($payload['sets'])) {
+                $errors[] = 'Could not save that favorite. Generate a setlist first, then try again.';
+            } else {
+                $criteriaRaw = trim((string)($_POST['criteria_json'] ?? ''));
+                $criteria = json_decode($criteriaRaw, true);
+                $insert = $pdo->prepare("
+                    INSERT INTO setmaxx_favorite_setlists (user_id, name, criteria_json, sets_json)
+                    VALUES (?, ?, ?, ?)
+                ");
+                $insert->execute([
+                    $userId,
+                    $name,
+                    is_array($criteria) ? json_encode($criteria) : null,
+                    json_encode($payload['sets']),
+                ]);
+                $messages[] = 'Saved "' . $name . '" to favorite setlists.';
+                $favoriteStmt = $pdo->prepare("SELECT id, name, sets_json, updated_at FROM setmaxx_favorite_setlists WHERE user_id = ? ORDER BY updated_at DESC LIMIT 8");
+                $favoriteStmt->execute([$userId]);
+                $favoriteSetlists = $favoriteStmt->fetchAll(PDO::FETCH_ASSOC);
+            }
+        } else {
         $where = ['user_id = ?'];
         $params = [$userId];
 
@@ -159,9 +228,10 @@ if ($tablesReady && is_post()) {
             $params[] = $prerecorded;
         }
 
-        if ($filters['vocal_difficulty'] !== 'any' && in_array($filters['vocal_difficulty'], ['easy', 'medium', 'hard'], true)) {
-            $where[] = 'vocal_difficulty = ?';
-            $params[] = $filters['vocal_difficulty'];
+        $difficultyValues = setmaxx_setlist_difficulty_values($filters['vocal_difficulty']);
+        if ($difficultyValues) {
+            $where[] = 'vocal_difficulty IN (' . implode(',', array_fill(0, count($difficultyValues), '?')) . ')';
+            $params = array_merge($params, $difficultyValues);
         }
 
         if ($filters['broad_genres']) {
@@ -200,6 +270,7 @@ if ($tablesReady && is_post()) {
         $songStmt->execute($params);
         $songs = $songStmt->fetchAll(PDO::FETCH_ASSOC);
         $matchingCount = count($songs);
+        $replacementSongOptions = $songs;
 
         $planningSongs = [];
         foreach ($songs as $song) {
@@ -259,6 +330,7 @@ if ($tablesReady && is_post()) {
                 $generatedSets[$setNumber]['songs'] = setmaxx_setlist_order_by_tempo($set['songs'], $filters['tempo_order']);
             }
         }
+        }
     }
 }
 
@@ -266,11 +338,6 @@ setmaxx_page_head('Set Maxx | Setlist Generator');
 ?>
 <main class="container setmaxx-shell">
   <?php setmaxx_flash($messages, $errors); ?>
-  <div class="setmaxx-card" style="margin-bottom:1rem;">
-    <div class="setmaxx-pill">Setlist Generator</div>
-    <h1 style="margin:.8rem 0 .35rem;">Build sets from your catalog</h1>
-    <p class="setmaxx-help">Choose the room, era, and length, then generate a practical starting point from uploaded songs.</p>
-  </div>
 
   <?php if (!$tablesReady): ?><?php setmaxx_install_notice(); ?><?php else: ?>
     <section class="setmaxx-grid">
@@ -281,6 +348,7 @@ setmaxx_page_head('Set Maxx | Setlist Generator');
         </div>
         <form method="post" class="setmaxx-stack" action="">
           <input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>">
+          <input type="hidden" name="action" value="generate">
           <div class="setmaxx-form-grid">
             <div class="setmaxx-field">
               <label for="year_from">Year from</label>
@@ -370,15 +438,51 @@ setmaxx_page_head('Set Maxx | Setlist Generator');
       </div>
       <div class="setmaxx-card">
         <div class="setmaxx-section-head">
-          <h2>How it chooses songs</h2>
-          <button class="setmaxx-help-button" type="button" id="setmaxxChooserHelpBtn" aria-label="Show setlist generator help" aria-haspopup="dialog">?</button>
+          <h2>Favorite setlists</h2>
         </div>
-        <p class="setmaxx-help">Songs are placed until each set is near the target time, then ordered by your tempo pacing choice. Missing song lengths count as 4 minutes. Songs without BPM stay after the tempo-shaped portion.</p>
-        <?php if (is_post()): ?>
-          <div class="setmaxx-list">
-            <div class="setmaxx-row"><strong><?= (int)$matchingCount ?></strong><span class="setmaxx-meta">matching songs</span></div>
-            <div class="setmaxx-row"><strong><?= count($unknownLengthSongs) ?></strong><span class="setmaxx-meta">songs using assumed 4 min length</span></div>
-            <div class="setmaxx-row"><strong><?= count($unusedSongs) ?></strong><span class="setmaxx-meta">unused timed songs</span></div>
+        <?php if (!$favoriteSetlists): ?>
+          <p class="setmaxx-help" style="margin:0;">Saved setlists will appear here after you generate and save one.</p>
+        <?php else: ?>
+          <div class="setmaxx-list setmaxx-favorite-list">
+            <?php foreach ($favoriteSetlists as $favorite): ?>
+              <?php
+                $favoriteSets = json_decode((string)$favorite['sets_json'], true);
+                $favoriteSetCount = is_array($favoriteSets) ? count($favoriteSets) : 0;
+                $favoriteSongCount = 0;
+                if (is_array($favoriteSets)) {
+                    foreach ($favoriteSets as $favoriteSet) {
+                        $favoriteSongCount += is_array($favoriteSet['songs'] ?? null) ? count($favoriteSet['songs']) : 0;
+                    }
+                }
+              ?>
+              <div class="setmaxx-row setmaxx-favorite-row">
+                <div>
+                  <strong><?= e((string)$favorite['name']) ?></strong>
+                  <div class="setmaxx-meta"><?= (int)$favoriteSetCount ?> sets &middot; <?= (int)$favoriteSongCount ?> songs &middot; <?= e((new DateTime((string)$favorite['updated_at']))->format('M j, Y')) ?></div>
+                  <?php if (is_array($favoriteSets)): ?>
+                    <details class="setmaxx-favorite-detail">
+                      <summary>View songs</summary>
+                      <?php foreach ($favoriteSets as $favoriteSet): ?>
+                        <div class="setmaxx-favorite-set">
+                          <strong>Set <?= (int)($favoriteSet['number'] ?? 0) ?></strong>
+                          <ol>
+                            <?php foreach ((array)($favoriteSet['songs'] ?? []) as $favoriteSong): ?>
+                              <li><?= e((string)($favoriteSong['title'] ?? 'Untitled')) ?> <span><?= e((string)($favoriteSong['artist'] ?? 'Artist not set')) ?></span></li>
+                            <?php endforeach; ?>
+                          </ol>
+                        </div>
+                      <?php endforeach; ?>
+                    </details>
+                  <?php endif; ?>
+                </div>
+                <form method="post" action="" onsubmit="return confirm('Delete this saved setlist?');">
+                  <input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>">
+                  <input type="hidden" name="action" value="delete_favorite">
+                  <input type="hidden" name="favorite_id" value="<?= (int)$favorite['id'] ?>">
+                  <button class="setmaxx-icon-button" type="submit" aria-label="Delete favorite setlist">&times;</button>
+                </form>
+              </div>
+            <?php endforeach; ?>
           </div>
         <?php endif; ?>
       </div>
@@ -391,23 +495,58 @@ setmaxx_page_head('Set Maxx | Setlist Generator');
             <h2 style="margin:0;">Generated setlist</h2>
             <div class="setmaxx-help"><?= (int)$filters['set_count'] ?> sets at about <?= (int)$filters['set_minutes'] ?> minutes each</div>
           </div>
-          <button class="btn btn-outline" type="button" onclick="window.print()">Print</button>
+          <div class="setmaxx-actions">
+            <button class="btn btn-outline" type="button" onclick="window.print()">Print</button>
+          </div>
         </div>
+        <form method="post" class="setmaxx-favorite-form" id="setmaxxFavoriteForm" action="">
+          <input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>">
+          <input type="hidden" name="action" value="save_favorite">
+          <input type="hidden" name="criteria_json" value="<?= e(json_encode($filters)) ?>">
+          <input type="hidden" name="favorite_payload" id="setmaxxFavoritePayload" value="">
+          <div class="setmaxx-save-row">
+            <input class="setmaxx-input" name="favorite_name" value="<?= e('Setlist ' . date('M j, Y')) ?>" aria-label="Favorite setlist name">
+            <button class="btn btn-primary" type="submit">Save Favorite</button>
+          </div>
         <div class="setmaxx-generated-grid">
           <?php foreach ($generatedSets as $setNumber => $set): ?>
-            <div class="setmaxx-set-card">
+            <div class="setmaxx-set-card" data-setlist-card data-set-number="<?= (int)$setNumber ?>">
               <div class="setmaxx-set-head">
                 <h3>Set <?= (int)$setNumber ?></h3>
-                <span class="setmaxx-pill"><?= e(setmaxx_setlist_total_time((int)$set['seconds'])) ?></span>
+                <span class="setmaxx-pill" data-set-total><?= e(setmaxx_setlist_total_time((int)$set['seconds'])) ?></span>
               </div>
               <ol class="setmaxx-set-songs">
                 <?php foreach ($set['songs'] as $song): ?>
-                  <li>
-                    <div>
-                      <strong><?= e($song['title']) ?></strong>
-                      <span><?= e((string)($song['artist'] ?: 'Artist not set')) ?></span>
+                  <li data-setlist-song>
+                    <div class="setmaxx-song-editor">
+                      <select class="setmaxx-select setmaxx-song-swap" aria-label="Swap song">
+                        <?php foreach ($replacementSongOptions as $optionSong): ?>
+                          <?php
+                            $optionSeconds = setmaxx_setlist_planning_seconds($optionSong);
+                            $optionArtist = (string)($optionSong['artist'] ?: 'Artist not set');
+                            $optionTitle = (string)$optionSong['title'];
+                            $optionLyrics = setmaxx_lyrics_url($optionTitle, $optionArtist);
+                          ?>
+                          <option
+                            value="<?= (int)$optionSong['id'] ?>"
+                            data-title="<?= e($optionTitle) ?>"
+                            data-artist="<?= e($optionArtist) ?>"
+                            data-seconds="<?= (int)$optionSeconds ?>"
+                            data-length="<?= e(setmaxx_setlist_display_length($optionSong)) ?>"
+                            data-opener="<?= !empty($optionSong['opening_song']) ? '1' : '0' ?>"
+                            data-song-key="<?= e((string)($optionSong['song_key'] ?? '')) ?>"
+                            data-bpm="<?= (int)($optionSong['tempo_bpm'] ?? 0) ?>"
+                            data-lyrics="<?= e($optionLyrics) ?>"
+                            <?= (int)$optionSong['id'] === (int)$song['id'] ? 'selected' : '' ?>
+                          ><?= e($optionTitle . ' - ' . $optionArtist) ?></option>
+                        <?php endforeach; ?>
+                      </select>
                     </div>
-                    <div class="setmaxx-song-badges">
+                    <div class="setmaxx-song-display">
+                      <strong data-song-title><?= e($song['title']) ?></strong>
+                      <span data-song-artist><?= e((string)($song['artist'] ?: 'Artist not set')) ?></span>
+                    </div>
+                    <div class="setmaxx-song-badges" data-song-badges>
                       <?php if (!empty($song['opening_song'])): ?><span>Opener</span><?php endif; ?>
                       <?php if (!empty($song['song_key'])): ?><span><?= e((string)$song['song_key']) ?></span><?php endif; ?>
                       <?php if (!empty($song['tempo_bpm'])): ?><span><?= (int)$song['tempo_bpm'] ?> bpm</span><?php endif; ?>
@@ -420,6 +559,7 @@ setmaxx_page_head('Set Maxx | Setlist Generator');
             </div>
           <?php endforeach; ?>
         </div>
+        </form>
       </section>
     <?php endif; ?>
 
@@ -462,7 +602,7 @@ setmaxx_page_head('Set Maxx | Setlist Generator');
           <li>Family friendly uses the family-friendly flag from the song catalog.</li>
           <li>Number of sets and minutes per set define the target show shape.</li>
           <li>Broad genres are your cleaned-up categories. Source genres are the imported or lookup genres.</li>
-          <li>Vocal difficulty and prerecorded tracks use the metadata saved on each song.</li>
+          <li>Vocal difficulty is a threshold: hard allows hard, medium, and easy; medium allows medium and easy; easy only allows easy.</li>
           <li>Tempo pacing changes the order inside each generated set when songs have BPM saved.</li>
         </ul>
       </div>
@@ -499,6 +639,18 @@ setmaxx_page_head('Set Maxx | Setlist Generator');
   .setmaxx-set-songs li { padding-bottom:.65rem; border-bottom:1px solid rgba(255,255,255,.07); }
   .setmaxx-set-songs li:last-child { border-bottom:0; padding-bottom:0; }
   .setmaxx-set-songs span { display:block; color:rgba(255,255,255,.72); font-size:.9rem; }
+  .setmaxx-song-display { display:none; }
+  .setmaxx-song-editor { margin-bottom:.45rem; }
+  .setmaxx-song-editor .setmaxx-select { padding:.52rem .65rem; border-radius:10px; font-size:.88rem; }
+  .setmaxx-save-row { display:grid; grid-template-columns:minmax(220px, 1fr) auto; gap:.75rem; align-items:center; margin-bottom:1rem; }
+  .setmaxx-favorite-row { display:grid; grid-template-columns:minmax(0, 1fr) auto; align-items:start; }
+  .setmaxx-icon-button { width:34px; height:34px; display:inline-flex; align-items:center; justify-content:center; border-radius:999px; border:1px solid rgba(255,255,255,.14); background:rgba(255,255,255,.05); color:#fff; cursor:pointer; font-size:1.25rem; line-height:1; }
+  .setmaxx-icon-button:hover, .setmaxx-icon-button:focus-visible { border-color:rgba(255,130,130,.55); background:rgba(255,130,130,.16); outline:none; }
+  .setmaxx-favorite-detail { margin-top:.5rem; }
+  .setmaxx-favorite-detail summary { cursor:pointer; color:#efe7ff; font-weight:600; }
+  .setmaxx-favorite-set { margin-top:.55rem; }
+  .setmaxx-favorite-set ol { margin:.25rem 0 0; padding-left:1.25rem; color:rgba(255,255,255,.82); }
+  .setmaxx-favorite-set li span { color:rgba(255,255,255,.58); }
   .setmaxx-multi-select { min-height:132px; }
   .setmaxx-song-badges { display:flex; gap:.35rem; flex-wrap:wrap; margin-top:.3rem; }
   .setmaxx-song-badges span { display:inline-flex; padding:.16rem .48rem; border-radius:999px; background:rgba(255,255,255,.07); color:rgba(255,255,255,.82); font-size:.78rem; }
@@ -517,7 +669,7 @@ setmaxx_page_head('Set Maxx | Setlist Generator');
   .setmaxx-format-list { margin:0; padding-left:1.2rem; color:rgba(255,255,255,.82); line-height:1.75; }
   @media print {
     @page { margin:.45in; }
-    .setmaxx-site-header, .setmaxx-site-footer, .setmaxx-grid, .setmaxx-actions, .btn, .setmaxx-song-badges, .setmaxx-printable-setlist .setmaxx-help, .setmaxx-printable-setlist .setmaxx-pill, .setmaxx-card:not(.setmaxx-printable-setlist) { display:none !important; }
+    .setmaxx-site-header, .setmaxx-site-footer, .setmaxx-grid, .setmaxx-actions, .btn, .setmaxx-song-editor, .setmaxx-save-row, .setmaxx-song-badges, .setmaxx-printable-setlist .setmaxx-help, .setmaxx-printable-setlist .setmaxx-pill, .setmaxx-card:not(.setmaxx-printable-setlist) { display:none !important; }
     body { background:#fff !important; color:#111 !important; }
     .setmaxx-shell { padding:0 !important; }
     .setmaxx-card, .setmaxx-set-card { box-shadow:none !important; border-color:#ddd !important; background:#fff !important; color:#111 !important; padding:0 !important; }
@@ -531,11 +683,103 @@ setmaxx_page_head('Set Maxx | Setlist Generator');
     .setmaxx-set-songs { gap:0 !important; padding-left:.18in !important; font-size:9pt !important; line-height:1.18 !important; }
     .setmaxx-set-songs li { border:0 !important; padding:0 0 .035in !important; }
     .setmaxx-set-songs strong { font-weight:500 !important; }
+    .setmaxx-song-display { display:block !important; }
     .setmaxx-set-songs span { display:none !important; }
   }
+  @media (max-width: 640px) { .setmaxx-save-row, .setmaxx-favorite-row { grid-template-columns:1fr; } }
 </style>
 <script>
 (function() {
+  function selectedSong(select) {
+    const option = select.options[select.selectedIndex];
+    return {
+      id: parseInt(option.value || '0', 10),
+      title: option.getAttribute('data-title') || '',
+      artist: option.getAttribute('data-artist') || 'Artist not set',
+      seconds: parseInt(option.getAttribute('data-seconds') || '240', 10),
+      length: option.getAttribute('data-length') || '4:00 assumed',
+      opener: option.getAttribute('data-opener') === '1',
+      songKey: option.getAttribute('data-song-key') || '',
+      bpm: parseInt(option.getAttribute('data-bpm') || '0', 10),
+      lyrics: option.getAttribute('data-lyrics') || '#'
+    };
+  }
+
+  function totalLabel(seconds) {
+    return Math.floor(seconds / 60) + ' min';
+  }
+
+  function renderBadges(container, song) {
+    if (!container) return;
+    container.innerHTML = '';
+    const badges = [];
+    if (song.opener) badges.push({ text: 'Opener' });
+    if (song.songKey) badges.push({ text: song.songKey });
+    if (song.bpm > 0) badges.push({ text: song.bpm + ' bpm' });
+    badges.push({ text: song.length });
+    badges.forEach(function(badge) {
+      const span = document.createElement('span');
+      span.textContent = badge.text;
+      container.appendChild(span);
+    });
+    const link = document.createElement('a');
+    link.href = song.lyrics;
+    link.target = '_blank';
+    link.rel = 'noopener';
+    link.textContent = 'Lyrics';
+    container.appendChild(link);
+  }
+
+  function refreshSetTotals() {
+    document.querySelectorAll('[data-setlist-card]').forEach(function(card) {
+      let seconds = 0;
+      card.querySelectorAll('.setmaxx-song-swap').forEach(function(select) {
+        seconds += selectedSong(select).seconds;
+      });
+      const total = card.querySelector('[data-set-total]');
+      if (total) total.textContent = totalLabel(seconds);
+    });
+  }
+
+  function refreshFavoritePayload() {
+    const payload = document.getElementById('setmaxxFavoritePayload');
+    if (!payload) return;
+    const sets = [];
+    document.querySelectorAll('[data-setlist-card]').forEach(function(card) {
+      const songs = [];
+      card.querySelectorAll('.setmaxx-song-swap').forEach(function(select) {
+        songs.push(selectedSong(select));
+      });
+      sets.push({
+        number: parseInt(card.getAttribute('data-set-number') || '0', 10),
+        songs: songs
+      });
+    });
+    payload.value = JSON.stringify({ sets: sets });
+  }
+
+  document.addEventListener('change', function(event) {
+    if (!event.target.matches('.setmaxx-song-swap')) return;
+    const select = event.target;
+    const song = selectedSong(select);
+    const row = select.closest('[data-setlist-song]');
+    if (row) {
+      const title = row.querySelector('[data-song-title]');
+      const artist = row.querySelector('[data-song-artist]');
+      if (title) title.textContent = song.title;
+      if (artist) artist.textContent = song.artist;
+      renderBadges(row.querySelector('[data-song-badges]'), song);
+    }
+    refreshSetTotals();
+    refreshFavoritePayload();
+  });
+
+  const favoriteForm = document.getElementById('setmaxxFavoriteForm');
+  if (favoriteForm) {
+    refreshFavoritePayload();
+    favoriteForm.addEventListener('submit', refreshFavoritePayload);
+  }
+
   function setupDialog(buttonId, dialogId, closeId) {
     const openButton = document.getElementById(buttonId);
     const dialog = document.getElementById(dialogId);

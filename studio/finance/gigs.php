@@ -15,7 +15,9 @@ if ($selectedYear >= 2000 && $selectedYear <= 2100) {
 $calendarId = (int)($_GET['calendar_id'] ?? $_POST['calendar_id'] ?? 0);
 $previewEvents = [];
 
-$calStmt = $pdo->prepare("SELECT id, name, color, ics_url, timezone, is_active FROM calendars WHERE user_id = ? ORDER BY is_active DESC, name ASC");
+$calendarMainGigSelect = finance_column_exists($pdo, 'calendars', 'is_main_gig') ? 'is_main_gig' : '0 AS is_main_gig';
+$calendarMainGigOrder = finance_column_exists($pdo, 'calendars', 'is_main_gig') ? 'is_main_gig DESC,' : '';
+$calStmt = $pdo->prepare("SELECT id, name, color, ics_url, timezone, is_active, {$calendarMainGigSelect} FROM calendars WHERE user_id = ? ORDER BY {$calendarMainGigOrder} is_active DESC, name ASC");
 $calStmt->execute([$userId]);
 $calendars = $calStmt->fetchAll(PDO::FETCH_ASSOC);
 if ($calendarId <= 0 && $calendars) $calendarId = (int)$calendars[0]['id'];

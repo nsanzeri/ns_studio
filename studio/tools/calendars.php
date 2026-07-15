@@ -22,6 +22,24 @@ $errors = [];
 $flash = $_SESSION['tools_flash'] ?? null;
 unset($_SESSION['tools_flash']);
 
+function tools_calendar_column_exists(PDO $pdo, string $columnName): bool
+{
+	static $cache = [];
+	if (array_key_exists($columnName, $cache)) return $cache[$columnName];
+	$stmt = $pdo->prepare("SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'calendars' AND column_name = ? LIMIT 1");
+	$stmt->execute([$columnName]);
+	return $cache[$columnName] = (bool)$stmt->fetchColumn();
+}
+
+function tools_ensure_main_gig_calendar_column(PDO $pdo): void
+{
+	if (!tools_calendar_column_exists($pdo, 'is_main_gig')) {
+		$pdo->exec("ALTER TABLE calendars ADD COLUMN is_main_gig tinyint(1) NOT NULL DEFAULT 0 AFTER is_default");
+	}
+}
+
+tools_ensure_main_gig_calendar_column($pdo);
+
 $existingCalendarCountStmt = $pdo->prepare("SELECT COUNT(*) FROM calendars WHERE user_id = ?");
 $existingCalendarCountStmt->execute([$userId]);
 $existingCalendarCount = (int)$existingCalendarCountStmt->fetchColumn();
@@ -68,6 +86,7 @@ function posted_calendar_defaults(): array
 			'color' => trim((string)($_POST['color'] ?? '')),
 			'timezone' => trim((string)($_POST['timezone'] ?? '')),
 			'is_active' => isset($_POST['is_active']) ? 1 : 0,
+			'is_main_gig' => isset($_POST['is_main_gig']) ? 1 : 0,
 	];
 }
 
@@ -85,6 +104,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 		$color = normalize_hex_color($_POST['color'] ?? '');
 		$timezone = normalize_timezone($_POST['timezone'] ?? '');
 		$isActive = isset($_POST['is_active']) ? 1 : 0;
+		$isMainGig = isset($_POST['is_main_gig']) ? 1 : 0;
 		
 		if ($name === '') {
 			$errors[] = 'Please give this calendar a name.';
@@ -108,10 +128,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 			if ($action === 'create') {
 				$stmt = $pdo->prepare("
                     INSERT INTO calendars
-                        (user_id, name, color, ics_url, timezone, is_active, is_default, sync_status, created_at)
+                        (user_id, name, color, ics_url, timezone, is_active, is_default, is_main_gig, sync_status, created_at)
                     VALUES
-                        (:user_id, :name, :color, :ics_url, :timezone, :is_active, 0, 'never', NOW())
+                        (:user_id, :name, :color, :ics_url, :timezone, :is_active, 0, :is_main_gig, 'never', NOW())
                 ");
+				if ($isMainGig) {
+					$pdo->prepare("UPDATE calendars SET is_main_gig = 0 WHERE user_id = ?")->execute([$userId]);
+				}
 				$stmt->execute([
 						':user_id' => $userId,
 						':name' => $name,
@@ -119,6 +142,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 						':ics_url' => $icsUrl,
 						':timezone' => $timezone,
 						':is_active' => $isActive,
+						':is_main_gig' => $isMainGig,
 				]);
 				
 				$_SESSION['tools_flash'] = 'Calendar added.';
@@ -148,10 +172,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             ics_url = :ics_url,
                             timezone = :timezone,
                             is_active = :is_active,
+                            is_main_gig = :is_main_gig,
                             updated_at = NOW()
                         WHERE id = :id AND user_id = :user_id
                         LIMIT 1
                     ");
+					if ($isMainGig) {
+						$pdo->prepare("UPDATE calendars SET is_main_gig = 0 WHERE user_id = ? AND id <> ?")->execute([$userId, $calendarId]);
+					}
 					$stmt->execute([
 							':id' => $calendarId,
 							':user_id' => $userId,
@@ -160,6 +188,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 							':ics_url' => $icsUrl,
 							':timezone' => $timezone,
 							':is_active' => $isActive,
+							':is_main_gig' => $isMainGig,
 					]);
 					
 					$_SESSION['tools_flash'] = 'Calendar updated.';
@@ -175,7 +204,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 				'color' => trim((string)($_POST['color'] ?? '')),
 				'timezone' => trim((string)($_POST['timezone'] ?? '')),
 				'is_active' => $isActive,
+				'is_main_gig' => $isMainGig,
 		];
+	}
+
+	if ($action === 'set_main_gig') {
+		$calendarId = (int)($_POST['calendar_id'] ?? 0);
+		$ownStmt = $pdo->prepare("SELECT id FROM calendars WHERE id = ? AND user_id = ? LIMIT 1");
+		$ownStmt->execute([$calendarId, $userId]);
+		if ($ownStmt->fetchColumn()) {
+			$pdo->prepare("UPDATE calendars SET is_main_gig = 0 WHERE user_id = ?")->execute([$userId]);
+			$pdo->prepare("UPDATE calendars SET is_main_gig = 1, updated_at = NOW() WHERE id = ? AND user_id = ? LIMIT 1")->execute([$calendarId, $userId]);
+			$_SESSION['tools_flash'] = 'Main gig calendar updated.';
+		}
+		redirect_tools_calendars();
 	}
 	
 	if ($action === 'toggle') {
@@ -224,6 +266,7 @@ $calStmt = $pdo->prepare("
         timezone,
         is_active,
         is_default,
+        is_main_gig,
         last_sync_at,
         sync_status,
         sync_error_message,
@@ -231,7 +274,7 @@ $calStmt = $pdo->prepare("
         updated_at
     FROM calendars
     WHERE user_id = :user_id
-    ORDER BY is_default DESC, is_active DESC, name ASC
+    ORDER BY is_main_gig DESC, is_default DESC, is_active DESC, name ASC
 ");
 $calStmt->execute([':user_id' => $userId]);
 $calendars = $calStmt->fetchAll(PDO::FETCH_ASSOC);
@@ -251,6 +294,7 @@ if ($editingId > 0) {
 				'color' => (string)($editingCalendar['color'] ?? ''),
 				'timezone' => (string)($editingCalendar['timezone'] ?? ''),
 				'is_active' => (int)($editingCalendar['is_active'] ?? 0),
+				'is_main_gig' => (int)($editingCalendar['is_main_gig'] ?? 0),
 		];
 	}
 }
@@ -514,6 +558,11 @@ $commonTimezones = [
               <span>Calendar is active and available for checks</span>
             </label>
 
+            <label class="tools-check">
+              <input type="checkbox" name="is_main_gig" value="1" <?= !empty($formData['is_main_gig']) ? 'checked' : '' ?>>
+              <span>Main gig calendar for finance documents and show invoices</span>
+            </label>
+
             <div class="tools-actions">
               <button class="btn btn-primary" type="submit" id="calendarSubmitButton">
                 <i class="fa-solid fa-save"></i>&nbsp;
@@ -562,6 +611,10 @@ $commonTimezones = [
                       <?= ((int)$calendar['is_active'] === 1) ? 'Active' : 'Inactive' ?>
                     </span>
 
+                    <?php if (!empty($calendar['is_main_gig'])): ?>
+                      <span class="pill active">Main gig calendar</span>
+                    <?php endif; ?>
+
                   </div>
 
                   <div class="calendar-url"><?= e($calendar['ics_url']) ?></div>
@@ -587,6 +640,16 @@ $commonTimezones = [
                     </button>
                   </form>
 
+                  <?php if (empty($calendar['is_main_gig'])): ?>
+                    <form method="post" action="<?= e(base_url('/tools/calendars.php')) ?>">
+                      <input type="hidden" name="action" value="set_main_gig">
+                      <input type="hidden" name="calendar_id" value="<?= (int)$calendar['id'] ?>">
+                      <button class="btn btn-secondary" type="submit">
+                        Make Main Gig
+                      </button>
+                    </form>
+                  <?php endif; ?>
+
                   <form method="post" action="<?= e(base_url('/tools/calendars.php')) ?>" onsubmit="return confirm('Delete this calendar?');">
                     <input type="hidden" name="action" value="delete">
                     <input type="hidden" name="calendar_id" value="<?= (int)$calendar['id'] ?>">
@@ -605,6 +668,7 @@ $commonTimezones = [
           <ul class="helper-list">
             <li>Use one calendar per person or per source you want included.</li>
             <li>Inactive calendars stay saved, but won’t be used in availability checks.</li>
+            <li>The main gig calendar feeds Finance contracts and invoices.</li>
             <li>You can leave timezone blank unless a feed needs a specific fallback.</li>
           </ul>
         </div>

@@ -117,6 +117,8 @@ $comparisonFeatures = [
 	['module' => 'Finance', 'label' => 'Calendar import and gig preview tools', 'free' => true, 'pro' => true],
 	['module' => 'Finance', 'label' => 'Gig totals, year comparisons, and average gig value', 'free' => true, 'pro' => true],
 	['module' => 'Finance', 'label' => 'Spreadsheet import', 'free' => false, 'pro' => true],
+	['module' => 'Finance', 'label' => 'Generate printable performance contracts from main gig calendar shows', 'free' => false, 'pro' => true],
+	['module' => 'Finance', 'label' => 'Generate printable invoices from main gig calendar shows', 'free' => false, 'pro' => true],
 	['module' => 'Publishing', 'label' => 'Blurbs, social captions, newsletters, and date-list copy', 'free' => true, 'pro' => true],
 ];
 

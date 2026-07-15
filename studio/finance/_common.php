@@ -396,6 +396,7 @@ function finance_page_head(string $title): void { ?>
     .finance-compare-form { display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; }
     .finance-compare-form label { color:rgba(255,255,255,.66); font-size:.78rem; text-transform:uppercase; letter-spacing:.07em; font-weight:700; }
     .finance-compare-form select { padding:.52rem .75rem; border-radius:999px; border:1px solid rgba(255,255,255,.14); background:#151323; color:#fff; font:inherit; font-weight:700; }
+    .finance-doc-actions { display:flex; gap:.5rem; flex-wrap:wrap; }
     .alert { border-radius:16px; padding:.95rem 1rem; margin-bottom:1rem; }
     .alert-success { background:rgba(51,176,102,.16); border:1px solid rgba(51,176,102,.28); }
     .alert-error { background:rgba(199,64,64,.16); border:1px solid rgba(199,64,64,.28); }

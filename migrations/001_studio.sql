@@ -41,6 +41,7 @@ CREATE TABLE `calendars` (
   `timezone` varchar(64) DEFAULT NULL,
   `is_active` tinyint(1) NOT NULL DEFAULT 1,
   `is_default` tinyint(1) NOT NULL DEFAULT 0,
+  `is_main_gig` tinyint(1) NOT NULL DEFAULT 0,
   `last_sync_at` datetime DEFAULT NULL,
   `sync_status` enum('ok','error','never') NOT NULL DEFAULT 'never',
   `sync_error_message` text DEFAULT NULL,

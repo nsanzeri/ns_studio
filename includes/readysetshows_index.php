@@ -760,9 +760,9 @@ $screens = [
                         <div class="rss-showcase-copy">
                             <span class="rss-eyebrow">Finance</span>
                             <h3>Know what you made, who got paid, and what is working.</h3>
-                            <p>Bring in calendar gigs, enter guarantees and tips, track money out, and keep the ledger clean enough for real reconciliation.</p>
+                            <p>Add gigs manually or bring in calendar gigs, enter guarantees and tips, track money out, and keep the ledger clean enough for real reconciliation.</p>
                             <div class="rss-checks">
-                                <span><i class="fa-solid fa-check"></i> Gig ledger with guarantees, tips, payouts, mileage, and notes</span>
+                                <span><i class="fa-solid fa-check"></i> Manual gig ledger with guarantees, tips, payouts, mileage, and notes</span>
                                 <span><i class="fa-solid fa-check"></i> Import past income from spreadsheets with Pro</span>
                                 <span><i class="fa-solid fa-check"></i> See trends instead of guessing how you are doing</span>
                             </div>

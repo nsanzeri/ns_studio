@@ -500,7 +500,7 @@ $commonTimezones = [
                 id="name"
                 name="name"
                 maxlength="255"
-                placeholder="Nick - Personal Calendar"
+                placeholder="Personal Calendar"
                 value="<?= e($formData['name'] ?? '') ?>"
                 required
               >

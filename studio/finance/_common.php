@@ -53,6 +53,25 @@ function finance_tables_ready(PDO $pdo): bool {
         && finance_column_exists($pdo, 'finance_gig_payouts', 'payout_type');
 }
 
+function finance_ensure_commission_payout_type(PDO $pdo): void {
+    if (!finance_table_exists($pdo, 'finance_gig_payouts') || !finance_column_exists($pdo, 'finance_gig_payouts', 'payout_type')) {
+        return;
+    }
+    $stmt = $pdo->prepare("
+        SELECT column_type
+        FROM information_schema.columns
+        WHERE table_schema = DATABASE()
+          AND table_name = 'finance_gig_payouts'
+          AND column_name = 'payout_type'
+        LIMIT 1
+    ");
+    $stmt->execute();
+    $columnType = (string)($stmt->fetchColumn() ?: '');
+    if ($columnType !== '' && !str_contains($columnType, "'commission'")) {
+        $pdo->exec("ALTER TABLE finance_gig_payouts MODIFY COLUMN payout_type enum('band_member','advertising','commission','sound','lights','insurance','travel','other') NOT NULL DEFAULT 'band_member'");
+    }
+}
+
 function finance_money(int $cents): string {
     return '$' . number_format($cents / 100, 2);
 }
@@ -99,6 +118,7 @@ function finance_payout_types(): array {
     return [
         'band_member' => 'Band member',
         'advertising' => 'Advertising',
+        'commission' => 'Commission',
         'sound' => 'Sound',
         'lights' => 'Lights',
         'insurance' => 'Insurance',
@@ -422,8 +442,9 @@ function finance_flash(array $messages, array $errors): void {
 function finance_install_notice(): void { ?>
   <div class="finance-card">
     <h2 style="margin-top:0;">Finance setup required</h2>
-    <p class="finance-muted">Run <code>migrations/013_finance_gigs.sql</code>, <code>migrations/014_finance_payouts_refactor.sql</code>, <code>migrations/015_finance_expense_types.sql</code>, and <code>migrations/026_finance_tip_splits.sql</code>, then refresh this page.</p>
+    <p class="finance-muted">Run <code>migrations/013_finance_gigs.sql</code>, <code>migrations/014_finance_payouts_refactor.sql</code>, <code>migrations/015_finance_expense_types.sql</code>, <code>migrations/026_finance_tip_splits.sql</code>, and <code>migrations/029_finance_commission_payout_type.sql</code>, then refresh this page.</p>
   </div>
 <?php }
 
+finance_ensure_commission_payout_type($pdo);
 $financeReady = finance_tables_ready($pdo);

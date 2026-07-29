@@ -1,7 +1,7 @@
 SET @add_payout_type = (
   SELECT IF(
     COUNT(*) = 0,
-    'ALTER TABLE `finance_gig_payouts` ADD COLUMN `payout_type` enum(''band_member'',''advertising'',''sound'',''lights'',''insurance'',''travel'',''other'') NOT NULL DEFAULT ''band_member'' AFTER `member_id`',
+    'ALTER TABLE `finance_gig_payouts` ADD COLUMN `payout_type` enum(''band_member'',''advertising'',''commission'',''sound'',''lights'',''insurance'',''travel'',''other'') NOT NULL DEFAULT ''band_member'' AFTER `member_id`',
     'SELECT 1'
   )
   FROM information_schema.columns

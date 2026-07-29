@@ -306,6 +306,37 @@ if ($financeReady && is_post()) {
                 }
                 $pdo->commit();
                 $messages[] = $saved . ' gig ' . ($saved === 1 ? 'row' : 'rows') . ' saved.';
+            } elseif ($action === 'create_manual_gig') {
+                $title = finance_clean_text($_POST['manual_title'] ?? '');
+                if ($title === null) throw new RuntimeException('Give the manual gig an event title.');
+                $manualDate = trim((string)($_POST['manual_date'] ?? ''));
+                if ($manualDate === '') throw new RuntimeException('Choose a date for the manual gig.');
+                $dt = new DateTime($manualDate);
+                $cashTipsCents = finance_parse_money($_POST['manual_cash_tips'] ?? '');
+                $platformTipsCents = finance_parse_money($_POST['manual_platform_tips'] ?? '');
+                $insert = $pdo->prepare("
+                    INSERT INTO finance_gigs
+                      (user_id, title, starts_at, ends_at, guarantee_cents, tips_cents, cash_tips_cents, platform_tips_cents, is_taxable, miles, notes)
+                    VALUES (?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?)
+                ");
+                $insert->execute([
+                    $userId,
+                    $title,
+                    $dt->format('Y-m-d H:i:s'),
+                    finance_parse_money($_POST['manual_guarantee'] ?? ''),
+                    $cashTipsCents + $platformTipsCents,
+                    $cashTipsCents,
+                    $platformTipsCents,
+                    !empty($_POST['manual_is_taxable']) ? 1 : 0,
+                    max(0, (float)($_POST['manual_miles'] ?? 0)),
+                    finance_clean_text($_POST['manual_notes'] ?? '', 2000),
+                ]);
+                $manualYear = (int)$dt->format('Y');
+                if ($manualYear >= 2000 && $manualYear <= 2100) {
+                    $startDate = sprintf('%04d-01-01', $manualYear);
+                    $endDate = sprintf('%04d-12-31', $manualYear);
+                }
+                $messages[] = 'Manual gig added.';
             } elseif ($action === 'delete_selected') {
                 $selected = $_POST['selected_gig_ids'] ?? [];
                 if (!is_array($selected)) throw new RuntimeException('No gigs were selected.');
@@ -437,7 +468,7 @@ if ($financeReady) {
             JOIN finance_members m ON m.id = p.member_id
             JOIN finance_gigs g ON g.id = p.gig_id
             WHERE g.user_id = ? AND p.gig_id IN ({$placeholders})
-            ORDER BY FIELD(p.payout_type, 'band_member', 'sound', 'lights', 'advertising', 'insurance', 'travel', 'other'), m.name ASC
+            ORDER BY FIELD(p.payout_type, 'band_member', 'sound', 'lights', 'advertising', 'commission', 'insurance', 'travel', 'other'), m.name ASC
         ");
         $payoutStmt->execute(array_merge([$userId], $gigIds));
         foreach ($payoutStmt->fetchAll(PDO::FETCH_ASSOC) as $payout) {
@@ -455,7 +486,7 @@ finance_page_head('Finance | Gig Ledger');
       <div>
         <div class="finance-pill">Finance</div>
         <h1 style="margin:.8rem 0 .35rem;">Gig ledger</h1>
-        <p class="finance-muted" style="margin:0;">Bring in calendar events, then edit the money details like a working ledger.</p>
+        <p class="finance-muted" style="margin:0;">Add gigs manually or bring in calendar events, then edit the money details like a working ledger.</p>
       </div>
       <a class="btn btn-outline" href="<?= e(base_url('/finance/index.php')) ?>">View summary</a>
     </div>
@@ -478,25 +509,63 @@ finance_page_head('Finance | Gig Ledger');
       <?php endif; ?>
     </section>
 
-    <section class="finance-card">
-      <h2 style="margin-top:0;">Import from calendar</h2>
-      <form method="get" class="finance-stack" action="">
+    <section class="finance-card" style="margin-bottom:1rem;">
+      <h2 style="margin-top:0;">Add manual gig</h2>
+      <form method="post" class="finance-stack" action="">
+        <input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>">
+        <input type="hidden" name="action" value="create_manual_gig">
+        <input type="hidden" name="calendar_id" value="<?= (int)$calendarId ?>">
+        <input type="hidden" name="start" value="<?= e($startDate) ?>">
+        <input type="hidden" name="end" value="<?= e($endDate) ?>">
         <div class="finance-two">
           <div class="finance-field">
-            <label for="calendar_id">Calendar</label>
-            <select class="finance-select" id="calendar_id" name="calendar_id">
-              <?php foreach ($calendars as $calendar): ?>
-                <option value="<?= (int)$calendar['id'] ?>" <?= (int)$calendar['id'] === $calendarId ? 'selected' : '' ?>><?= e($calendar['name']) ?></option>
-              <?php endforeach; ?>
-            </select>
+            <label for="manual_title">Event title</label>
+            <input class="finance-input" id="manual_title" name="manual_title" placeholder="Private party, club date, lesson, session..." required>
           </div>
-          <div class="finance-two">
-            <div class="finance-field"><label for="start">From</label><input class="finance-input" id="start" name="start" type="date" value="<?= e($startDate) ?>"></div>
-            <div class="finance-field"><label for="end">To</label><input class="finance-input" id="end" name="end" type="date" value="<?= e($endDate) ?>"></div>
+          <div class="finance-field">
+            <label for="manual_date">Date</label>
+            <input class="finance-input" id="manual_date" name="manual_date" type="date" value="<?= e(date('Y-m-d')) ?>" required>
           </div>
         </div>
-        <div><button class="btn btn-primary" type="submit" name="preview" value="1">Preview calendar gigs</button></div>
+        <div class="finance-two">
+          <div class="finance-field"><label for="manual_guarantee">Guarantee</label><input class="finance-input" id="manual_guarantee" name="manual_guarantee" inputmode="decimal" placeholder="0.00"></div>
+          <div class="finance-two">
+            <div class="finance-field"><label for="manual_cash_tips">Cash tips</label><input class="finance-input" id="manual_cash_tips" name="manual_cash_tips" inputmode="decimal" placeholder="0.00"></div>
+            <div class="finance-field"><label for="manual_platform_tips">Platform tips</label><input class="finance-input" id="manual_platform_tips" name="manual_platform_tips" inputmode="decimal" placeholder="0.00"></div>
+          </div>
+        </div>
+        <div class="finance-two">
+          <div class="finance-field"><label for="manual_miles">Miles</label><input class="finance-input" id="manual_miles" name="manual_miles" inputmode="decimal" placeholder="0"></div>
+          <div class="finance-field"><label for="manual_notes">Notes</label><input class="finance-input" id="manual_notes" name="manual_notes" placeholder="Optional"></div>
+        </div>
+        <label style="display:inline-flex; align-items:center; gap:.5rem;"><input class="finance-check" type="checkbox" name="manual_is_taxable" value="1" checked> Taxable income</label>
+        <div><button class="btn btn-primary" type="submit">Add gig</button></div>
       </form>
+    </section>
+
+    <section class="finance-card">
+      <h2 style="margin-top:0;">Import from calendar</h2>
+      <?php if (!$calendars): ?>
+        <p class="finance-muted" style="margin:0;">No calendars are connected yet. You can still use the manual gig form above or import a spreadsheet below.</p>
+      <?php else: ?>
+        <form method="get" class="finance-stack" action="">
+          <div class="finance-two">
+            <div class="finance-field">
+              <label for="calendar_id">Calendar</label>
+              <select class="finance-select" id="calendar_id" name="calendar_id">
+                <?php foreach ($calendars as $calendar): ?>
+                  <option value="<?= (int)$calendar['id'] ?>" <?= (int)$calendar['id'] === $calendarId ? 'selected' : '' ?>><?= e($calendar['name']) ?></option>
+                <?php endforeach; ?>
+              </select>
+            </div>
+            <div class="finance-two">
+              <div class="finance-field"><label for="start">From</label><input class="finance-input" id="start" name="start" type="date" value="<?= e($startDate) ?>"></div>
+              <div class="finance-field"><label for="end">To</label><input class="finance-input" id="end" name="end" type="date" value="<?= e($endDate) ?>"></div>
+            </div>
+          </div>
+          <div><button class="btn btn-primary" type="submit" name="preview" value="1">Preview calendar gigs</button></div>
+        </form>
+      <?php endif; ?>
 
       <?php if ($previewEvents): ?>
         <form method="post" action="" style="margin-top:1rem;">
@@ -543,7 +612,7 @@ finance_page_head('Finance | Gig Ledger');
           </div>
         </div>
         <?php if (!$isProUser): ?>
-          <p class="finance-muted" style="margin:0;">Spreadsheet import is a paid feature. You can still add gigs from calendars and edit the ledger manually.</p>
+          <p class="finance-muted" style="margin:0;">Spreadsheet import is a paid feature. You can still add manual gigs, import calendar gigs, and edit the ledger.</p>
         <?php endif; ?>
         <div><button class="btn btn-primary" type="submit" <?= $isProUser ? '' : 'disabled' ?>>Import spreadsheet</button></div>
       </form>
@@ -563,7 +632,7 @@ finance_page_head('Finance | Gig Ledger');
         </div>
       </div>
       <?php if (!$gigs): ?>
-        <p class="finance-muted">No imported gigs in this date range yet.</p>
+        <p class="finance-muted">No gigs in this date range yet.</p>
       <?php else: ?>
         <div class="finance-table-wrap">
           <table class="finance-table finance-gig-ledger-table">
@@ -610,7 +679,7 @@ finance_page_head('Finance | Gig Ledger');
                         </div>
                         <div style="display:flex; gap:.75rem; justify-content:space-between; flex-wrap:wrap;">
                           <button class="btn btn-outline" type="button" data-finance-add-payout>Add row</button>
-                          <button class="btn btn-primary" type="button" data-finance-close-dialog>Done</button>
+                          <button class="btn btn-primary" type="submit" name="action" value="save_gigs">Done</button>
                         </div>
                       </div>
                     </dialog>

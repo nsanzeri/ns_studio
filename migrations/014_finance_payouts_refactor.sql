@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS `finance_gig_payouts` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `gig_id` bigint(20) unsigned NOT NULL,
   `member_id` bigint(20) unsigned NOT NULL,
-  `payout_type` enum('band_member','advertising','sound','lights','insurance','travel','other') NOT NULL DEFAULT 'band_member',
+  `payout_type` enum('band_member','advertising','commission','sound','lights','insurance','travel','other') NOT NULL DEFAULT 'band_member',
   `amount_cents` int(10) unsigned NOT NULL DEFAULT 0,
   `notes` varchar(255) DEFAULT NULL,
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),

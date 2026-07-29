@@ -126,7 +126,6 @@ if ($financeReady) {
         JOIN finance_gigs g ON g.id = p.gig_id
         WHERE g.user_id = ?
           AND YEAR(g.starts_at) = ?
-          AND p.payout_type = 'band_member'
         GROUP BY m.id, m.name
         ORDER BY payout_cents DESC, m.name ASC
     ");
@@ -526,13 +525,13 @@ finance_page_head('Finance | Ready Set Shows');
     </section>
 
     <section class="finance-card" style="margin-top:1rem;">
-      <h2 style="margin-top:0;">Band member tax rollup</h2>
+      <h2 style="margin-top:0;">Payouts</h2>
       <?php if (!$memberRows): ?>
-        <p class="finance-muted">No band-member payouts for <?= (int)$year ?> yet.</p>
+        <p class="finance-muted">No payouts for <?= (int)$year ?> yet.</p>
       <?php else: ?>
         <div class="finance-table-wrap">
           <table class="finance-table" style="min-width:560px;">
-            <thead><tr><th>Member</th><th>Gigs</th><th>Total paid</th></tr></thead>
+            <thead><tr><th>Payee</th><th>Gigs</th><th>Total paid</th></tr></thead>
             <tbody>
               <?php foreach ($memberRows as $row): ?>
                 <tr>

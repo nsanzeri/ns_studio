@@ -82,24 +82,16 @@ include __DIR__ . '/includes/header.php';
                                 </select>
                             </div>
                             <div class="form-field">
-                                <label for="eventDate">Event date</label>
-                                <input type="date" id="eventDate" name="event_date">
+                                <label for="eventDate">Event date*</label>
+                                <input type="date" id="eventDate" name="event_date" required>
                             </div>
                             <div class="form-field">
                                 <label for="eventTime">Approx. start time</label>
                                 <input type="text" id="eventTime" name="event_time" placeholder="e.g. 7:30 PM">
                             </div>
                             <div class="form-field">
-                                <label for="venueName">Venue name</label>
-                                <input type="text" id="venueName" name="venue_name" placeholder="Venue or location name">
-                            </div>
-                            <div class="form-field">
-                                <label for="venueLocation">Venue location</label>
-                                <input type="text" id="venueLocation" name="venue_location" placeholder="City / address">
-                            </div>
-                            <div class="form-field">
-                                <label for="guestCount">Estimated guest count</label>
-                                <input type="number" id="guestCount" name="guest_count" min="1">
+                                <label for="location">Location</label>
+                                <input type="text" id="location" name="location" placeholder="Venue, city, or address">
                             </div>
                             <div class="form-field">
                                 <label for="budgetRange">Budget range (approx.)</label>

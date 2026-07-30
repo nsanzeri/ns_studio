@@ -9,7 +9,8 @@ $rssHomeUrl = $siteBase . '/index.php' . ($isLocal ? '?rss_preview=1' : '');
 require_once __DIR__ . '/rss_header_widgets.php';
 
 $isLoggedIn = class_exists('Auth') && Auth::isLoggedIn();
-$isDirectoryGuest = $currentPage === 'directory.php' && !$isLoggedIn;
+$isDirectoryPage = in_array($currentPage, ['directory.php', 'artist.php'], true);
+$isDirectoryGuest = $isDirectoryPage && !$isLoggedIn;
 $artistStartUrl = $studioBase . '/member/pricing.php';
 
 $trialStatus = null;
@@ -32,7 +33,7 @@ if (!function_exists('nav_active')) {
 
 $suiteModules = $headerAccountType === 'customer'
 	? [
-		['label' => 'Directory', 'href' => $siteBase . '/directory.php', 'active' => $currentPage === 'directory.php', 'soon' => false],
+		['label' => 'Directory', 'href' => $siteBase . '/directory.php', 'active' => $isDirectoryPage, 'soon' => false],
 		['label' => 'Book Bands', 'href' => $siteBase . '/booking-request.php', 'active' => $currentPage === 'booking-request.php', 'soon' => false],
 		['label' => 'My Bookings', 'href' => $siteBase . '/my-bookings.php', 'active' => $currentPage === 'my-bookings.php', 'soon' => false],
 	]
@@ -41,7 +42,7 @@ $suiteModules = $headerAccountType === 'customer'
 		['label' => 'SetMaxx', 'href' => $studioBase . '/setmaxx/index.php', 'active' => str_contains($currentPath, '/setmaxx/'), 'soon' => false],
 		['label' => 'Finance', 'href' => $studioBase . '/finance/index.php', 'active' => str_contains($currentPath, '/finance/'), 'soon' => false],
 		['label' => 'Publishing', 'href' => $studioBase . '/publishing/index.php', 'active' => str_contains($currentPath, '/publishing/'), 'soon' => false],
-		['label' => 'Directory', 'href' => $siteBase . '/directory.php', 'active' => $currentPage === 'directory.php', 'soon' => false],
+		['label' => 'Directory', 'href' => $siteBase . '/directory.php', 'active' => $isDirectoryPage, 'soon' => false],
 		['label' => 'Leads', 'href' => $siteBase . '/artist-bookings.php', 'active' => $currentPage === 'artist-bookings.php', 'soon' => false, 'badge' => $headerPendingBookingCount],
 	];
 $showCalendarSubnav = str_contains($currentPath, '/tools/');

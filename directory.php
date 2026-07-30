@@ -28,6 +28,19 @@ function directory_profile_description_ready(PDO $pdo): bool {
     return directory_column_exists($pdo, 'setmaxx_public_profiles', 'directory_description');
 }
 
+function directory_profile_contact_columns_ready(PDO $pdo): bool {
+    return directory_column_exists($pdo, 'setmaxx_public_profiles', 'youtube_url')
+        && directory_column_exists($pdo, 'setmaxx_public_profiles', 'contact_email')
+        && directory_column_exists($pdo, 'setmaxx_public_profiles', 'contact_phone')
+        && directory_column_exists($pdo, 'setmaxx_public_profiles', 'review_url')
+        && directory_column_exists($pdo, 'setmaxx_public_profiles', 'booking_url');
+}
+
+function directory_artist_slug(string $artistName, int $userId): string {
+    $base = strtolower(trim(preg_replace('/[^a-zA-Z0-9]+/', '-', $artistName), '-'));
+    return ($base !== '' ? $base : 'artist') . '-' . $userId;
+}
+
 function directory_user_has_request_page_access(PDO $pdo, int $userId): bool {
     if ($userId <= 0) return false;
     $slugs = rss_tools_product_slugs();
@@ -78,6 +91,7 @@ $states = [];
 $directoryReady = directory_public_profiles_ready($pdo);
 $visibilityReady = $directoryReady && directory_profile_visibility_columns_ready($pdo);
 $descriptionReady = $directoryReady && directory_profile_description_ready($pdo);
+$contactReady = $directoryReady && directory_profile_contact_columns_ready($pdo);
 $songsReady = rss_table_exists($pdo, 'setmaxx_songs');
 $linksReady = rss_table_exists($pdo, 'setmaxx_public_links');
 
@@ -159,6 +173,11 @@ if ($directoryReady) {
             pp.directory_state,
             pp.artist_name,
             pp.website_url,
+            " . ($contactReady ? "pp.youtube_url" : "NULL") . " AS youtube_url,
+            " . ($contactReady ? "pp.contact_email" : "NULL") . " AS contact_email,
+            " . ($contactReady ? "pp.contact_phone" : "NULL") . " AS contact_phone,
+            " . ($contactReady ? "pp.review_url" : "NULL") . " AS review_url,
+            " . ($contactReady ? "pp.booking_url" : "NULL") . " AS booking_url,
             pp.logo_path,
             " . ($descriptionReady ? "pp.directory_description" : "NULL") . " AS directory_description,
             " . ($visibilityReady ? "pp.directory_show_song_count" : "1") . " AS directory_show_song_count,
@@ -171,7 +190,7 @@ if ($directoryReady) {
         " . ($songsReady ? "LEFT JOIN setmaxx_songs s ON s.user_id = pp.user_id AND s.is_active = 1" : "") . "
         " . ($linksReady ? "LEFT JOIN setmaxx_public_links spl ON spl.user_id = pp.user_id" : "") . "
         {$where}
-        GROUP BY pp.user_id, pp.directory_state, pp.artist_name, pp.website_url, pp.logo_path" . ($descriptionReady ? ", pp.directory_description" : "") . ($visibilityReady ? ", pp.directory_show_song_count, pp.directory_show_songlist" : "") . ", u.display_name" . ($linksReady ? ", spl.public_token" : "") . "
+        GROUP BY pp.user_id, pp.directory_state, pp.artist_name, pp.website_url" . ($contactReady ? ", pp.youtube_url, pp.contact_email, pp.contact_phone, pp.review_url, pp.booking_url" : "") . ", pp.logo_path" . ($descriptionReady ? ", pp.directory_description" : "") . ($visibilityReady ? ", pp.directory_show_song_count, pp.directory_show_songlist" : "") . ", u.display_name" . ($linksReady ? ", spl.public_token" : "") . "
         HAVING COALESCE(NULLIF(pp.artist_name, ''), NULLIF(u.display_name, '')) IS NOT NULL
         ORDER BY
             CASE WHEN pp.directory_state IS NULL OR pp.directory_state = '' THEN 1 ELSE 0 END,
@@ -181,6 +200,19 @@ if ($directoryReady) {
     $stmt = $pdo->prepare($sql);
     $stmt->execute($params);
     $artists = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    foreach ($artists as &$artist) {
+        $name = trim((string)($artist['artist_name'] ?: $artist['display_name']));
+        $artist['is_subscriber'] = directory_user_has_request_page_access($pdo, (int)$artist['user_id']) ? 1 : 0;
+        $artist['profile_slug'] = directory_artist_slug($name, (int)$artist['user_id']);
+    }
+    unset($artist);
+    usort($artists, static function (array $a, array $b): int {
+        $subscriberCompare = (int)($b['is_subscriber'] ?? 0) <=> (int)($a['is_subscriber'] ?? 0);
+        if ($subscriberCompare !== 0) return $subscriberCompare;
+        $stateCompare = strcmp((string)($a['directory_state'] ?? ''), (string)($b['directory_state'] ?? ''));
+        if ($stateCompare !== 0) return $stateCompare;
+        return strcasecmp((string)($a['artist_name'] ?: $a['display_name']), (string)($b['artist_name'] ?: $b['display_name']));
+    });
 }
 
 $isLocal = str_contains(str_replace('\\', '/', $_SERVER['PHP_SELF'] ?? ''), '/ns_studio/');
@@ -214,13 +246,13 @@ $showQuoteAction = $directoryViewerAccountType !== 'artist';
     .directory-filter a { display:inline-flex; align-items:center; min-height:38px; padding:.5rem .85rem; border-radius:999px; text-decoration:none; border:1px solid rgba(255,255,255,.12); color:rgba(255,255,255,.86); }
     .directory-filter a.active, .directory-filter a:hover { background:rgba(212,175,55,.16); color:#f4d57a; border-color:rgba(212,175,55,.32); }
     .directory-grid { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:1rem; }
-    .directory-card { display:grid; grid-template-columns:76px 1fr; gap:1rem; align-items:start; padding:1rem; border-radius:8px; background:rgba(255,255,255,.045); border:1px solid rgba(255,255,255,.08); }
+    .directory-card { display:grid; grid-template-columns:76px 1fr; gap:1rem; align-items:center; width:100%; min-height:108px; padding:1rem; border-radius:8px; background:rgba(255,255,255,.045); border:1px solid rgba(255,255,255,.08); color:#fff; text-align:left; text-decoration:none; font:inherit; cursor:pointer; }
+    .directory-card:hover, .directory-card:focus-visible { border-color:rgba(212,175,55,.36); background:rgba(255,255,255,.065); }
     .directory-image { width:76px; height:76px; border-radius:8px; object-fit:cover; background:linear-gradient(135deg, rgba(212,175,55,.32), rgba(140,107,255,.24)); display:grid; place-items:center; color:#fff; font-weight:800; font-size:1.25rem; }
-    .directory-image-button { border:0; padding:0; background:transparent; cursor:pointer; border-radius:8px; line-height:0; }
-    .directory-image-button:focus-visible { outline:2px solid #f4d57a; outline-offset:3px; }
     .directory-card h2 { margin:0 0 .25rem; font-size:1.1rem; line-height:1.2; }
     .directory-meta { color:rgba(255,255,255,.7); font-size:.92rem; margin:.15rem 0 .7rem; }
-    .directory-actions { display:flex; gap:.5rem; flex-wrap:wrap; }
+    .directory-pro-pill { display:inline-flex; width:max-content; max-width:100%; margin-top:.35rem; min-height:24px; padding:.2rem .55rem; border-radius:999px; background:rgba(212,175,55,.16); color:#ffe28a; font-size:.75rem; font-weight:700; }
+    .directory-actions { display:flex; gap:.5rem; flex-wrap:wrap; margin-top:.85rem; }
     .directory-actions a, .directory-actions button { display:inline-flex; align-items:center; min-height:34px; padding:.45rem .7rem; border-radius:8px; font-size:.9rem; text-decoration:none; border:1px solid rgba(255,255,255,.12); color:rgba(255,255,255,.9); background:rgba(255,255,255,.03); font:inherit; cursor:pointer; }
     .directory-actions a:hover, .directory-actions button:hover { border-color:rgba(212,175,55,.36); color:#f4d57a; }
     .directory-actions .directory-bid-action { background:linear-gradient(135deg, #f4d57a, #d4af37); color:#111; border-color:rgba(212,175,55,.45); }
@@ -233,6 +265,9 @@ $showQuoteAction = $directoryViewerAccountType !== 'artist';
     .directory-photo-info { margin-top:.85rem; padding:1rem; border-radius:8px; background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.1); }
     .directory-photo-info h3 { margin:0 0 .25rem; }
     .directory-photo-info p { margin:.25rem 0 0; color:rgba(255,255,255,.76); }
+    .directory-photo-links { display:flex; gap:.5rem; flex-wrap:wrap; margin-top:.9rem; }
+    .directory-photo-links a { display:inline-flex; align-items:center; min-height:34px; padding:.42rem .7rem; border-radius:999px; border:1px solid rgba(255,255,255,.14); color:#fff; text-decoration:none; background:rgba(255,255,255,.04); font-size:.9rem; }
+    .directory-photo-links a:hover { color:#f4d57a; border-color:rgba(212,175,55,.36); }
     .directory-photo-close { position:absolute; top:-14px; right:-14px; width:38px; height:38px; border-radius:999px; border:1px solid rgba(255,255,255,.2); background:#10131f; color:#fff; font-size:1.3rem; line-height:1; cursor:pointer; }
     .directory-photo-close:hover, .directory-photo-close:focus-visible { color:#f4d57a; border-color:rgba(212,175,55,.5); }
     @media (max-width: 980px) { .directory-grid { grid-template-columns:repeat(2, minmax(0, 1fr)); } }
@@ -269,41 +304,25 @@ $showQuoteAction = $directoryViewerAccountType !== 'artist';
           $initial = strtoupper(substr($name, 0, 1));
           $logoPath = trim((string)($artist['logo_path'] ?? ''));
           $logoUrl = $logoPath !== '' ? $siteBase . '/' . ltrim(preg_replace('#^\.\./#', '', $logoPath), '/') : '';
-          $requestUrl = (!empty($artist['public_token']) && directory_user_has_request_page_access($pdo, (int)$artist['user_id'])) ? $siteBase . '/studio/request.php?link=' . rawurlencode((string)$artist['public_token']) : '';
+          $isSubscriber = !empty($artist['is_subscriber']);
+          $requestUrl = (!empty($artist['public_token']) && $isSubscriber) ? $siteBase . '/studio/request.php?link=' . rawurlencode((string)$artist['public_token']) : '';
           $songlistUrl = (!empty($artist['directory_show_songlist']) && (int)$artist['active_song_count'] > 0) ? $siteBase . '/directory.php?songlist=' . (int)$artist['user_id'] : '';
+          $profileUrl = $siteBase . '/artist.php?artist=' . rawurlencode((string)$artist['profile_slug']);
+          $stateText = (string)($artist['directory_state'] ?: 'State not set');
+          $cardAttrs = 'data-name="' . e($name) . '" data-state="' . e($stateText) . '" data-photo="' . e($logoUrl) . '" data-description="' . e(trim((string)($artist['directory_description'] ?? ''))) . '" data-website="' . e((string)($artist['website_url'] ?? '')) . '" data-youtube="' . e((string)($artist['youtube_url'] ?? '')) . '" data-email="' . e((string)($artist['contact_email'] ?? '')) . '" data-phone="' . e((string)($artist['contact_phone'] ?? '')) . '" data-review="' . e((string)($artist['review_url'] ?? '')) . '" data-booking="' . e((string)($artist['booking_url'] ?? '')) . '" data-request="' . e($requestUrl) . '" data-songlist="' . e($songlistUrl) . '"';
         ?>
-        <article class="directory-card">
+        <<?= $isSubscriber ? 'a' : 'button' ?> class="directory-card" <?= $isSubscriber ? 'href="' . e($profileUrl) . '"' : 'type="button" ' . $cardAttrs . ' onclick="return window.openDirectoryPhoto ? window.openDirectoryPhoto(this) : false;"' ?>>
           <?php if ($logoUrl !== ''): ?>
-            <button type="button" class="directory-image-button" data-photo="<?= e($logoUrl) ?>" data-name="<?= e($name) ?>" data-state="<?= e((string)($artist['directory_state'] ?: 'State not set')) ?>" data-description="<?= e(trim((string)($artist['directory_description'] ?? ''))) ?>" onclick="return window.openDirectoryPhoto ? window.openDirectoryPhoto(this) : false;" aria-label="View larger image for <?= e($name) ?>">
-              <img class="directory-image" src="<?= e($logoUrl) ?>" alt="">
-            </button>
+            <img class="directory-image" src="<?= e($logoUrl) ?>" alt="">
           <?php else: ?>
             <div class="directory-image" aria-hidden="true"><?= e($initial) ?></div>
           <?php endif; ?>
           <div>
             <h2><?= e($name) ?></h2>
-            <div class="directory-meta">
-              <?= e((string)($artist['directory_state'] ?: 'State not set')) ?>
-              <?php if (!empty($artist['directory_show_song_count']) && (int)$artist['active_song_count'] > 0): ?>
-                &middot; <?= (int)$artist['active_song_count'] ?> active song<?= (int)$artist['active_song_count'] === 1 ? '' : 's' ?>
-              <?php endif; ?>
-            </div>
-            <div class="directory-actions">
-              <?php if ($showQuoteAction): ?>
-                <a class="directory-bid-action" href="<?= e($siteBase . '/booking-request.php?artists[]=' . (int)$artist['user_id']) ?>">Get Quote</a>
-              <?php endif; ?>
-              <?php if (!empty($artist['website_url'])): ?>
-                <a href="<?= e((string)$artist['website_url']) ?>" target="_blank" rel="noopener">Website</a>
-              <?php endif; ?>
-              <?php if ($requestUrl !== ''): ?>
-                <a href="<?= e($requestUrl) ?>">Request Page</a>
-              <?php endif; ?>
-              <?php if ($songlistUrl !== ''): ?>
-                <a href="<?= e($songlistUrl) ?>">Songlist</a>
-              <?php endif; ?>
-            </div>
+            <div class="directory-meta"><?= e($stateText) ?></div>
+            <?php if ($isSubscriber): ?><span class="directory-pro-pill">Featured profile</span><?php endif; ?>
           </div>
-        </article>
+        </<?= $isSubscriber ? 'a' : 'button' ?>>
       <?php endforeach; ?>
     </section>
   <?php endif; ?>
@@ -316,6 +335,7 @@ $showQuoteAction = $directoryViewerAccountType !== 'artist';
       <h3></h3>
       <p data-directory-photo-state></p>
       <p data-directory-photo-description></p>
+      <div class="directory-photo-links" data-directory-photo-links></div>
     </div>
   </div>
 </div>
@@ -327,14 +347,40 @@ window.openDirectoryPhoto = function (trigger) {
   const title = modal.querySelector('h3');
   const state = modal.querySelector('[data-directory-photo-state]');
   const description = modal.querySelector('[data-directory-photo-description]');
+  const links = modal.querySelector('[data-directory-photo-links]');
   const closeButton = modal.querySelector('.directory-photo-close');
   if (!image || !closeButton) return false;
   window.directoryPhotoLastTrigger = trigger;
   image.src = trigger.getAttribute('data-photo') || '';
   image.alt = trigger.getAttribute('data-name') || 'Artist image';
+  image.style.display = image.src ? '' : 'none';
   if (title) title.textContent = trigger.getAttribute('data-name') || '';
   if (state) state.textContent = trigger.getAttribute('data-state') || '';
   if (description) description.textContent = trigger.getAttribute('data-description') || 'No description yet.';
+  if (links) {
+    links.innerHTML = '';
+    [
+      ['Website', trigger.getAttribute('data-website')],
+      ['YouTube', trigger.getAttribute('data-youtube')],
+      ['Email', trigger.getAttribute('data-email') ? 'mailto:' + trigger.getAttribute('data-email') : ''],
+      ['Phone', trigger.getAttribute('data-phone') ? 'tel:' + trigger.getAttribute('data-phone').replace(/[^0-9+]/g, '') : ''],
+      ['Book', trigger.getAttribute('data-booking')],
+      ['Review', trigger.getAttribute('data-review')],
+      ['Request Page', trigger.getAttribute('data-request')],
+      ['Songlist', trigger.getAttribute('data-songlist')]
+    ].forEach(function (item) {
+      if (!item[1]) return;
+      var link = document.createElement('a');
+      link.href = item[1];
+      link.textContent = item[0];
+      link.className = item[0] === 'Email' || item[0] === 'Phone' ? '' : 'directory-external-link';
+      if (!/^mailto:|^tel:/i.test(item[1])) {
+        link.target = '_blank';
+        link.rel = 'noopener';
+      }
+      links.appendChild(link);
+    });
+  }
   modal.hidden = false;
   closeButton.focus();
   return false;
@@ -348,15 +394,16 @@ window.closeDirectoryPhoto = function () {
   if (image) {
     image.src = '';
     image.alt = '';
+    image.style.display = '';
   }
   if (window.directoryPhotoLastTrigger) window.directoryPhotoLastTrigger.focus();
 };
 
 document.addEventListener('click', function (event) {
-  const imageButton = event.target.closest ? event.target.closest('.directory-image-button') : null;
-  if (imageButton) {
+  const directoryPopupCard = event.target.closest ? event.target.closest('button.directory-card') : null;
+  if (directoryPopupCard) {
     event.preventDefault();
-    window.openDirectoryPhoto(imageButton);
+    window.openDirectoryPhoto(directoryPopupCard);
     return;
   }
   if (event.target.closest && event.target.closest('.directory-photo-close')) {

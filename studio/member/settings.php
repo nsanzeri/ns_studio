@@ -77,6 +77,15 @@ function ns_ensure_public_artist_profile_table(PDO $pdo): void
     if (!ns_public_profile_column_exists($pdo, 'website_url')) {
         $pdo->exec("ALTER TABLE setmaxx_public_profiles ADD COLUMN website_url varchar(255) DEFAULT NULL AFTER artist_name");
     }
+    if (!ns_public_profile_column_exists($pdo, 'youtube_url')) {
+        $pdo->exec("ALTER TABLE setmaxx_public_profiles ADD COLUMN youtube_url varchar(255) DEFAULT NULL AFTER website_url");
+    }
+    if (!ns_public_profile_column_exists($pdo, 'contact_email')) {
+        $pdo->exec("ALTER TABLE setmaxx_public_profiles ADD COLUMN contact_email varchar(190) DEFAULT NULL AFTER youtube_url");
+    }
+    if (!ns_public_profile_column_exists($pdo, 'contact_phone')) {
+        $pdo->exec("ALTER TABLE setmaxx_public_profiles ADD COLUMN contact_phone varchar(64) DEFAULT NULL AFTER contact_email");
+    }
     if (!ns_public_profile_column_exists($pdo, 'logo_path')) {
         $pdo->exec("ALTER TABLE setmaxx_public_profiles ADD COLUMN logo_path varchar(255) DEFAULT NULL AFTER website_url");
     }
@@ -117,6 +126,20 @@ function ns_clean_profile_url($value): ?string
     return filter_var($url, FILTER_VALIDATE_URL) ? mb_substr($url, 0, 255) : null;
 }
 
+function ns_clean_profile_email($value): ?string
+{
+    $email = strtolower(trim((string)$value));
+    if ($email === '') return null;
+    return filter_var($email, FILTER_VALIDATE_EMAIL) ? mb_substr($email, 0, 190) : null;
+}
+
+function ns_clean_profile_phone($value): ?string
+{
+    $phone = trim(preg_replace('/\s+/', ' ', (string)$value) ?? '');
+    if ($phone === '') return null;
+    return mb_substr($phone, 0, 64);
+}
+
 function ns_clean_profile_state($value): ?string
 {
     $state = strtoupper(trim((string)$value));
@@ -126,7 +149,7 @@ function ns_clean_profile_state($value): ?string
 function ns_public_artist_profile(PDO $pdo, int $userId): array
 {
     ns_ensure_public_artist_profile_table($pdo);
-    $stmt = $pdo->prepare("SELECT directory_visible, directory_state, directory_show_song_count, directory_show_songlist, directory_genres, directory_description, artist_name, website_url, logo_path FROM setmaxx_public_profiles WHERE user_id = ? LIMIT 1");
+    $stmt = $pdo->prepare("SELECT directory_visible, directory_state, directory_show_song_count, directory_show_songlist, directory_genres, directory_description, artist_name, website_url, youtube_url, contact_email, contact_phone, logo_path FROM setmaxx_public_profiles WHERE user_id = ? LIMIT 1");
     $stmt->execute([$userId]);
     return $stmt->fetch(PDO::FETCH_ASSOC) ?: [
         'directory_visible' => 1,
@@ -137,6 +160,9 @@ function ns_public_artist_profile(PDO $pdo, int $userId): array
         'directory_description' => '',
         'artist_name' => '',
         'website_url' => '',
+        'youtube_url' => '',
+        'contact_email' => '',
+        'contact_phone' => '',
         'logo_path' => '',
     ];
 }
@@ -212,6 +238,9 @@ if (is_post()) {
                 ns_ensure_public_artist_profile_table($pdo);
                 $artistName = ns_clean_profile_text($_POST['artist_name'] ?? '', 190);
                 $websiteUrl = ns_clean_profile_url($_POST['website_url'] ?? '');
+                $youtubeUrl = ns_clean_profile_url($_POST['youtube_url'] ?? '');
+                $contactEmail = ns_clean_profile_email($_POST['contact_email'] ?? '');
+                $contactPhone = ns_clean_profile_phone($_POST['contact_phone'] ?? '');
                 $directoryState = ns_clean_profile_state($_POST['directory_state'] ?? '');
                 $directoryVisible = !empty($_POST['directory_visible']) ? 1 : 0;
                 $directoryShowSongCount = !empty($_POST['directory_show_song_count']) ? 1 : 0;
@@ -225,6 +254,12 @@ if (is_post()) {
 
                 if (trim((string)($_POST['website_url'] ?? '')) !== '' && $websiteUrl === null) {
                     throw new RuntimeException('Website link is not valid.');
+                }
+                if (trim((string)($_POST['youtube_url'] ?? '')) !== '' && $youtubeUrl === null) {
+                    throw new RuntimeException('YouTube link is not valid.');
+                }
+                if (trim((string)($_POST['contact_email'] ?? '')) !== '' && $contactEmail === null) {
+                    throw new RuntimeException('Contact email is not valid.');
                 }
 
                 if (!empty($_FILES['logo_file']['tmp_name']) && is_uploaded_file($_FILES['logo_file']['tmp_name'])) {
@@ -260,10 +295,10 @@ if (is_post()) {
                 }
 
                 $pdo->prepare(
-                    "INSERT INTO setmaxx_public_profiles (user_id, directory_visible, directory_state, directory_show_song_count, directory_show_songlist, directory_genres, directory_description, artist_name, website_url, logo_path)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                     ON DUPLICATE KEY UPDATE directory_visible = VALUES(directory_visible), directory_state = VALUES(directory_state), directory_show_song_count = VALUES(directory_show_song_count), directory_show_songlist = VALUES(directory_show_songlist), directory_genres = VALUES(directory_genres), directory_description = VALUES(directory_description), artist_name = VALUES(artist_name), website_url = VALUES(website_url), logo_path = VALUES(logo_path)"
-                )->execute([$userId, $directoryVisible, $directoryState, $directoryShowSongCount, $directoryShowSonglist, $directoryGenresText !== '' ? $directoryGenresText : null, $directoryDescription, $artistName, $websiteUrl, $logoPath !== '' ? $logoPath : null]);
+                    "INSERT INTO setmaxx_public_profiles (user_id, directory_visible, directory_state, directory_show_song_count, directory_show_songlist, directory_genres, directory_description, artist_name, website_url, youtube_url, contact_email, contact_phone, logo_path)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     ON DUPLICATE KEY UPDATE directory_visible = VALUES(directory_visible), directory_state = VALUES(directory_state), directory_show_song_count = VALUES(directory_show_song_count), directory_show_songlist = VALUES(directory_show_songlist), directory_genres = VALUES(directory_genres), directory_description = VALUES(directory_description), artist_name = VALUES(artist_name), website_url = VALUES(website_url), youtube_url = VALUES(youtube_url), contact_email = VALUES(contact_email), contact_phone = VALUES(contact_phone), logo_path = VALUES(logo_path)"
+                )->execute([$userId, $directoryVisible, $directoryState, $directoryShowSongCount, $directoryShowSonglist, $directoryGenresText !== '' ? $directoryGenresText : null, $directoryDescription, $artistName, $websiteUrl, $youtubeUrl, $contactEmail, $contactPhone, $logoPath !== '' ? $logoPath : null]);
 
                 $publicArtistProfile = ns_public_artist_profile($pdo, $userId);
                 if ($imageErr) {
@@ -282,6 +317,9 @@ if (is_post()) {
                     'directory_description' => trim((string)($_POST['directory_description'] ?? '')),
                     'artist_name' => trim((string)($_POST['artist_name'] ?? '')),
                     'website_url' => trim((string)($_POST['website_url'] ?? '')),
+                    'youtube_url' => trim((string)($_POST['youtube_url'] ?? '')),
+                    'contact_email' => trim((string)($_POST['contact_email'] ?? '')),
+                    'contact_phone' => trim((string)($_POST['contact_phone'] ?? '')),
                 ]);
             }
         }
@@ -401,6 +439,18 @@ if ($isReadySetShowsHost) {
       <div class="form-field">
         <label style="margin-top:1rem;">Website</label>
         <input type="text" name="website_url" placeholder="https://your-site.com" value="<?= e((string)($publicArtistProfile['website_url'] ?? '')) ?>">
+      </div>
+      <div class="form-field">
+        <label style="margin-top:1rem;">YouTube</label>
+        <input type="text" name="youtube_url" placeholder="https://youtube.com/@yourband" value="<?= e((string)($publicArtistProfile['youtube_url'] ?? '')) ?>">
+      </div>
+      <div class="form-field">
+        <label style="margin-top:1rem;">Contact email</label>
+        <input type="email" name="contact_email" placeholder="booking@your-site.com" value="<?= e((string)($publicArtistProfile['contact_email'] ?? '')) ?>">
+      </div>
+      <div class="form-field">
+        <label style="margin-top:1rem;">Contact phone</label>
+        <input type="text" name="contact_phone" placeholder="Optional public phone number" value="<?= e((string)($publicArtistProfile['contact_phone'] ?? '')) ?>">
       </div>
       <div class="form-field">
         <label style="margin-top:1rem;">Directory state</label>

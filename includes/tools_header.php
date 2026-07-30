@@ -9,7 +9,7 @@ $rssHomeUrl = $siteBase . '/index.php' . ($isLocal ? '?rss_preview=1' : '');
 require_once __DIR__ . '/rss_header_widgets.php';
 
 $isLoggedIn = class_exists('Auth') && Auth::isLoggedIn();
-$isDirectoryPage = in_array($currentPage, ['directory.php', 'artist.php'], true);
+$isDirectoryPage = in_array($currentPage, ['directory.php', 'artist.php'], true) || str_contains($currentPath, '/artist.php/') || str_contains($currentPath, '/artist/');
 $isDirectoryGuest = $isDirectoryPage && !$isLoggedIn;
 $artistStartUrl = $studioBase . '/member/pricing.php';
 

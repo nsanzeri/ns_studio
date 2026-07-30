@@ -8,9 +8,9 @@ function artist_column_exists(PDO $pdo, string $tableName, string $columnName): 
     return (bool)$stmt->fetchColumn();
 }
 
-function artist_slug(string $artistName, int $userId): string {
+function artist_slug(string $artistName): string {
     $base = strtolower(trim(preg_replace('/[^a-zA-Z0-9]+/', '-', $artistName), '-'));
-    return ($base !== '' ? $base : 'artist') . '-' . $userId;
+    return $base !== '' ? $base : 'artist';
 }
 
 function artist_user_has_profile_page_access(PDO $pdo, int $userId): bool {
@@ -76,6 +76,10 @@ function artist_ics_text(string $value): string {
     return str_replace(['\\,', '\\;', '\\n', '\\N', '\\\\'], [',', ';', "\n", "\n", '\\'], $value);
 }
 
+function artist_google_maps_url(string $location): string {
+    return 'https://www.google.com/maps/search/?api=1&query=' . rawurlencode($location);
+}
+
 function artist_push_event(array &$events, array $event, DateTime $start, DateTime $end): void {
     $events[] = [
         'start' => $start->format(DateTime::ATOM),
@@ -137,7 +141,8 @@ function artist_fetch_calendar_events(array $calendar, string $startDate, string
 
 $isLocal = str_contains(str_replace('\\', '/', $_SERVER['PHP_SELF'] ?? ''), '/ns_studio/');
 $siteBase = $isLocal ? '/ns_studio' : '';
-$requestedSlug = trim((string)($_GET['artist'] ?? ''));
+$pathInfo = trim((string)($_SERVER['PATH_INFO'] ?? ''), '/');
+$requestedSlug = trim($pathInfo !== '' ? $pathInfo : (string)($_GET['artist'] ?? ''));
 $profile = null;
 $events = [];
 
@@ -179,7 +184,7 @@ if (rss_table_exists($pdo, 'setmaxx_public_profiles')) {
     ");
     foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
         $name = trim((string)($row['artist_name'] ?: $row['display_name']));
-        if (artist_slug($name, (int)$row['user_id']) === $requestedSlug && artist_user_has_profile_page_access($pdo, (int)$row['user_id'])) {
+        if (artist_slug($name) === $requestedSlug && artist_user_has_profile_page_access($pdo, (int)$row['user_id'])) {
             $profile = $row;
             $profile['display_artist_name'] = $name;
             break;
@@ -205,6 +210,10 @@ $logoPath = $profile ? trim((string)($profile['logo_path'] ?? '')) : '';
 $logoUrl = $logoPath !== '' ? $siteBase . '/' . ltrim(preg_replace('#^\.\./#', '', $logoPath), '/') : '';
 $requestUrl = $profile && !empty($profile['public_token']) ? $siteBase . '/studio/request.php?link=' . rawurlencode((string)$profile['public_token']) : '';
 $songlistUrl = $profile && !empty($profile['directory_show_songlist']) && (int)$profile['active_song_count'] > 0 ? $siteBase . '/directory.php?songlist=' . (int)$profile['user_id'] : '';
+$services = [];
+if ($profile && !empty($profile['directory_genres'])) {
+    $services = array_values(array_filter(array_map('trim', explode(',', (string)$profile['directory_genres']))));
+}
 ?>
 <!doctype html>
 <html lang="en">
@@ -235,10 +244,13 @@ $songlistUrl = $profile && !empty($profile['directory_show_songlist']) && (int)$
     .artist-detail { padding:.85rem; border-radius:8px; background:rgba(255,255,255,.035); border:1px solid rgba(255,255,255,.07); }
     .artist-detail span { display:block; color:#d4af37; font-size:.72rem; font-weight:800; text-transform:uppercase; letter-spacing:.08em; }
     .artist-detail strong, .artist-detail a { color:#fff; word-break:break-word; }
+    .artist-services { display:flex; gap:.5rem; flex-wrap:wrap; margin-top:1rem; }
+    .artist-service-pill { display:inline-flex; align-items:center; min-height:28px; padding:.28rem .6rem; border-radius:999px; background:rgba(212,175,55,.16); border:1px solid rgba(212,175,55,.24); color:#ffe28a; font-size:.82rem; font-weight:700; }
     .artist-events { display:grid; gap:.6rem; }
     .artist-event { padding:.85rem; border-radius:8px; background:rgba(255,255,255,.035); border:1px solid rgba(255,255,255,.07); }
     .artist-event strong { display:block; }
-    .artist-event span { color:rgba(255,255,255,.68); }
+    .artist-event span, .artist-event a { color:rgba(255,255,255,.68); }
+    .artist-event a:hover { color:#f4d57a; }
     @media (max-width: 860px) { .artist-hero, .artist-layout { grid-template-columns:1fr; } .artist-detail-grid { grid-template-columns:1fr; } .artist-photo { width:130px; height:130px; } }
   </style>
 </head>
@@ -257,14 +269,13 @@ $songlistUrl = $profile && !empty($profile['directory_show_songlist']) && (int)$
       <div>
         <div class="artist-kicker">Featured Artist</div>
         <h1><?= e($artistName) ?></h1>
-        <div class="artist-meta"><?= e((string)($profile['directory_state'] ?: 'State not set')) ?><?php if (!empty($profile['directory_genres'])): ?> &middot; <?= e(str_replace(',', ', ', (string)$profile['directory_genres'])) ?><?php endif; ?></div>
+        <div class="artist-meta"><?= e((string)($profile['directory_state'] ?: 'State not set')) ?></div>
         <?php if (!empty($profile['directory_description'])): ?><p><?= e((string)$profile['directory_description']) ?></p><?php endif; ?>
         <div class="artist-actions">
           <?php if (!empty($profile['website_url'])): ?><a href="<?= e((string)$profile['website_url']) ?>" target="_blank" rel="noopener">Website</a><?php endif; ?>
           <?php if (!empty($profile['youtube_url'])): ?><a href="<?= e((string)$profile['youtube_url']) ?>" target="_blank" rel="noopener">YouTube</a><?php endif; ?>
           <?php if (!empty($profile['booking_url'])): ?><a href="<?= e((string)$profile['booking_url']) ?>" target="_blank" rel="noopener">Book</a><?php endif; ?>
-          <?php if ($requestUrl !== ''): ?><a href="<?= e($requestUrl) ?>">Request Page</a><?php endif; ?>
-          <?php if ($songlistUrl !== ''): ?><a href="<?= e($songlistUrl) ?>">Songlist</a><?php endif; ?>
+          <?php if ($songlistUrl !== ''): ?><a href="<?= e($songlistUrl) ?>" download>Download setlist</a><?php endif; ?>
         </div>
       </div>
     </section>
@@ -276,12 +287,13 @@ $songlistUrl = $profile && !empty($profile['directory_show_songlist']) && (int)$
           <?php if (!empty($profile['contact_email'])): ?><div class="artist-detail"><span>Email</span><a href="mailto:<?= e((string)$profile['contact_email']) ?>"><?= e((string)$profile['contact_email']) ?></a></div><?php endif; ?>
           <?php if (!empty($profile['contact_phone'])): ?><div class="artist-detail"><span>Phone</span><a href="tel:<?= e(preg_replace('/[^0-9+]/', '', (string)$profile['contact_phone']) ?? '') ?>"><?= e((string)$profile['contact_phone']) ?></a></div><?php endif; ?>
           <?php if (!empty($profile['review_url'])): ?><div class="artist-detail"><span>Reviews</span><a href="<?= e((string)$profile['review_url']) ?>" target="_blank" rel="noopener">Leave a review</a></div><?php endif; ?>
-          <?php if (!empty($profile['venmo_handle'])): ?><div class="artist-detail"><span>Venmo</span><strong>@<?= e(ltrim((string)$profile['venmo_handle'], '@')) ?></strong></div><?php endif; ?>
-          <div class="artist-detail"><span>Active songs</span><strong><?= !empty($profile['directory_show_song_count']) ? (int)$profile['active_song_count'] : 'Available by request' ?></strong></div>
-          <div class="artist-detail"><span>Request pricing</span><strong>$<?= (int)($profile['suggested_request_dollars'] ?? 10) ?> suggested</strong></div>
-          <div class="artist-detail"><span>Lowest paid amount</span><strong>$<?= (int)($profile['minimum_tip_dollars'] ?? 10) ?></strong></div>
-          <div class="artist-detail"><span>Price increments</span><strong>$<?= (int)($profile['price_step_dollars'] ?? 1) ?></strong></div>
         </div>
+        <?php if ($services): ?>
+          <h2 style="margin:1.4rem 0 .35rem;">Services</h2>
+          <div class="artist-services">
+            <?php foreach ($services as $service): ?><span class="artist-service-pill"><?= e($service) ?></span><?php endforeach; ?>
+          </div>
+        <?php endif; ?>
       </div>
       <aside class="artist-card">
         <h2>Upcoming Dates</h2>
@@ -292,7 +304,7 @@ $songlistUrl = $profile && !empty($profile['directory_show_songlist']) && (int)$
             <?php foreach ($events as $event): $start = new DateTime((string)$event['start']); ?>
               <div class="artist-event">
                 <strong><?= e((string)$event['summary']) ?></strong>
-                <span><?= e($start->format('M j, Y')) ?><?php if (!empty($event['location'])): ?> &middot; <?= e((string)$event['location']) ?><?php endif; ?></span>
+                <span><?= e($start->format('M j, Y')) ?><?php if (!empty($event['location'])): ?> &middot; <a href="<?= e(artist_google_maps_url((string)$event['location'])) ?>" target="_blank" rel="noopener"><?= e((string)$event['location']) ?></a><?php endif; ?></span>
               </div>
             <?php endforeach; ?>
           </div>

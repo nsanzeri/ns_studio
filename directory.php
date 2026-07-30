@@ -36,9 +36,9 @@ function directory_profile_contact_columns_ready(PDO $pdo): bool {
         && directory_column_exists($pdo, 'setmaxx_public_profiles', 'booking_url');
 }
 
-function directory_artist_slug(string $artistName, int $userId): string {
+function directory_artist_slug(string $artistName): string {
     $base = strtolower(trim(preg_replace('/[^a-zA-Z0-9]+/', '-', $artistName), '-'));
-    return ($base !== '' ? $base : 'artist') . '-' . $userId;
+    return $base !== '' ? $base : 'artist';
 }
 
 function directory_user_has_request_page_access(PDO $pdo, int $userId): bool {
@@ -203,7 +203,7 @@ if ($directoryReady) {
     foreach ($artists as &$artist) {
         $name = trim((string)($artist['artist_name'] ?: $artist['display_name']));
         $artist['is_subscriber'] = directory_user_has_request_page_access($pdo, (int)$artist['user_id']) ? 1 : 0;
-        $artist['profile_slug'] = directory_artist_slug($name, (int)$artist['user_id']);
+        $artist['profile_slug'] = directory_artist_slug($name);
     }
     unset($artist);
     usort($artists, static function (array $a, array $b): int {
@@ -307,7 +307,7 @@ $showQuoteAction = $directoryViewerAccountType !== 'artist';
           $isSubscriber = !empty($artist['is_subscriber']);
           $requestUrl = (!empty($artist['public_token']) && $isSubscriber) ? $siteBase . '/studio/request.php?link=' . rawurlencode((string)$artist['public_token']) : '';
           $songlistUrl = (!empty($artist['directory_show_songlist']) && (int)$artist['active_song_count'] > 0) ? $siteBase . '/directory.php?songlist=' . (int)$artist['user_id'] : '';
-          $profileUrl = $siteBase . '/artist.php?artist=' . rawurlencode((string)$artist['profile_slug']);
+          $profileUrl = $siteBase . '/artist/' . rawurlencode((string)$artist['profile_slug']);
           $stateText = (string)($artist['directory_state'] ?: 'State not set');
           $cardAttrs = 'data-name="' . e($name) . '" data-state="' . e($stateText) . '" data-photo="' . e($logoUrl) . '" data-description="' . e(trim((string)($artist['directory_description'] ?? ''))) . '" data-website="' . e((string)($artist['website_url'] ?? '')) . '" data-youtube="' . e((string)($artist['youtube_url'] ?? '')) . '" data-email="' . e((string)($artist['contact_email'] ?? '')) . '" data-phone="' . e((string)($artist['contact_phone'] ?? '')) . '" data-review="' . e((string)($artist['review_url'] ?? '')) . '" data-booking="' . e((string)($artist['booking_url'] ?? '')) . '" data-request="' . e($requestUrl) . '" data-songlist="' . e($songlistUrl) . '"';
         ?>
@@ -366,8 +366,7 @@ window.openDirectoryPhoto = function (trigger) {
       ['Phone', trigger.getAttribute('data-phone') ? 'tel:' + trigger.getAttribute('data-phone').replace(/[^0-9+]/g, '') : ''],
       ['Book', trigger.getAttribute('data-booking')],
       ['Review', trigger.getAttribute('data-review')],
-      ['Request Page', trigger.getAttribute('data-request')],
-      ['Songlist', trigger.getAttribute('data-songlist')]
+      ['Download setlist', trigger.getAttribute('data-songlist')]
     ].forEach(function (item) {
       if (!item[1]) return;
       var link = document.createElement('a');

@@ -144,6 +144,9 @@ function ns_clean_profile_phone($value): ?string
     if (strlen($digits) === 10) {
         return '(' . substr($digits, 0, 3) . ') ' . substr($digits, 3, 3) . '-' . substr($digits, 6);
     }
+    if (strlen($digits) >= 7) {
+        return '(' . substr($digits, 0, 3) . ') ' . substr($digits, 3, 3) . '-' . substr($digits, 6);
+    }
     $phone = trim(preg_replace('/\s+/', ' ', $raw) ?? '');
     return mb_substr($phone, 0, 64);
 }

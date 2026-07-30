@@ -266,8 +266,8 @@ setmaxx_page_head('Set Maxx | Show Setup');
         <input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>">
         <input type="hidden" name="action" value="create_session">
         <div class="setmaxx-form-grid">
-          <div class="setmaxx-field"><label for="session_title">Show title</label><input class="setmaxx-input" id="session_title" name="session_title" placeholder="Friday at Moretti's" required></div>
-          <div class="setmaxx-field"><label for="venue_name">Venue</label><input class="setmaxx-input" id="venue_name" name="venue_name" placeholder="Moretti's Rosemont"></div>
+          <div class="setmaxx-field"><label for="session_title">Show title</label><input class="setmaxx-input" id="session_title" name="session_title" placeholder="Friday night show" required></div>
+          <div class="setmaxx-field"><label for="venue_name">Venue</label><input class="setmaxx-input" id="venue_name" name="venue_name" placeholder="Venue name"></div>
         </div>
         <label style="display:flex; gap:.6rem; align-items:center;"><input type="checkbox" name="go_live" value="1" checked><span class="setmaxx-help">Make this the live request page now</span></label>
         <div class="setmaxx-actions"><button class="btn btn-primary" type="submit" <?= $isProUser ? '' : 'disabled' ?>>Create request page</button></div>

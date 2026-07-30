@@ -88,6 +88,9 @@ function artist_format_phone(string $phone): string {
     if (strlen($digits) === 10) {
         return '(' . substr($digits, 0, 3) . ') ' . substr($digits, 3, 3) . '-' . substr($digits, 6);
     }
+    if (strlen($digits) >= 7) {
+        return '(' . substr($digits, 0, 3) . ') ' . substr($digits, 3, 3) . '-' . substr($digits, 6);
+    }
     return $phone;
 }
 

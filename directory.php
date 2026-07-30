@@ -359,11 +359,16 @@ window.openDirectoryPhoto = function (trigger) {
   if (description) description.textContent = trigger.getAttribute('data-description') || 'No description yet.';
   if (links) {
     links.innerHTML = '';
+    const phoneValue = trigger.getAttribute('data-phone') || '';
+    const phoneDigits = phoneValue.replace(/\D/g, '');
+    const phoneLabel = phoneDigits.length >= 7
+      ? '(' + phoneDigits.slice(0, 3) + ') ' + phoneDigits.slice(3, 6) + '-' + phoneDigits.slice(6)
+      : phoneValue;
     [
       ['Website', trigger.getAttribute('data-website')],
       ['YouTube', trigger.getAttribute('data-youtube')],
       ['Email', trigger.getAttribute('data-email') ? 'mailto:' + trigger.getAttribute('data-email') : ''],
-      ['Phone', trigger.getAttribute('data-phone') ? 'tel:' + trigger.getAttribute('data-phone').replace(/[^0-9+]/g, '') : ''],
+      [phoneLabel || 'Phone', trigger.getAttribute('data-phone') ? 'tel:' + trigger.getAttribute('data-phone').replace(/[^0-9+]/g, '') : ''],
       ['Book', trigger.getAttribute('data-booking')],
       ['Review', trigger.getAttribute('data-review')],
       ['Download setlist', trigger.getAttribute('data-songlist')]
@@ -372,7 +377,7 @@ window.openDirectoryPhoto = function (trigger) {
       var link = document.createElement('a');
       link.href = item[1];
       link.textContent = item[0];
-      link.className = item[0] === 'Email' || item[0] === 'Phone' ? '' : 'directory-external-link';
+      link.className = /^mailto:|^tel:/i.test(item[1]) ? '' : 'directory-external-link';
       if (!/^mailto:|^tel:/i.test(item[1])) {
         link.target = '_blank';
         link.rel = 'noopener';

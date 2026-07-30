@@ -86,12 +86,12 @@ include __DIR__ . '/includes/header.php';
                                 <input type="date" id="eventDate" name="event_date" required>
                             </div>
                             <div class="form-field">
-                                <label for="eventTime">Approx. start time</label>
-                                <input type="text" id="eventTime" name="event_time" placeholder="e.g. 7:30 PM">
+                                <label for="location">Location*</label>
+                                <input type="text" id="location" name="location" placeholder="Venue, city, or address" required>
                             </div>
                             <div class="form-field">
-                                <label for="location">Location</label>
-                                <input type="text" id="location" name="location" placeholder="Venue, city, or address">
+                                <label for="eventTime">Approx. start time</label>
+                                <input type="text" id="eventTime" name="event_time" placeholder="e.g. 7:30 PM">
                             </div>
                             <div class="form-field">
                                 <label for="budgetRange">Budget range (approx.)</label>
@@ -106,18 +106,6 @@ include __DIR__ . '/includes/header.php';
                             </div>
                         </div>
 
-                        <fieldset class="form-field">
-                            <legend>What do you need? (check all that apply)</legend>
-                            <div class="checkbox-grid">
-                                <label><input type="checkbox" name="needs[]" value="Ceremony music"> Ceremony music</label>
-                                <label><input type="checkbox" name="needs[]" value="Cocktail hour"> Cocktail hour</label>
-                                <label><input type="checkbox" name="needs[]" value="Dinner set"> Dinner set</label>
-                                <label><input type="checkbox" name="needs[]" value="Dance set / party"> Dance set / party</label>
-                                <label><input type="checkbox" name="needs[]" value="MC / announcements"> MC / announcements</label>
-                                <label><input type="checkbox" name="needs[]" value="Curated playlists between sets"> Playlists between sets (no DJ)</label>
-                            </div>
-                        </fieldset>
-
                         <div class="form-field">
                             <label for="vibe">What’s the vibe you’re going for?</label>
                             <textarea id="vibe" name="vibe" rows="3" placeholder="Tell me about your crowd, favorite artists, or the kind of night you’re imagining."></textarea>
@@ -126,11 +114,6 @@ include __DIR__ . '/includes/header.php';
                         <div class="form-field">
                             <label for="hearAbout">How did you hear about Nick?</label>
                             <input type="text" id="hearAbout" name="heard_about">
-                        </div>
-
-                        <div class="form-field">
-                            <label for="otherDetails">Anything else Nick should know?</label>
-                            <textarea id="otherDetails" name="other_details" rows="3"></textarea>
                         </div>
 
                         <p class="muted small">

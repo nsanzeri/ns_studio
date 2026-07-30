@@ -114,21 +114,13 @@ $phone         = field("phone", 64);
 $event_type    = field("event_type", 120);
 $event_date    = field("event_date", 64);
 $event_time    = field("event_time", 64);
-$venue_name    = field("venue_name", 190);
-$venue_loc     = field("venue_location", 255);
-$guest_count   = field("guest_count", 64);
+$location      = field("location", 255);
 $budget_range  = field("budget_range", 64);
 $vibe          = field("vibe", 4000);
 $heard_about   = field("heard_about", 190);
-$other_details = field("other_details", 4000);
-
-// Needs (checkbox)
-$needs = isset($_POST["needs"]) && is_array($_POST["needs"]) ? $_POST["needs"] : [];
-$needs = array_map(fn($x) => preg_replace('/[\r\n]/', '', trim((string)$x)), $needs);
-$needs_list = implode(", ", array_slice($needs, 0, 20));
 
 // Validation
-if (!$name || !$email || !$phone) {
+if (!$name || !$email || !$phone || !$event_date || !$location) {
 	log_line($logFile, "INVALID missing_required ip=$ip name=" . ($name ?: '-') . " email=" . ($email ?: '-'));
 	http_response_code(400);
 	echo "Missing required fields. Please go back and complete all required fields.";
@@ -149,14 +141,10 @@ $body = "A new booking inquiry has been submitted:\n\n"
 		. "Event Type: $event_type\n"
 		. "Event Date: $event_date\n"
 		. "Event Time: $event_time\n\n"
-		. "Venue Name: $venue_name\n"
-		. "Venue Location: $venue_loc\n"
-		. "Guest Count: $guest_count\n"
+		. "Location: $location\n"
 		. "Budget Range: $budget_range\n\n"
-		. "Needs: $needs_list\n\n"
 		. "Vibe / Vision:\n$vibe\n\n"
 		. "How they heard about Nick:\n$heard_about\n\n"
-		. "Other Details:\n$other_details\n\n"
 		. "--\n"
 				. "Meta:\n"
 						. "IP: $ip\n"
@@ -182,7 +170,7 @@ $body = "A new booking inquiry has been submitted:\n\n"
 												. "Event Type: $event_type\n"
 												. "Event Date: $event_date\n"
 												. "Event Time: $event_time\n"
-												. "Location: $venue_loc\n\n"
+												. "Location: $location\n\n"
 												. "Talk soon,\n"
 														. "Nick Sanzeri\n"
 																. "NickSanzeri.com\n";

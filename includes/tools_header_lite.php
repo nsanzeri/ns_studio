@@ -16,8 +16,15 @@ if (isset($pdo) && function_exists('rss_get_current_user_trial_status')) {
     <div class="container tools-header-inner-lite">
 
         <!-- Brand -->
-        <a href="<?= htmlspecialchars($rssHomeUrl, ENT_QUOTES, 'UTF-8') ?>" class="brand tools-brand-lite">
-            <span class="brand-mark">RS</span>
+        <a href="<?= htmlspecialchars($rssHomeUrl, ENT_QUOTES, 'UTF-8') ?>" class="brand brand-rss tools-brand-lite">
+            <span class="brand-mark" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none">
+                    <path d="M4 7h16M4 12h16M4 17h16" stroke-width="2.4" stroke-linecap="round"/>
+                    <circle cx="9" cy="7" r="2" fill="currentColor"/>
+                    <circle cx="15" cy="12" r="2" fill="currentColor"/>
+                    <circle cx="7" cy="17" r="2" fill="currentColor"/>
+                </svg>
+            </span>
             <span class="brand-text">
                 <span class="brand-name">Ready Set Shows</span>
                 <span class="brand-tagline">Live requests, setlists, and gig tools</span>
@@ -64,14 +71,7 @@ if (isset($pdo) && function_exists('rss_get_current_user_trial_status')) {
     gap: 1rem;
 }
 
-.tools-brand-lite .brand-mark {
-    background: linear-gradient(135deg, #d4af37, #b68a2f);
-    color: #111;
-    box-shadow: 0 8px 24px rgba(212,175,55,.25);
-}
-
 .tools-brand-lite .brand-name {
-    letter-spacing: .04em;
     font-weight: 600;
 }
 

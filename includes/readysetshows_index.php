@@ -84,43 +84,49 @@ $screens = [
         .rss-brand {
             display: inline-flex;
             align-items: center;
-            gap: .75rem;
+            gap: .55rem;
             color: #fff;
             text-decoration: none;
+            min-width: 0;
+            max-width: min(17rem, calc(100vw - 7rem));
+            overflow: hidden;
         }
 
         .rss-brand-mark {
-            width: 44px;
-            height: 44px;
-            border-radius: 50%;
+            flex: 0 0 22px;
+            width: 22px;
+            height: 22px;
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            color: #111;
-            font-weight: 800;
-            background: linear-gradient(135deg, #ffe78c, var(--rss-gold));
-            box-shadow: 0 12px 32px rgba(231,199,90,.24);
+            color: var(--rss-coral);
+        }
+
+        .rss-brand-mark svg {
+            display: block;
+            width: 100%;
+            height: 100%;
+            stroke: currentColor;
         }
 
         .rss-brand-text {
             display: grid;
-            line-height: 1.1;
+            line-height: 1;
+            min-width: 0;
         }
 
         .rss-brand-name {
-            font-family: "Playfair Display", serif;
-            font-size: 1.1rem;
-            font-weight: 700;
-            letter-spacing: .02em;
+            font-family: "Poppins", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            font-size: clamp(.9rem, 1vw, 1.08rem);
+            font-weight: 800;
+            letter-spacing: .035em;
             text-transform: uppercase;
+            white-space: nowrap;
+            color: var(--rss-text);
         }
 
         .rss-brand-tagline {
-            color: var(--rss-muted);
-            font-size: .72rem;
-            margin-top: .22rem;
-            letter-spacing: .18em;
-            text-transform: uppercase;
+            display: none;
         }
 
         .rss-nav {
@@ -230,6 +236,11 @@ $screens = [
             font-size: clamp(3rem, 7vw, 6.8rem);
             line-height: .9;
             margin: 0 0 1rem;
+        }
+
+        .rss-hero h1 strong {
+            color: var(--rss-blue);
+            font-weight: inherit;
         }
 
         .rss-hero-copy {
@@ -584,22 +595,23 @@ $screens = [
         }
 
         @media (max-width: 620px) {
-            .rss-brand-tagline {
-                display: none;
+            .rss-header-inner {
+                gap: .65rem;
             }
 
-            .rss-brand-mark {
-                width: 40px;
-                height: 40px;
+            .rss-brand-name {
+                font-size: .78rem;
+                letter-spacing: .02em;
             }
 
             .rss-nav {
-                gap: .35rem;
+                gap: .25rem;
             }
 
             .rss-nav a {
-                padding: .55rem .68rem;
-                font-size: .86rem;
+                padding: .48rem .58rem;
+                font-size: .78rem;
+                line-height: 1.05;
             }
 
             .rss-nav-guest .rss-nav-login {
@@ -629,7 +641,14 @@ $screens = [
     <header class="rss-header">
         <div class="container rss-header-inner">
             <a class="rss-brand" href="<?= htmlspecialchars($siteBase . '/index.php', ENT_QUOTES, 'UTF-8') ?>">
-                <span class="rss-brand-mark">RS</span>
+                <span class="rss-brand-mark" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none">
+                        <path d="M4 7h16M4 12h16M4 17h16" stroke-width="2.4" stroke-linecap="round"/>
+                        <circle cx="9" cy="7" r="2" fill="currentColor"/>
+                        <circle cx="15" cy="12" r="2" fill="currentColor"/>
+                        <circle cx="7" cy="17" r="2" fill="currentColor"/>
+                    </svg>
+                </span>
                 <span class="rss-brand-text">
                     <span class="rss-brand-name">Ready Set Shows</span>
                     <span class="rss-brand-tagline">Live requests, setlists, and gig tools</span>
@@ -656,10 +675,10 @@ $screens = [
 
             <div class="container">
                 <div class="rss-hero-content">
-                    <div class="rss-kicker"><i class="fa-solid fa-bolt"></i> Built by working musicians</div>
-                    <h1>Running a music career is hard enough.</h1>
+                    <div class="rss-kicker"><i class="fa-solid fa-sliders"></i> Professional utility</div>
+                    <h1>Live requests made <strong>simple and profitable.</strong></h1>
                     <p class="rss-hero-copy">
-                        Ready Set Shows handles the busy work so you can get back to making music. We built the musician&apos;s assistant we always wished we had.
+                        Ready Set Shows streamlines gig administration and boosts performer income with SetMaxx, the ultimate tool for paid live requests and setlist management.
                     </p>
                     <div class="rss-paths" aria-label="Choose how to use Ready Set Shows">
                         <a class="rss-path-card" href="<?= htmlspecialchars($bookBandUrl, ENT_QUOTES, 'UTF-8') ?>">

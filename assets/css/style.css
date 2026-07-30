@@ -25,6 +25,8 @@ html, body {
   background: radial-gradient(circle at top left, #141424, #050509 60%);
   color: var(--fg);
   font-family: "Poppins", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
 body {
@@ -70,42 +72,118 @@ a:hover {
 .brand {
   display: inline-flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.9rem;
+  min-width: 0;
 }
 
 .brand-mark {
-  width: 40px;
-  height: 40px;
+  position: relative;
+  flex: 0 0 44px;
+  width: 44px;
+  height: 44px;
+  aspect-ratio: 1;
   border-radius: 50%;
-  background: radial-gradient(circle at 30% 0%, #fde7a0, #a67623);
+  background:
+    radial-gradient(circle at 34% 24%, #fff3ba 0 14%, #edc44f 36%, #9c691c 72%, #3b2508 100%);
   color: #111119;
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: 700;
-  letter-spacing: 0.08em;
-  font-size: 0.9rem;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+  letter-spacing: 0.1em;
+  font-size: 0.82rem;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.55),
+    inset 0 -10px 18px rgba(76,43,4,0.34),
+    0 12px 32px rgba(0,0,0,0.66);
+  transform: rotate(-5deg);
+  isolation: isolate;
+}
+
+.brand-mark::before {
+  content: "";
+  position: absolute;
+  inset: 6px;
+  border: 1px solid rgba(255,246,196,0.5);
+  border-left-color: transparent;
+  border-bottom-color: rgba(255,246,196,0.2);
+  border-radius: 50%;
+  transform: rotate(28deg);
 }
 
 .brand-text {
   display: flex;
   flex-direction: column;
-  gap: 0.05rem;
+  gap: 0.18rem;
+  min-width: 0;
 }
 
 .brand-name {
-  font-family: "Playfair Display", serif;
-  font-size: 1.15rem;
-  letter-spacing: 0.08em;
+  font-family: "Poppins", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: clamp(0.92rem, 1.1vw, 1.18rem);
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: 0.34em;
   text-transform: uppercase;
+  white-space: nowrap;
+  color: transparent;
+  background: linear-gradient(180deg, #fff0a7 0%, #e2b73f 42%, #8a5a13 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  text-shadow: 0 0 18px rgba(212,175,55,0.16);
 }
 
 .brand-tagline {
-  font-size: 0.75rem;
+  font-size: 0.68rem;
   text-transform: uppercase;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.24em;
   color: var(--muted);
+  white-space: nowrap;
+}
+
+.brand-rss {
+  flex: 0 1 auto;
+  gap: 0.55rem;
+  max-width: min(17rem, calc(100vw - 7rem));
+  overflow: hidden;
+}
+
+.brand-rss .brand-mark {
+  flex: 0 0 22px;
+  width: 22px;
+  height: 22px;
+  border-radius: 0;
+  background: none;
+  color: #f06b4f;
+  font-size: 0;
+  box-shadow: none;
+  transform: none;
+}
+
+.brand-rss .brand-mark::before {
+  content: none;
+}
+
+.brand-rss .brand-mark svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  stroke: currentColor;
+}
+
+.brand-rss .brand-name {
+  font-size: clamp(0.9rem, 1vw, 1.08rem);
+  font-weight: 800;
+  letter-spacing: 0.035em;
+  color: #f7f4ec;
+  background: none;
+  -webkit-background-clip: initial;
+  background-clip: initial;
+  text-shadow: none;
+}
+
+.brand-rss .brand-tagline {
+  display: none;
 }
 
 .main-nav ul {
@@ -719,15 +797,17 @@ a:hover {
 }
 
 .youtube-short-embed {
-  width: 120%;
+  width: 100%;
   max-width: 360px;
   aspect-ratio: 9 / 16;
   margin: 0 auto;
 }
 
 .youtube-short-embed iframe {
-  width: 120%;
-  height: 120%;
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
   border-radius: 16px;
 }
 .page-hero {
@@ -1337,9 +1417,48 @@ input[type="date"]::-webkit-calendar-picker-indicator {
     padding-block: 0.6rem;
   }
 
+  .brand {
+    gap: 0.7rem;
+  }
+
+  .brand-mark {
+    flex-basis: 38px;
+    width: 38px;
+    height: 38px;
+    font-size: 0.74rem;
+  }
+
+  .brand-name {
+    font-size: 0.86rem;
+    letter-spacing: 0.24em;
+  }
+
+  .brand-tagline {
+    font-size: 0.58rem;
+    letter-spacing: 0.18em;
+  }
+
   .nav-toggle {
     display: inline-flex;
     flex-direction: column;
+    flex: 0 0 auto;
+    position: relative;
+    z-index: 3;
+  }
+
+  .brand-rss {
+    max-width: calc(100vw - 7.5rem);
+  }
+
+  .brand-rss .brand-mark {
+    flex-basis: 22px;
+    width: 22px;
+    height: 22px;
+  }
+
+  .brand-rss .brand-name {
+    font-size: 0.82rem;
+    letter-spacing: 0.025em;
   }
 
   .main-nav {

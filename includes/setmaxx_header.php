@@ -45,8 +45,15 @@ $suiteModules = $headerAccountType === 'customer'
 ?>
 <header class="site-header setmaxx-site-header">
     <div class="container setmaxx-header-inner">
-        <a href="<?= htmlspecialchars($studioBase . '/tools/index.php') ?>" class="brand setmaxx-brand">
-            <span class="brand-mark">RS</span>
+        <a href="<?= htmlspecialchars($studioBase . '/tools/index.php') ?>" class="brand brand-rss setmaxx-brand">
+            <span class="brand-mark" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none">
+                    <path d="M4 7h16M4 12h16M4 17h16" stroke-width="2.4" stroke-linecap="round"/>
+                    <circle cx="9" cy="7" r="2" fill="currentColor"/>
+                    <circle cx="15" cy="12" r="2" fill="currentColor"/>
+                    <circle cx="7" cy="17" r="2" fill="currentColor"/>
+                </svg>
+            </span>
             <span class="brand-text">
                 <span class="brand-name">Ready Set Shows</span>
                 <span class="brand-tagline">Calendar &middot; SetMaxx &middot; Finance &middot; Publishing</span>
@@ -147,11 +154,6 @@ $suiteModules = $headerAccountType === 'customer'
     align-items:center;
     justify-content:space-between;
     gap:1rem;
-  }
-  .setmaxx-brand .brand-mark {
-    background: linear-gradient(135deg, #d4af37, #b68a2f);
-    color:#111;
-    box-shadow: 0 8px 24px rgba(212,175,55,.25);
   }
   .rss-suite-nav {
     display:flex;

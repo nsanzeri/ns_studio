@@ -135,8 +135,16 @@ function ns_clean_profile_email($value): ?string
 
 function ns_clean_profile_phone($value): ?string
 {
-    $phone = trim(preg_replace('/\s+/', ' ', (string)$value) ?? '');
-    if ($phone === '') return null;
+    $raw = trim((string)$value);
+    if ($raw === '') return null;
+    $digits = preg_replace('/\D+/', '', $raw) ?? '';
+    if (strlen($digits) === 11 && str_starts_with($digits, '1')) {
+        return '+1 (' . substr($digits, 1, 3) . ') ' . substr($digits, 4, 3) . '-' . substr($digits, 7);
+    }
+    if (strlen($digits) === 10) {
+        return '(' . substr($digits, 0, 3) . ') ' . substr($digits, 3, 3) . '-' . substr($digits, 6);
+    }
+    $phone = trim(preg_replace('/\s+/', ' ', $raw) ?? '');
     return mb_substr($phone, 0, 64);
 }
 
@@ -450,7 +458,7 @@ if ($isReadySetShowsHost) {
       </div>
       <div class="form-field">
         <label style="margin-top:1rem;">Contact phone</label>
-        <input type="text" name="contact_phone" placeholder="Optional public phone number" value="<?= e((string)($publicArtistProfile['contact_phone'] ?? '')) ?>">
+        <input type="tel" id="contact_phone" name="contact_phone" placeholder="Optional public phone number" value="<?= e((string)($publicArtistProfile['contact_phone'] ?? '')) ?>">
       </div>
       <div class="form-field">
         <label style="margin-top:1rem;">Directory state</label>
@@ -569,6 +577,28 @@ if ($isReadySetShowsHost) {
   include __DIR__ . '/../../includes/footer.php';
 }
 ?>
+
+<script>
+(function () {
+  const phoneInput = document.getElementById('contact_phone');
+  if (!phoneInput) return;
+
+  function formatPhone(value) {
+    const digits = value.replace(/\D/g, '').slice(0, 11);
+    const local = digits.length === 11 && digits.charAt(0) === '1' ? digits.slice(1) : digits;
+    if (local.length <= 3) return local;
+    if (local.length <= 6) return '(' + local.slice(0, 3) + ') ' + local.slice(3);
+    return '(' + local.slice(0, 3) + ') ' + local.slice(3, 6) + '-' + local.slice(6, 10);
+  }
+
+  phoneInput.addEventListener('input', function () {
+    phoneInput.value = formatPhone(phoneInput.value);
+  });
+  phoneInput.addEventListener('blur', function () {
+    phoneInput.value = formatPhone(phoneInput.value);
+  });
+})();
+</script>
 
 <?php if ($hasActiveStripeSubscription): ?>
 <script>

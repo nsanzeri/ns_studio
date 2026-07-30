@@ -80,6 +80,17 @@ function artist_google_maps_url(string $location): string {
     return 'https://www.google.com/maps/search/?api=1&query=' . rawurlencode($location);
 }
 
+function artist_format_phone(string $phone): string {
+    $digits = preg_replace('/\D+/', '', $phone) ?? '';
+    if (strlen($digits) === 11 && str_starts_with($digits, '1')) {
+        return '+1 (' . substr($digits, 1, 3) . ') ' . substr($digits, 4, 3) . '-' . substr($digits, 7);
+    }
+    if (strlen($digits) === 10) {
+        return '(' . substr($digits, 0, 3) . ') ' . substr($digits, 3, 3) . '-' . substr($digits, 6);
+    }
+    return $phone;
+}
+
 function artist_push_event(array &$events, array $event, DateTime $start, DateTime $end): void {
     $events[] = [
         'start' => $start->format(DateTime::ATOM),
@@ -208,8 +219,9 @@ if (!$profile) {
 $artistName = $profile ? (string)$profile['display_artist_name'] : 'Artist not found';
 $logoPath = $profile ? trim((string)($profile['logo_path'] ?? '')) : '';
 $logoUrl = $logoPath !== '' ? $siteBase . '/' . ltrim(preg_replace('#^\.\./#', '', $logoPath), '/') : '';
-$requestUrl = $profile && !empty($profile['public_token']) ? $siteBase . '/studio/request.php?link=' . rawurlencode((string)$profile['public_token']) : '';
 $songlistUrl = $profile && !empty($profile['directory_show_songlist']) && (int)$profile['active_song_count'] > 0 ? $siteBase . '/directory.php?songlist=' . (int)$profile['user_id'] : '';
+$phoneDisplay = $profile && !empty($profile['contact_phone']) ? artist_format_phone((string)$profile['contact_phone']) : '';
+$phoneHref = $profile && !empty($profile['contact_phone']) ? (preg_replace('/[^0-9+]/', '', (string)$profile['contact_phone']) ?? '') : '';
 $services = [];
 if ($profile && !empty($profile['directory_genres'])) {
     $services = array_values(array_filter(array_map('trim', explode(',', (string)$profile['directory_genres']))));
@@ -228,30 +240,35 @@ if ($profile && !empty($profile['directory_genres'])) {
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;700&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
-    .artist-shell { padding:3rem 0 4rem; }
-    .artist-hero { display:grid; grid-template-columns:170px minmax(0,1fr); gap:1.4rem; align-items:center; margin-bottom:1rem; }
-    .artist-photo { width:170px; height:170px; border-radius:8px; object-fit:cover; background:linear-gradient(135deg, rgba(212,175,55,.32), rgba(140,107,255,.24)); display:grid; place-items:center; font-size:3rem; font-weight:800; color:#fff; }
+    .artist-shell { padding:3rem 0 4rem; max-width:1120px; }
+    .artist-hero { display:grid; grid-template-columns:390px minmax(0,1fr); gap:1.8rem; align-items:start; margin-bottom:1rem; }
+    .artist-photo { width:390px; aspect-ratio:1 / 1; border-radius:8px; object-fit:cover; background:linear-gradient(135deg, rgba(212,175,55,.32), rgba(140,107,255,.24)); display:grid; place-items:center; font-size:4rem; font-weight:800; color:#fff; }
     .artist-kicker { color:#d4af37; font-size:.82rem; text-transform:uppercase; letter-spacing:.08em; font-weight:800; }
     .artist-hero h1 { margin:.25rem 0 .35rem; }
     .artist-meta { color:rgba(255,255,255,.72); }
+    .artist-contact-line { display:flex; gap:.55rem; flex-wrap:wrap; align-items:center; margin:.35rem 0 1rem; color:rgba(255,255,255,.72); font-size:.94rem; }
+    .artist-contact-line a, .artist-contact-line span { color:rgba(255,255,255,.78); text-decoration:none; }
+    .artist-contact-line a:hover { color:#f4d57a; }
+    .artist-contact-dot { color:rgba(255,255,255,.28); }
     .artist-actions { display:flex; gap:.5rem; flex-wrap:wrap; margin-top:1rem; }
     .artist-actions a { display:inline-flex; align-items:center; min-height:36px; padding:.48rem .8rem; border-radius:999px; border:1px solid rgba(255,255,255,.14); color:#fff; text-decoration:none; background:rgba(255,255,255,.04); }
     .artist-actions a:hover { color:#f4d57a; border-color:rgba(212,175,55,.36); }
-    .artist-layout { display:grid; grid-template-columns:minmax(0,1fr) 360px; gap:1rem; align-items:start; }
     .artist-card { padding:1.2rem; border-radius:8px; background:rgba(255,255,255,.045); border:1px solid rgba(255,255,255,.08); }
     .artist-card h2 { margin-top:0; }
-    .artist-detail-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.8rem; }
-    .artist-detail { padding:.85rem; border-radius:8px; background:rgba(255,255,255,.035); border:1px solid rgba(255,255,255,.07); }
-    .artist-detail span { display:block; color:#d4af37; font-size:.72rem; font-weight:800; text-transform:uppercase; letter-spacing:.08em; }
-    .artist-detail strong, .artist-detail a { color:#fff; word-break:break-word; }
-    .artist-services { display:flex; gap:.5rem; flex-wrap:wrap; margin-top:1rem; }
+    .artist-services-section { margin-top:1.15rem; }
+    .artist-services-section h2 { margin:0 0 .45rem; font-size:1.2rem; }
+    .artist-services { display:flex; gap:.5rem; flex-wrap:wrap; }
     .artist-service-pill { display:inline-flex; align-items:center; min-height:28px; padding:.28rem .6rem; border-radius:999px; background:rgba(212,175,55,.16); border:1px solid rgba(212,175,55,.24); color:#ffe28a; font-size:.82rem; font-weight:700; }
-    .artist-events { display:grid; gap:.6rem; }
-    .artist-event { padding:.85rem; border-radius:8px; background:rgba(255,255,255,.035); border:1px solid rgba(255,255,255,.07); }
-    .artist-event strong { display:block; }
+    .artist-preview-dates { margin:1.25rem 0 0; }
+    .artist-preview-dates h2 { margin:0; font-size:1.2rem; }
+    .artist-date-note { margin:.2rem 0 .7rem; color:rgba(255,255,255,.58); font-size:.9rem; }
+    .artist-events { display:grid; gap:.5rem; }
+    .artist-event { display:grid; grid-template-columns:92px minmax(0,1fr); gap:.85rem; align-items:start; padding:.7rem .8rem; border-radius:8px; background:rgba(255,255,255,.035); border:1px solid rgba(255,255,255,.07); }
+    .artist-event-date { color:#f4d57a; font-weight:800; font-size:.9rem; line-height:1.25; }
+    .artist-event strong { display:block; line-height:1.25; }
     .artist-event span, .artist-event a { color:rgba(255,255,255,.68); }
     .artist-event a:hover { color:#f4d57a; }
-    @media (max-width: 860px) { .artist-hero, .artist-layout { grid-template-columns:1fr; } .artist-detail-grid { grid-template-columns:1fr; } .artist-photo { width:130px; height:130px; } }
+    @media (max-width: 960px) { .artist-hero { grid-template-columns:1fr; } .artist-photo { width:100%; max-width:420px; } .artist-event { grid-template-columns:1fr; gap:.25rem; } }
   </style>
 </head>
 <body>
@@ -269,47 +286,45 @@ if ($profile && !empty($profile['directory_genres'])) {
       <div>
         <div class="artist-kicker">Featured Artist</div>
         <h1><?= e($artistName) ?></h1>
-        <div class="artist-meta"><?= e((string)($profile['directory_state'] ?: 'State not set')) ?></div>
+        <div class="artist-contact-line">
+          <span><?= e((string)($profile['directory_state'] ?: 'State not set')) ?></span>
+          <?php if (!empty($profile['contact_email'])): ?><span class="artist-contact-dot">&bull;</span><a href="mailto:<?= e((string)$profile['contact_email']) ?>"><?= e((string)$profile['contact_email']) ?></a><?php endif; ?>
+          <?php if ($phoneDisplay !== ''): ?><span class="artist-contact-dot">&bull;</span><a href="tel:<?= e($phoneHref) ?>"><?= e($phoneDisplay) ?></a><?php endif; ?>
+        </div>
         <?php if (!empty($profile['directory_description'])): ?><p><?= e((string)$profile['directory_description']) ?></p><?php endif; ?>
         <div class="artist-actions">
           <?php if (!empty($profile['website_url'])): ?><a href="<?= e((string)$profile['website_url']) ?>" target="_blank" rel="noopener">Website</a><?php endif; ?>
           <?php if (!empty($profile['youtube_url'])): ?><a href="<?= e((string)$profile['youtube_url']) ?>" target="_blank" rel="noopener">YouTube</a><?php endif; ?>
           <?php if (!empty($profile['booking_url'])): ?><a href="<?= e((string)$profile['booking_url']) ?>" target="_blank" rel="noopener">Book</a><?php endif; ?>
+          <?php if (!empty($profile['review_url'])): ?><a href="<?= e((string)$profile['review_url']) ?>" target="_blank" rel="noopener">Read reviews</a><?php endif; ?>
           <?php if ($songlistUrl !== ''): ?><a href="<?= e($songlistUrl) ?>" download>Download setlist</a><?php endif; ?>
         </div>
-      </div>
-    </section>
-
-    <section class="artist-layout">
-      <div class="artist-card">
-        <h2>Public Details</h2>
-        <div class="artist-detail-grid">
-          <?php if (!empty($profile['contact_email'])): ?><div class="artist-detail"><span>Email</span><a href="mailto:<?= e((string)$profile['contact_email']) ?>"><?= e((string)$profile['contact_email']) ?></a></div><?php endif; ?>
-          <?php if (!empty($profile['contact_phone'])): ?><div class="artist-detail"><span>Phone</span><a href="tel:<?= e(preg_replace('/[^0-9+]/', '', (string)$profile['contact_phone']) ?? '') ?>"><?= e((string)$profile['contact_phone']) ?></a></div><?php endif; ?>
-          <?php if (!empty($profile['review_url'])): ?><div class="artist-detail"><span>Reviews</span><a href="<?= e((string)$profile['review_url']) ?>" target="_blank" rel="noopener">Leave a review</a></div><?php endif; ?>
-        </div>
         <?php if ($services): ?>
-          <h2 style="margin:1.4rem 0 .35rem;">Services</h2>
-          <div class="artist-services">
-            <?php foreach ($services as $service): ?><span class="artist-service-pill"><?= e($service) ?></span><?php endforeach; ?>
-          </div>
+          <section class="artist-services-section">
+            <h2>Services</h2>
+            <div class="artist-services">
+              <?php foreach ($services as $service): ?><span class="artist-service-pill"><?= e($service) ?></span><?php endforeach; ?>
+            </div>
+          </section>
+        <?php endif; ?>
+        <?php if ($events): ?>
+          <section class="artist-preview-dates">
+            <h2>Upcoming public dates</h2>
+            <p class="artist-date-note">Showing the next 10 dates from this artist's public calendar.</p>
+            <div class="artist-events">
+              <?php foreach ($events as $event): $start = new DateTime((string)$event['start']); ?>
+                <div class="artist-event">
+                  <div class="artist-event-date"><?= e($start->format('M j')) ?><br><?= e($start->format('Y')) ?></div>
+                  <div>
+                    <strong><?= e((string)$event['summary']) ?></strong>
+                    <?php if (!empty($event['location'])): ?><span><a href="<?= e(artist_google_maps_url((string)$event['location'])) ?>" target="_blank" rel="noopener"><?= e((string)$event['location']) ?></a></span><?php endif; ?>
+                  </div>
+                </div>
+              <?php endforeach; ?>
+            </div>
+          </section>
         <?php endif; ?>
       </div>
-      <aside class="artist-card">
-        <h2>Upcoming Dates</h2>
-        <?php if (!$events): ?>
-          <p class="artist-meta">No public dates are listed right now.</p>
-        <?php else: ?>
-          <div class="artist-events">
-            <?php foreach ($events as $event): $start = new DateTime((string)$event['start']); ?>
-              <div class="artist-event">
-                <strong><?= e((string)$event['summary']) ?></strong>
-                <span><?= e($start->format('M j, Y')) ?><?php if (!empty($event['location'])): ?> &middot; <a href="<?= e(artist_google_maps_url((string)$event['location'])) ?>" target="_blank" rel="noopener"><?= e((string)$event['location']) ?></a><?php endif; ?></span>
-              </div>
-            <?php endforeach; ?>
-          </div>
-        <?php endif; ?>
-      </aside>
     </section>
   <?php endif; ?>
 </main>

@@ -338,14 +338,15 @@ function finance_page_head(string $title): void { ?>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
     .finance-shell { padding: 2rem 0 4rem; }
-    .finance-card { background: rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08); border-radius:24px; padding:1.35rem; box-shadow:0 16px 34px rgba(0,0,0,.18); }
+    .finance-card { min-width:0; background: rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08); border-radius:24px; padding:1.35rem; box-shadow:0 16px 34px rgba(0,0,0,.18); }
     .finance-grid { display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:1rem; }
     .finance-two { display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
     .finance-stack { display:grid; gap:1rem; }
     .finance-field { display:grid; gap:.45rem; }
     .finance-input, .finance-select, .finance-textarea { width:100%; padding:.72rem .8rem; border-radius:12px; border:1px solid rgba(255,255,255,.1); background:rgba(255,255,255,.05); color:#fff; font:inherit; }
     .finance-select option { background:#151323; color:#fff; }
-    .finance-table-wrap { overflow:auto; border:1px solid rgba(255,255,255,.08); border-radius:16px; margin-top:1rem; }
+    .finance-grid > *, .finance-two > * { min-width:0; }
+    .finance-table-wrap { max-width:100%; overflow-x:auto; overflow-y:hidden; -webkit-overflow-scrolling:touch; border:1px solid rgba(255,255,255,.08); border-radius:16px; margin-top:1rem; }
     .finance-table { width:100%; border-collapse:collapse; min-width:980px; }
     .finance-table th, .finance-table td { padding:.75rem; border-bottom:1px solid rgba(255,255,255,.07); text-align:left; vertical-align:top; }
     .finance-table th { color:#f4d35e; font-size:.78rem; letter-spacing:.08em; text-transform:uppercase; }

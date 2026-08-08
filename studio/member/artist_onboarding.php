@@ -42,6 +42,13 @@ function rss_onboarding_clean_url($value): ?string
 	return filter_var($url, FILTER_VALIDATE_URL) ? mb_substr($url, 0, 255) : null;
 }
 
+function rss_onboarding_clean_email($value): ?string
+{
+	$email = strtolower(trim((string)$value));
+	if ($email === '') return null;
+	return filter_var($email, FILTER_VALIDATE_EMAIL) ? mb_substr($email, 0, 190) : null;
+}
+
 function rss_onboarding_clean_state($value): ?string
 {
 	$state = strtoupper(trim((string)$value));
@@ -53,6 +60,7 @@ $profileReady = rss_onboarding_table_exists($pdo, 'setmaxx_public_profiles')
 	&& rss_onboarding_column_exists($pdo, 'directory_state')
 	&& rss_onboarding_column_exists($pdo, 'artist_name')
 	&& rss_onboarding_column_exists($pdo, 'website_url')
+	&& rss_onboarding_column_exists($pdo, 'contact_email')
 	&& rss_onboarding_column_exists($pdo, 'logo_path')
 	&& rss_onboarding_column_exists($pdo, 'directory_genres')
 	&& rss_onboarding_column_exists($pdo, 'directory_description');
@@ -66,6 +74,7 @@ if (is_post()) {
 		try {
 			$artistName = rss_onboarding_clean_text($_POST['artist_name'] ?? '', 190);
 			$websiteUrl = rss_onboarding_clean_url($_POST['website_url'] ?? '');
+			$contactEmail = rss_onboarding_clean_email($_POST['contact_email'] ?? '');
 			$directoryState = rss_onboarding_clean_state($_POST['directory_state'] ?? '');
 			$postedGenres = isset($_POST['directory_genres']) && is_array($_POST['directory_genres']) ? $_POST['directory_genres'] : [];
 			$directoryGenres = array_values(array_intersect($artistGenreOptions, array_map('strval', $postedGenres)));
@@ -75,6 +84,8 @@ if (is_post()) {
 
 			if (!$artistName) throw new RuntimeException('Add your artist or band name.');
 			if (trim((string)($_POST['website_url'] ?? '')) !== '' && $websiteUrl === null) throw new RuntimeException('Website link is not valid.');
+			if (!$contactEmail) throw new RuntimeException('Add a valid contact email.');
+			if (!$directoryState) throw new RuntimeException('Add your two-letter directory state.');
 
 			if (!empty($_FILES['logo_file']['tmp_name']) && is_uploaded_file($_FILES['logo_file']['tmp_name'])) {
 				$tmpPath = (string)$_FILES['logo_file']['tmp_name'];
@@ -93,10 +104,10 @@ if (is_post()) {
 			}
 
 			$pdo->prepare(
-				"INSERT INTO setmaxx_public_profiles (user_id, directory_visible, directory_state, directory_show_song_count, directory_show_songlist, directory_genres, directory_description, artist_name, website_url, logo_path)
-				 VALUES (?, 1, ?, 1, 0, ?, ?, ?, ?, ?)
-				 ON DUPLICATE KEY UPDATE directory_visible = VALUES(directory_visible), directory_state = VALUES(directory_state), directory_genres = VALUES(directory_genres), directory_description = VALUES(directory_description), artist_name = VALUES(artist_name), website_url = VALUES(website_url), logo_path = COALESCE(VALUES(logo_path), logo_path)"
-			)->execute([$userId, $directoryState, $directoryGenresText !== '' ? $directoryGenresText : null, $directoryDescription, $artistName, $websiteUrl, $logoPath]);
+				"INSERT INTO setmaxx_public_profiles (user_id, directory_visible, directory_state, directory_show_song_count, directory_show_songlist, directory_genres, directory_description, artist_name, website_url, contact_email, logo_path)
+				 VALUES (?, 1, ?, 1, 0, ?, ?, ?, ?, ?, ?)
+				 ON DUPLICATE KEY UPDATE directory_visible = VALUES(directory_visible), directory_state = VALUES(directory_state), directory_genres = VALUES(directory_genres), directory_description = VALUES(directory_description), artist_name = VALUES(artist_name), website_url = VALUES(website_url), contact_email = VALUES(contact_email), logo_path = COALESCE(VALUES(logo_path), logo_path)"
+			)->execute([$userId, $directoryState, $directoryGenresText !== '' ? $directoryGenresText : null, $directoryDescription, $artistName, $websiteUrl, $contactEmail, $logoPath]);
 
 			flash_set('success', 'Your artist profile is ready.');
 			redirect(base_url('member/settings.php?brand=rss'));
@@ -145,8 +156,12 @@ $trialUrl = base_url('member/pricing.php');
       <input type="text" name="website_url" placeholder="https://your-site.com" value="<?= e((string)($_POST['website_url'] ?? '')) ?>">
     </div>
     <div class="form-field">
-      <label style="margin-top:1rem;">Directory state</label>
-      <input type="text" name="directory_state" maxlength="2" placeholder="IL" value="<?= e((string)($_POST['directory_state'] ?? '')) ?>">
+      <label style="margin-top:1rem;">Contact email*</label>
+      <input type="email" name="contact_email" required placeholder="booking@your-site.com" value="<?= e((string)($_POST['contact_email'] ?? ($user['email'] ?? ''))) ?>">
+    </div>
+    <div class="form-field">
+      <label style="margin-top:1rem;">Directory state*</label>
+      <input type="text" name="directory_state" required maxlength="2" pattern="[A-Za-z]{2}" placeholder="IL" value="<?= e((string)($_POST['directory_state'] ?? '')) ?>">
     </div>
     <fieldset class="form-field" style="margin-top:1rem;">
       <legend>Genres</legend>

@@ -269,8 +269,17 @@ if (is_post()) {
                 if (trim((string)($_POST['youtube_url'] ?? '')) !== '' && $youtubeUrl === null) {
                     throw new RuntimeException('YouTube link is not valid.');
                 }
+                if (!$artistName) {
+                    throw new RuntimeException('Artist or band name is required.');
+                }
                 if (trim((string)($_POST['contact_email'] ?? '')) !== '' && $contactEmail === null) {
                     throw new RuntimeException('Contact email is not valid.');
+                }
+                if (!$contactEmail) {
+                    throw new RuntimeException('Contact email is required.');
+                }
+                if (!$directoryState) {
+                    throw new RuntimeException('Directory state is required. Use a two-letter state abbreviation.');
                 }
 
                 if (!empty($_FILES['logo_file']['tmp_name']) && is_uploaded_file($_FILES['logo_file']['tmp_name'])) {
@@ -444,8 +453,8 @@ if ($isReadySetShowsHost) {
       <input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>">
       <input type="hidden" name="action" value="public_artist_profile">
       <div class="form-field">
-        <label>Artist or band name</label>
-        <input type="text" name="artist_name" placeholder="Your stage name or band name" value="<?= e((string)($publicArtistProfile['artist_name'] ?? '')) ?>">
+        <label>Artist or band name*</label>
+        <input type="text" name="artist_name" required placeholder="Your stage name or band name" value="<?= e((string)($publicArtistProfile['artist_name'] ?? '')) ?>">
       </div>
       <div class="form-field">
         <label style="margin-top:1rem;">Website</label>
@@ -456,16 +465,16 @@ if ($isReadySetShowsHost) {
         <input type="text" name="youtube_url" placeholder="https://youtube.com/@yourband" value="<?= e((string)($publicArtistProfile['youtube_url'] ?? '')) ?>">
       </div>
       <div class="form-field">
-        <label style="margin-top:1rem;">Contact email</label>
-        <input type="email" name="contact_email" placeholder="booking@your-site.com" value="<?= e((string)($publicArtistProfile['contact_email'] ?? '')) ?>">
+        <label style="margin-top:1rem;">Contact email*</label>
+        <input type="email" name="contact_email" required placeholder="booking@your-site.com" value="<?= e((string)($publicArtistProfile['contact_email'] ?? '')) ?>">
       </div>
       <div class="form-field">
         <label style="margin-top:1rem;">Contact phone</label>
         <input type="tel" id="contact_phone" name="contact_phone" placeholder="Optional public phone number" value="<?= e((string)($publicArtistProfile['contact_phone'] ?? '')) ?>">
       </div>
       <div class="form-field">
-        <label style="margin-top:1rem;">Directory state</label>
-        <input type="text" name="directory_state" maxlength="2" placeholder="IL" value="<?= e((string)($publicArtistProfile['directory_state'] ?? '')) ?>">
+        <label style="margin-top:1rem;">Directory state*</label>
+        <input type="text" name="directory_state" required maxlength="2" pattern="[A-Za-z]{2}" placeholder="IL" value="<?= e((string)($publicArtistProfile['directory_state'] ?? '')) ?>">
       </div>
       <fieldset class="form-field" style="margin-top:1rem;">
         <legend>Genres</legend>

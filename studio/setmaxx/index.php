@@ -3,10 +3,8 @@ require_once __DIR__ . '/_common.php';
 
 $songCount = 0;
 $sessionCount = 0;
-$liveSession = null;
 $lifetimeDollarsCents = 0;
 $averagePlatformTipsPerSession = 0;
-$recentRequests = [];
 
 if ($tablesReady) {
     $stmt = $pdo->prepare("SELECT COUNT(*) FROM setmaxx_songs WHERE user_id = ?");
@@ -27,7 +25,10 @@ if ($tablesReady) {
         $averagePlatformTipsPerSession = (int)round(((int)$stmt->fetchColumn()) / $sessionCount);
     }
 
-    if (setmaxx_column_exists($pdo, 'setmaxx_requests', 'payment_method')) {
+    if (
+        setmaxx_column_exists($pdo, 'setmaxx_requests', 'payment_method')
+        && setmaxx_column_exists($pdo, 'setmaxx_requests', 'stripe_payment_intent_id')
+    ) {
         $stmt = $pdo->prepare(
             "SELECT COALESCE(SUM(r.amount_cents), 0)
              FROM setmaxx_requests r
@@ -55,29 +56,102 @@ if ($tablesReady) {
         $lifetimeDollarsCents += (int)$stmt->fetchColumn();
     }
 
-    $stmt = $pdo->prepare("SELECT id, title, venue_name, public_token, status, starts_at FROM setmaxx_gig_sessions WHERE user_id = ? AND status = 'live' ORDER BY created_at DESC LIMIT 1");
-    $stmt->execute([$userId]);
-    $liveSession = $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
-
-    if ($liveSession) {
-        $recentStmt = $pdo->prepare(
-            "SELECT r.id, r.requester_name, r.amount_cents, r.status, r.created_at, s.title, s.artist, gs.title AS session_title
-             FROM setmaxx_requests r
-             JOIN setmaxx_gig_sessions gs ON gs.id = r.gig_session_id
-             JOIN setmaxx_songs s ON s.id = r.song_id
-             WHERE gs.user_id = ?
-               AND r.gig_session_id = ?
-             ORDER BY r.created_at DESC
-         LIMIT 6"
-        );
-        $recentStmt->execute([$userId, (int)$liveSession['id']]);
-        $recentRequests = $recentStmt->fetchAll(PDO::FETCH_ASSOC);
-    }
 }
 
 setmaxx_page_head('Set Maxx | Dashboard');
 ?>
-<main class="container setmaxx-shell">
+<style>
+  .setmaxx-dashboard .setmaxx-card {
+    min-width:0;
+  }
+  .setmaxx-dashboard .setmaxx-module-card h2 {
+    margin:.65rem 0 .35rem;
+  }
+  @media (max-width: 560px) {
+    .setmaxx-dashboard {
+      padding-top:1rem;
+    }
+    .setmaxx-dashboard .setmaxx-hero {
+      gap:.75rem;
+      margin-bottom:.8rem;
+    }
+    .setmaxx-dashboard .setmaxx-card {
+      border-radius:18px;
+      padding:1rem;
+    }
+    .setmaxx-dashboard .setmaxx-hero h1 {
+      margin:0 0 .25rem !important;
+      font-size:1.55rem;
+    }
+    .setmaxx-dashboard .setmaxx-hero h2 {
+      margin:0 0 .65rem !important;
+      font-size:1.2rem;
+    }
+    .setmaxx-dashboard .setmaxx-hero .setmaxx-help {
+      margin-bottom:.6rem !important;
+      font-size:.9rem !important;
+      line-height:1.45;
+    }
+    .setmaxx-dashboard .setmaxx-list {
+      gap:.45rem;
+    }
+    .setmaxx-dashboard .setmaxx-fuel-list {
+      grid-template-columns:repeat(2, minmax(0, 1fr));
+    }
+    .setmaxx-dashboard .setmaxx-fuel-list .setmaxx-row {
+      display:grid;
+      align-content:center;
+      gap:.2rem;
+      min-height:74px;
+    }
+    .setmaxx-dashboard .setmaxx-row {
+      align-items:center;
+      flex-wrap:nowrap;
+      gap:.75rem;
+      padding:.55rem .7rem;
+      border-radius:12px;
+    }
+    .setmaxx-dashboard .setmaxx-row strong {
+      flex:0 0 auto;
+      font-size:1rem;
+    }
+    .setmaxx-dashboard .setmaxx-meta {
+      font-size:.82rem;
+      line-height:1.35;
+      text-align:right;
+    }
+    .setmaxx-dashboard .setmaxx-fuel-list .setmaxx-meta {
+      text-align:left;
+    }
+    .setmaxx-dashboard .setmaxx-module-grid {
+      grid-template-columns:repeat(2, minmax(0, 1fr));
+      gap:.55rem;
+      margin-bottom:.8rem !important;
+    }
+    .setmaxx-dashboard .setmaxx-module-card {
+      display:grid;
+      align-content:start;
+      min-height:96px;
+    }
+    .setmaxx-dashboard .setmaxx-module-card .setmaxx-pill {
+      width:max-content;
+      padding:.2rem .55rem;
+      font-size:.72rem;
+    }
+    .setmaxx-dashboard .setmaxx-module-card h2 {
+      margin:.5rem 0 0;
+      font-size:.98rem;
+      line-height:1.18;
+    }
+    .setmaxx-dashboard .setmaxx-module-card .setmaxx-help {
+      display:none;
+    }
+    .setmaxx-dashboard .setmaxx-grid {
+      gap:.75rem;
+    }
+  }
+</style>
+<main class="container setmaxx-shell setmaxx-dashboard">
   <?php setmaxx_flash($messages, $errors); ?>
 
   <section class="setmaxx-hero">
@@ -96,7 +170,7 @@ setmaxx_page_head('Set Maxx | Dashboard');
       <?php if (!$tablesReady): ?>
         <p class="setmaxx-help">Database setup is required before Set Maxx can run.</p>
       <?php else: ?>
-        <div class="setmaxx-list">
+        <div class="setmaxx-list setmaxx-fuel-list">
           <div class="setmaxx-row"><strong><?= (int)$songCount ?></strong><span class="setmaxx-meta">songs in catalog</span></div>
           <div class="setmaxx-row"><strong><?= (int)$sessionCount ?></strong><span class="setmaxx-meta">gig sessions created</span></div>
           <div class="setmaxx-row"><strong><?= e(setmaxx_money($averagePlatformTipsPerSession)) ?></strong><span class="setmaxx-meta">avg platform tips per saved session</span></div>
@@ -122,7 +196,7 @@ setmaxx_page_head('Set Maxx | Dashboard');
       </a>
       <a class="setmaxx-card setmaxx-module-card" href="<?= e(base_url('/setmaxx/sessions.php')) ?>">
         <div class="setmaxx-pill">Pro</div>
-        <h2>Gig Sessions</h2>
+        <h2>Gig Config</h2>
         <p class="setmaxx-help">Create a public request page for each show.</p>
       </a>
       <a class="setmaxx-card setmaxx-module-card" href="<?= e(base_url('/setmaxx/requests.php')) ?>">
@@ -142,45 +216,6 @@ setmaxx_page_head('Set Maxx | Dashboard');
       </a>
     </section>
 
-    <section class="setmaxx-grid">
-      <div class="setmaxx-card">
-        <h2 style="margin-top:0;">Live session</h2>
-        <?php if (!$liveSession): ?>
-          <p class="setmaxx-help">No live session right now. Live public request pages are part of Pro.</p>
-          <a class="btn btn-primary" href="<?= e($isProUser ? base_url('/setmaxx/sessions.php') : $upgradeUrl) ?>"><?= $isProUser ? 'Create Session' : 'Upgrade for Live Sessions' ?></a>
-        <?php else: ?>
-          <?php $publicUrl = $sessionLinkBase . rawurlencode((string)$liveSession['public_token']); ?>
-          <div style="font-weight:600;"><?= e($liveSession['title']) ?></div>
-          <div class="setmaxx-meta"><?= e((string)($liveSession['venue_name'] ?: 'Venue not set')) ?></div>
-          <div class="setmaxx-link-box" style="margin-top:1rem;">
-            <strong>Public page</strong>
-            <code><?= e($publicUrl) ?></code>
-            <a class="btn btn-outline" href="<?= e($publicUrl) ?>" target="_blank" rel="noopener">Open</a>
-          </div>
-        <?php endif; ?>
-      </div>
-      <div class="setmaxx-card">
-        <h2 style="margin-top:0;">Live session activity</h2>
-        <div class="setmaxx-list">
-          <?php if (!$recentRequests): ?>
-            <div class="setmaxx-row"><div class="setmaxx-meta"><?= $liveSession ? 'No requests yet for the live session.' : 'No live session right now.' ?></div></div>
-          <?php else: ?>
-            <?php foreach ($recentRequests as $request): ?>
-              <div class="setmaxx-row">
-                <div>
-                  <div style="font-weight:600;"><?= e($request['title']) ?></div>
-                  <div class="setmaxx-meta"><?= e($request['session_title']) ?> · <?= e((string)($request['requester_name'] ?: 'Anonymous')) ?></div>
-                </div>
-                <div>
-                  <div class="setmaxx-request-amount"><?= e(setmaxx_money((int)$request['amount_cents'])) ?></div>
-                  <div class="setmaxx-status <?= e((string)$request['status']) ?>"><?= e((string)$request['status']) ?></div>
-                </div>
-              </div>
-            <?php endforeach; ?>
-          <?php endif; ?>
-        </div>
-      </div>
-    </section>
   <?php endif; ?>
 </main>
 <?php setmaxx_page_foot(); ?>

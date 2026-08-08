@@ -137,8 +137,11 @@ if (table_exists($pdo, 'download_log')) {
 $where = '1=1';
 $params = [];
 if ($search !== '') {
-    $where .= ' AND (dt.token LIKE :q OR dt.checkout_session_id LIKE :q OR dt.purchaser_email LIKE :q OR dt.product_key LIKE :q)';
-    $params[':q'] = '%' . $search . '%';
+    $where .= ' AND (dt.token LIKE :token_q OR dt.checkout_session_id LIKE :checkout_q OR dt.purchaser_email LIKE :purchaser_q OR dt.product_key LIKE :product_q)';
+    $params[':token_q'] = '%' . $search . '%';
+    $params[':checkout_q'] = '%' . $search . '%';
+    $params[':purchaser_q'] = '%' . $search . '%';
+    $params[':product_q'] = '%' . $search . '%';
 }
 if ($product !== '') {
     $where .= ' AND dt.product_key = :product';
@@ -158,8 +161,11 @@ $tokens = table_exists($pdo, 'download_tokens') ? q($pdo, "
 $w2 = '1=1';
 $p2 = [];
 if ($search !== '') {
-    $w2 .= ' AND (dl.checkout_session_id LIKE :q OR dl.purchaser_email LIKE :q OR dl.product_key LIKE :q OR dl.note LIKE :q)';
-    $p2[':q'] = '%' . $search . '%';
+    $w2 .= ' AND (dl.checkout_session_id LIKE :log_checkout_q OR dl.purchaser_email LIKE :log_purchaser_q OR dl.product_key LIKE :log_product_q OR dl.note LIKE :log_note_q)';
+    $p2[':log_checkout_q'] = '%' . $search . '%';
+    $p2[':log_purchaser_q'] = '%' . $search . '%';
+    $p2[':log_product_q'] = '%' . $search . '%';
+    $p2[':log_note_q'] = '%' . $search . '%';
 }
 if ($product !== '') {
     $w2 .= ' AND dl.product_key = :product';
@@ -190,8 +196,11 @@ if ($toolUsageEnabled) {
     $pt = [];
 
     if ($search !== '') {
-        $wt .= ' AND (tu.user_email LIKE :q OR tu.feature_key LIKE :q OR tu.action_key LIKE :q OR tu.note LIKE :q)';
-        $pt[':q'] = '%' . $search . '%';
+        $wt .= ' AND (tu.user_email LIKE :tool_user_q OR tu.feature_key LIKE :tool_feature_q OR tu.action_key LIKE :tool_action_q OR tu.note LIKE :tool_note_q)';
+        $pt[':tool_user_q'] = '%' . $search . '%';
+        $pt[':tool_feature_q'] = '%' . $search . '%';
+        $pt[':tool_action_q'] = '%' . $search . '%';
+        $pt[':tool_note_q'] = '%' . $search . '%';
     }
     if ($feature !== '') {
         $wt .= ' AND tu.feature_key = :feature';

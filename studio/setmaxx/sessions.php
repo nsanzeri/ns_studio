@@ -341,51 +341,31 @@ setmaxx_page_head('Set Maxx | Show Setup');
         <div class="setmaxx-field"><label for="venmo_handle">Venmo handle</label><input class="setmaxx-input" id="venmo_handle" name="venmo_handle" placeholder="@your-venmo" value="<?= e((string)($publicProfile['venmo_handle'] ?? '')) ?>"></div>
         <div class="setmaxx-field"><label>Booking badge</label><div class="setmaxx-help">Shown on the public request page only when a booking link is saved.</div></div>
       </div>
-      <div class="setmaxx-form-grid">
+      <input type="hidden" name="suggested_request_dollars" value="<?= e((string)((int)($publicProfile['request_badge_1_dollars'] ?? 5))) ?>">
+      <input type="hidden" name="price_step_dollars" value="1">
+      <div class="setmaxx-compact-pricing-grid">
         <div class="setmaxx-field">
-          <label for="minimum_tip_dollars">Lowest paid amount</label>
+          <label for="minimum_tip_dollars">Lowest paid</label>
           <input class="setmaxx-input" id="minimum_tip_dollars" name="minimum_tip_dollars" type="number" min="0" max="100" step="1" value="<?= e((string)((int)($publicProfile['minimum_tip_dollars'] ?? 10))) ?>">
         </div>
         <div class="setmaxx-field">
-          <label for="suggested_request_dollars">Suggested price</label>
-          <input class="setmaxx-input" id="suggested_request_dollars" name="suggested_request_dollars" type="number" min="0" max="100" step="1" value="<?= e((string)((int)($publicProfile['suggested_request_dollars'] ?? 10))) ?>">
-        </div>
-      </div>
-      <div class="setmaxx-form-grid">
-        <div class="setmaxx-field">
-          <label for="price_step_dollars">Price increments</label>
-          <select class="setmaxx-select" id="price_step_dollars" name="price_step_dollars">
-            <?php foreach ([1, 5, 10] as $step): ?>
-              <option value="<?= $step ?>" <?= (int)($publicProfile['price_step_dollars'] ?? 1) === $step ? 'selected' : '' ?>>$<?= $step ?></option>
-            <?php endforeach; ?>
-          </select>
-        </div>
-        <div class="setmaxx-field"><label>Request pricing</label><div class="setmaxx-help">The minimum is the lowest allowed paid request. The badge amounts below control the quick-pick buttons.</div></div>
-      </div>
-      <div class="setmaxx-form-grid">
-        <div class="setmaxx-field">
-          <label for="free_request_limit">Free requests per person</label>
+          <label for="free_request_limit">Free/person</label>
           <input class="setmaxx-input" id="free_request_limit" name="free_request_limit" type="number" min="0" max="25" step="1" value="<?= e((string)((int)($publicProfile['free_request_limit'] ?? 2))) ?>">
         </div>
-        <div class="setmaxx-field"><label>Free request limit</label><div class="setmaxx-help">Set to 0 to remove the no-tip option for everyone.</div></div>
-      </div>
-      <div class="setmaxx-form-grid">
         <div class="setmaxx-field">
-          <label for="request_badge_1_dollars">Badge amount 1</label>
+          <label for="request_badge_1_dollars">Badge 1</label>
           <input class="setmaxx-input" id="request_badge_1_dollars" name="request_badge_1_dollars" type="number" min="1" max="100" step="1" value="<?= e((string)((int)($publicProfile['request_badge_1_dollars'] ?? 5))) ?>">
         </div>
         <div class="setmaxx-field">
-          <label for="request_badge_2_dollars">Badge amount 2</label>
+          <label for="request_badge_2_dollars">Badge 2</label>
           <input class="setmaxx-input" id="request_badge_2_dollars" name="request_badge_2_dollars" type="number" min="1" max="100" step="1" value="<?= e((string)((int)($publicProfile['request_badge_2_dollars'] ?? 10))) ?>">
         </div>
-      </div>
-      <div class="setmaxx-form-grid">
         <div class="setmaxx-field">
-          <label for="request_badge_3_dollars">Badge amount 3</label>
+          <label for="request_badge_3_dollars">Badge 3</label>
           <input class="setmaxx-input" id="request_badge_3_dollars" name="request_badge_3_dollars" type="number" min="1" max="100" step="1" value="<?= e((string)((int)($publicProfile['request_badge_3_dollars'] ?? 20))) ?>">
         </div>
-        <div class="setmaxx-field"><label>Request badges</label><div class="setmaxx-help">The public page shows these three amounts plus Other.</div></div>
       </div>
+      <p class="setmaxx-help">Shows three quick-pick amounts plus Other. Set free/person to 0 to remove the no-tip option.</p>
       <div class="setmaxx-actions"><button class="btn btn-primary" type="submit" <?= $isProUser ? '' : 'disabled' ?>>Save public settings</button></div>
     </form>
   </div>
@@ -475,13 +455,12 @@ setmaxx_page_head('Set Maxx | Show Setup');
         <button class="setmaxx-dialog-close" type="button" id="setmaxxPublicSettingsHelpClose" aria-label="Close">&times;</button>
       </div>
       <ul class="setmaxx-format-list">
-        <li>Public artist or band name is what fans see on the request page. It can be different from the account name you use to log in.</li>
-        <li>The website and review links appear on the public request page so fans can find you again.</li>
-        <li>The Venmo handle is saved globally. Leave it blank if you do not want Venmo shown publicly.</li>
-        <li>Lowest paid amount is the minimum a fan can choose for a paid request.  For instance, this could be 0, 5 or 10 dollars.  If not 0 that means there will be no free request option for that session.</li>
-        <li>Suggested price is the amount selected first in the public request dropdown.  This is to help nudge patrons to pay the suggested amount, even though they could also select lesser amounts in the drop-down if they so choose.  But it is a "nudge" the direction you want them to go.</li>
-        <li>Price increments control the dropdown steps, such as $1, $5, or $10 jumps.  This doesn't go up in a linear fashion but in a way that makes the price choices less overwhelming.</li>
-        <li>The logo appears on the public request page and is a further way to customize the public facing request page.</li>
+        <li>Review, booking, and Venmo links appear on the public page when they are saved.</li>
+        <li>Lowest paid is the smallest amount accepted for a paid song request. Use 0 if you want free requests to be possible.</li>
+        <li>Free/person controls how many no-tip song requests one visitor can send before the no-tip option disappears. Set it to 0 to remove no-tip requests entirely.</li>
+        <li>Badge 1, Badge 2, and Badge 3 are the quick-pick amounts fans see on each song. The public page also shows Other for custom paid amounts.</li>
+        <li>Visitors are tracked with an anonymous identifier, so blank names still show as a guest ID on the request dashboard.</li>
+        <li>Artist name, logo, website, directory visibility, and state are managed in Account Settings.</li>
       </ul>
     </div>
   </dialog>
@@ -536,6 +515,8 @@ setmaxx_page_head('Set Maxx | Show Setup');
   .setmaxx-session-actions { justify-content:flex-start; padding-top:.7rem; border-top:1px solid rgba(255,255,255,.08); }
   .setmaxx-session-actions form { margin:0; }
   .setmaxx-profile-logo-preview { width:58px; height:58px; object-fit:contain; border-radius:12px; background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.1); padding:.35rem; }
+  .setmaxx-compact-pricing-grid { display:grid; grid-template-columns:repeat(5, minmax(88px, 1fr)); gap:.65rem; align-items:end; }
+  .setmaxx-compact-pricing-grid .setmaxx-input { min-height:44px; }
   .setmaxx-section-head { display:flex; align-items:center; gap:.65rem; margin-bottom:1rem; }
   .setmaxx-section-head h2 { margin:0; }
   .setmaxx-help-button { display:inline-flex; align-items:center; justify-content:center; width:32px; height:32px; border-radius:999px; border:1px solid rgba(255,255,255,.18); background:rgba(255,255,255,.06); color:#efe7ff; font-weight:700; cursor:pointer; }
@@ -547,6 +528,12 @@ setmaxx_page_head('Set Maxx | Show Setup');
   .setmaxx-dialog-title { margin:0; font-size:1.15rem; }
   .setmaxx-dialog-close { border:1px solid rgba(255,255,255,.14); border-radius:999px; width:36px; height:36px; background:rgba(255,255,255,.05); color:#fff; cursor:pointer; font-size:1.35rem; line-height:1; }
   .setmaxx-format-list { margin:0; padding-left:1.2rem; color:rgba(255,255,255,.82); line-height:1.75; }
+  @media (max-width: 900px) {
+    .setmaxx-compact-pricing-grid { grid-template-columns:repeat(2, minmax(0, 1fr)); }
+  }
+  @media (max-width: 520px) {
+    .setmaxx-compact-pricing-grid { grid-template-columns:1fr; }
+  }
 </style>
 <script>
 (function() {

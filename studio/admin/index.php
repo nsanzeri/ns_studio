@@ -111,6 +111,33 @@ $result = trim((string) ($_GET['result'] ?? ''));
 $feature = trim((string) ($_GET['feature'] ?? ''));
 $status = trim((string) ($_GET['status'] ?? ''));
 
+$knownToolFeatures = [
+    'availability_check',
+    'pretty_print',
+    'bandsintown_export',
+    'setmaxx_song_catalog',
+    'setmaxx_song_enrichment',
+    'setmaxx_song_export',
+    'setmaxx_setlist_generator',
+    'setmaxx_favorite_setlists',
+    'setmaxx_dashboard',
+    'setmaxx_history',
+    'setmaxx_live_sessions',
+    'setmaxx_public_requests',
+    'setmaxx_request_dashboard',
+    'setmaxx_most_requested',
+    'setmaxx_tips_paid_requests',
+    'setmaxx_stripe_connect',
+    'finance_dashboard',
+    'finance_gig_ledger',
+    'finance_calendar_import',
+    'finance_year_comparison',
+    'finance_spreadsheet_import',
+    'finance_contracts',
+    'finance_invoices',
+    'publishing_tools',
+];
+
 $downloadSecret = envv('DOWNLOAD_SECRET', null);
 //$toolUsageEnabled = table_exists($pdo, 'tool_usage_log');
 $toolUsageEnabled = true;
@@ -245,7 +272,13 @@ if ($toolUsageEnabled) {
         LIMIT 50
     ", $pt);
 
-    $featureOptions = q($pdo, 'SELECT DISTINCT feature_key FROM tool_usage_log ORDER BY feature_key ASC');
+    $loggedFeatureOptions = q($pdo, 'SELECT DISTINCT feature_key FROM tool_usage_log ORDER BY feature_key ASC');
+    $featureKeys = array_values(array_unique(array_merge(
+        $knownToolFeatures,
+        array_map(static fn(array $row): string => (string)$row['feature_key'], $loggedFeatureOptions)
+    )));
+    sort($featureKeys, SORT_NATURAL | SORT_FLAG_CASE);
+    $featureOptions = array_map(static fn(string $featureKey): array => ['feature_key' => $featureKey], $featureKeys);
 }
 ?>
 <!doctype html>

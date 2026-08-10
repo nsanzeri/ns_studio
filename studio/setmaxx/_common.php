@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../_private/_core/bootstrap.php';
 require_once __DIR__ . '/../_private/_core/tool_access.php';
+require_once __DIR__ . '/../_private/_core/tool_usage.php';
 
 if (!Auth::isLoggedIn()) {
     $_SESSION['login_next'] = base_url('/setmaxx/index.php');
@@ -16,6 +17,52 @@ $sessionLinkBase = base_url('/request.php?token=');
 $stableSessionLinkBase = base_url('/request.php?link=');
 $messages = [];
 $errors = [];
+
+function setmaxx_usage_action_key(): string {
+    $action = is_post() ? trim((string)($_POST['action'] ?? 'submit')) : 'view';
+    $action = strtolower(preg_replace('/[^a-z0-9_]+/', '_', $action) ?? '');
+    $action = trim($action, '_');
+    return mb_substr($action !== '' ? $action : 'submit', 0, 64);
+}
+
+function setmaxx_usage_feature_key(): ?string {
+    $script = strtolower(basename((string)($_SERVER['SCRIPT_NAME'] ?? '')));
+    $action = strtolower(trim((string)($_POST['action'] ?? '')));
+
+    if ($script === 'index.php') return 'setmaxx_dashboard';
+    if ($script === 'songs.php') {
+        if ($action === 'enrich' || $script === 'enrich_song.php') return 'setmaxx_song_enrichment';
+        if (in_array($action, ['export', 'print', 'csv'], true)) return 'setmaxx_song_export';
+        return 'setmaxx_song_catalog';
+    }
+    if ($script === 'enrich_song.php') return 'setmaxx_song_enrichment';
+    if ($script === 'setlists.php') {
+        if (in_array($action, ['save_favorite', 'delete_favorite'], true)) return 'setmaxx_favorite_setlists';
+        return 'setmaxx_setlist_generator';
+    }
+    if ($script === 'sessions.php') return 'setmaxx_live_sessions';
+    if ($script === 'session.php') return 'setmaxx_live_sessions';
+    if ($script === 'requests.php') return 'setmaxx_request_dashboard';
+    if ($script === 'most_requested.php') return 'setmaxx_most_requested';
+    if ($script === 'history.php') return 'setmaxx_history';
+    if ($script === 'payments.php') return 'setmaxx_tips_paid_requests';
+    if ($script === 'connect_start.php') return 'setmaxx_stripe_connect';
+    if ($script === 'public.php') return 'setmaxx_public_requests';
+    return null;
+}
+
+function setmaxx_log_usage(PDO $pdo): void {
+    $featureKey = setmaxx_usage_feature_key();
+    if (!$featureKey) return;
+
+    log_tool_usage($pdo, [
+        'feature_key' => $featureKey,
+        'action_key' => setmaxx_usage_action_key(),
+        'status' => 'success',
+    ]);
+}
+
+setmaxx_log_usage($pdo);
 
 function setmaxx_table_exists(PDO $pdo, string $tableName): bool {
     static $cache = [];

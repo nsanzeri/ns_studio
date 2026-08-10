@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../_private/_core/bootstrap.php';
 require_once __DIR__ . '/../_private/_core/tool_access.php';
 require_once __DIR__ . '/../_private/_core/push_notifications.php';
+require_once __DIR__ . '/../_private/_core/tool_usage.php';
 
 $token = trim((string)($_GET['token'] ?? ''));
 $linkToken = trim((string)($_GET['link'] ?? ''));
@@ -35,6 +36,25 @@ function setmaxx_public_return_path(string $suffix = ''): string {
         : 'token=' . rawurlencode($token);
 
     return base_url('/request.php?' . $query . $suffix);
+}
+
+function setmaxx_public_usage_action_key(): string {
+    $action = is_post() ? trim((string)($_POST['action'] ?? 'request_song')) : 'view';
+    $action = strtolower(preg_replace('/[^a-z0-9_]+/', '_', $action) ?? '');
+    $action = trim($action, '_');
+    return mb_substr($action !== '' ? $action : 'request_song', 0, 64);
+}
+
+function setmaxx_public_log_usage(PDO $pdo, int $performerUserId): void {
+    if ($performerUserId <= 0) return;
+
+    log_tool_usage($pdo, [
+        'user_id' => $performerUserId,
+        'user_email' => null,
+        'feature_key' => 'setmaxx_public_requests',
+        'action_key' => setmaxx_public_usage_action_key(),
+        'status' => 'success',
+    ]);
 }
 
 function setmaxx_public_tables_ready(PDO $pdo): bool {
@@ -452,6 +472,8 @@ if ($tablesReady && $publicUserId > 0) {
     $venmoHandle = ltrim(trim((string)($publicProfile['venmo_handle'] ?? '')), '@');
     $venmoAvailable = $session && $venmoHandle !== '';
 }
+
+setmaxx_public_log_usage($pdo, $publicUserId);
 
 if ($session && $tablesReady) {
     $songsStmt = $pdo->prepare(

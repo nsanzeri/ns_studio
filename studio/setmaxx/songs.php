@@ -630,6 +630,7 @@ ADDICTED TO LOVE - ROBERT PALMER</pre>
   const alphaButtons = Array.from(document.querySelectorAll('.setmaxx-alpha-button'));
   const sortButtons = Array.from(document.querySelectorAll('.setmaxx-sort-button'));
   const csrfToken = <?= json_encode(csrf_token()) ?>;
+  const usageEndpoint = <?= json_encode(base_url('/api/log_tool_usage.php')) ?>;
   let currentLetter = 'all';
   let currentSort = 'title';
   if (!button || !table) return;
@@ -651,6 +652,26 @@ ADDICTED TO LOVE - ROBERT PALMER</pre>
 
   function markRowDirty(row) {
     setRowEditing(row, true);
+  }
+
+  function logUsage(featureKey, actionKey, resultCount) {
+    const payload = JSON.stringify({
+      feature_key: featureKey,
+      action_key: actionKey,
+      status: 'success',
+      result_count: resultCount
+    });
+    if (navigator.sendBeacon) {
+      navigator.sendBeacon(usageEndpoint, new Blob([payload], { type: 'application/json' }));
+      return;
+    }
+    fetch(usageEndpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: payload,
+      credentials: 'same-origin',
+      keepalive: true
+    }).catch(function() {});
   }
 
   table.querySelectorAll('.setmaxx-song-row').forEach(function(row) {
@@ -811,6 +832,7 @@ ADDICTED TO LOVE - ROBERT PALMER</pre>
   function printExport() {
     const songsToExport = exportData();
     if (!songsToExport.length) return;
+    logUsage('setmaxx_song_export', 'print', songsToExport.length);
     const columns = exportColumns();
     const header = columns.map(function(column) {
       return '<th>' + escapeHtml(column) + '</th>';
@@ -834,6 +856,7 @@ ADDICTED TO LOVE - ROBERT PALMER</pre>
   function downloadCsv() {
     const songsToExport = exportData();
     if (!songsToExport.length) return;
+    logUsage('setmaxx_song_export', 'csv', songsToExport.length);
     const columns = exportColumns();
     const lines = [columns.map(csvValue).join(',')].concat(songsToExport.map(function(song) {
       return columns.map(function(column) {
@@ -1027,6 +1050,7 @@ ADDICTED TO LOVE - ROBERT PALMER</pre>
     }
 
     button.textContent = enriched ? 'Enriched ' + enriched + ' rows' : (lookupError || 'No matches found');
+    logUsage('setmaxx_song_enrichment', 'enrich_visible', enriched);
     window.setTimeout(function() {
       button.textContent = selectedRows().length ? 'Enrich selected' : 'Enrich visible';
       updateSelectionControls();

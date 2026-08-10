@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../_private/_core/bootstrap.php';
 require_once __DIR__ . '/../_private/_core/tool_access.php';
+require_once __DIR__ . '/../_private/_core/tool_usage.php';
 
 if (!Auth::isLoggedIn()) {
     $_SESSION['login_next'] = base_url('/finance/index.php');
@@ -21,6 +22,45 @@ $isProUser = rss_current_user_is_pro($pdo);
 $upgradeUrl = rss_tool_upgrade_url();
 $messages = [];
 $errors = [];
+
+function finance_usage_action_key(): string {
+    $action = is_post() ? trim((string)($_POST['action'] ?? 'submit')) : 'view';
+    $action = strtolower(preg_replace('/[^a-z0-9_]+/', '_', $action) ?? '');
+    $action = trim($action, '_');
+    return mb_substr($action !== '' ? $action : 'submit', 0, 64);
+}
+
+function finance_usage_feature_key(): ?string {
+    $script = strtolower(basename((string)($_SERVER['SCRIPT_NAME'] ?? '')));
+    $action = strtolower(trim((string)($_POST['action'] ?? '')));
+    if ($script === 'index.php') {
+        return isset($_GET['compare_year']) ? 'finance_year_comparison' : 'finance_dashboard';
+    }
+    if ($script === 'gigs.php') {
+        if (is_post() && $action === 'import_spreadsheet') return 'finance_spreadsheet_import';
+        if (is_post() && $action === 'import_selected') return 'finance_calendar_import';
+        if ((string)($_GET['preview'] ?? '') === '1') return 'finance_calendar_import';
+        return 'finance_gig_ledger';
+    }
+    if ($script === 'documents.php') return 'finance_contracts';
+    if ($script === 'document.php') {
+        return strtolower((string)($_GET['type'] ?? 'contract')) === 'invoice' ? 'finance_invoices' : 'finance_contracts';
+    }
+    return null;
+}
+
+function finance_log_usage(PDO $pdo): void {
+    $featureKey = finance_usage_feature_key();
+    if (!$featureKey) return;
+
+    log_tool_usage($pdo, [
+        'feature_key' => $featureKey,
+        'action_key' => finance_usage_action_key(),
+        'status' => 'success',
+    ]);
+}
+
+finance_log_usage($pdo);
 
 function finance_table_exists(PDO $pdo, string $tableName): bool {
     static $cache = [];

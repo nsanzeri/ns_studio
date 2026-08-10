@@ -60,6 +60,25 @@ function setmaxx_requests_ensure_payment_method_columns(PDO $pdo): void {
     }
 }
 
+function setmaxx_requests_ensure_tracking_columns(PDO $pdo): void {
+    if (!setmaxx_table_exists($pdo, 'setmaxx_requests')) return;
+    if (!setmaxx_requests_column_exists($pdo, 'setmaxx_requests', 'requester_identifier')) {
+        $pdo->exec("ALTER TABLE setmaxx_requests ADD COLUMN requester_identifier char(64) DEFAULT NULL AFTER requester_name");
+    }
+    if (!setmaxx_requests_column_exists($pdo, 'setmaxx_requests', 'requester_ip')) {
+        $pdo->exec("ALTER TABLE setmaxx_requests ADD COLUMN requester_ip varchar(45) DEFAULT NULL AFTER requester_identifier");
+    }
+    if (!setmaxx_requests_column_exists($pdo, 'setmaxx_requests', 'requester_user_agent')) {
+        $pdo->exec("ALTER TABLE setmaxx_requests ADD COLUMN requester_user_agent varchar(255) DEFAULT NULL AFTER requester_ip");
+    }
+    if (!setmaxx_requests_column_exists($pdo, 'setmaxx_requests', 'request_referrer')) {
+        $pdo->exec("ALTER TABLE setmaxx_requests ADD COLUMN request_referrer varchar(255) DEFAULT NULL AFTER requester_user_agent");
+    }
+    if (!setmaxx_requests_column_exists($pdo, 'setmaxx_requests', 'request_source_url')) {
+        $pdo->exec("ALTER TABLE setmaxx_requests ADD COLUMN request_source_url varchar(255) DEFAULT NULL AFTER request_referrer");
+    }
+}
+
 if (!empty($_SESSION['setmaxx_requests_messages']) && is_array($_SESSION['setmaxx_requests_messages'])) {
     $messages = array_merge($messages, $_SESSION['setmaxx_requests_messages']);
     unset($_SESSION['setmaxx_requests_messages']);
@@ -120,6 +139,7 @@ if ($tablesReady) {
     try {
         setmaxx_requests_ensure_suggestions_table($pdo);
         setmaxx_requests_ensure_payment_method_columns($pdo);
+        setmaxx_requests_ensure_tracking_columns($pdo);
         setmaxx_requests_ensure_mailing_list_table($pdo);
         $suggestionsReady = true;
         $mailingListReady = true;
@@ -161,7 +181,7 @@ if ($tablesReady) {
     $sessionsStmt->execute([$userId]);
     $liveSession = $sessionsStmt->fetch(PDO::FETCH_ASSOC) ?: null;
     if ($liveSession) {
-        $reqStmt = $pdo->prepare("SELECT r.id, r.requester_name, r.request_note, r.amount_cents, r.status, r.payment_method, r.created_at, s.title, s.artist FROM setmaxx_requests r JOIN setmaxx_songs s ON s.id = r.song_id WHERE r.gig_session_id = ? ORDER BY FIELD(r.status, 'pending', 'queued', 'played', 'declined', 'canceled'), r.amount_cents DESC, r.created_at DESC");
+        $reqStmt = $pdo->prepare("SELECT r.id, r.requester_name, r.requester_identifier, r.requester_ip, r.request_note, r.amount_cents, r.status, r.payment_method, r.created_at, s.title, s.artist FROM setmaxx_requests r JOIN setmaxx_songs s ON s.id = r.song_id WHERE r.gig_session_id = ? ORDER BY FIELD(r.status, 'pending', 'queued', 'played', 'declined', 'canceled'), r.amount_cents DESC, r.created_at DESC");
         $reqStmt->execute([(int)$liveSession['id']]);
         $requests = $reqStmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -258,10 +278,18 @@ setmaxx_page_head('Set Maxx | Request Dashboard');
           <?php if (!$requests): ?>
             <div class="setmaxx-row"><div class="setmaxx-meta">No requests yet for this session.</div></div>
           <?php else: foreach ($requests as $request): ?>
+            <?php
+              $requesterName = trim((string)($request['requester_name'] ?? ''));
+              $requesterIdentifier = trim((string)($request['requester_identifier'] ?? ''));
+              $requesterLabel = $requesterName !== ''
+                  ? $requesterName
+                  : ($requesterIdentifier !== '' ? 'Guest ' . strtoupper(substr($requesterIdentifier, 0, 6)) : 'Anonymous');
+              $requestTime = !empty($request['created_at']) ? date('g:i A', strtotime((string)$request['created_at'])) : '';
+            ?>
             <div class="setmaxx-row setmaxx-request-row" data-request-id="<?= (int)$request['id'] ?>">
               <div class="setmaxx-request-main">
                 <div class="setmaxx-request-title-row"><div style="font-weight:600;"><?= e($request['title']) ?></div><a class="setmaxx-mini-link" href="<?= e(setmaxx_lyrics_url((string)$request['title'], (string)$request['artist'])) ?>" target="_blank" rel="noopener">Lyrics</a><span class="setmaxx-status <?= e((string)$request['status']) ?>"><?= e((string)$request['status']) ?></span><?php if (($request['payment_method'] ?? '') === 'venmo'): ?><span class="setmaxx-pill">Venmo recorded</span><?php endif; ?></div>
-                <div class="setmaxx-meta"><?= e((string)($request['artist'] ?: 'Artist not set')) ?> &middot; from <?= e((string)($request['requester_name'] ?: 'Anonymous')) ?></div>
+                <div class="setmaxx-meta"><?= e((string)($request['artist'] ?: 'Artist not set')) ?> &middot; from <?= e($requesterLabel) ?><?= $requestTime !== '' ? ' &middot; ' . e($requestTime) : '' ?><?php if (!empty($request['requester_ip'])): ?> &middot; <?= e((string)$request['requester_ip']) ?><?php endif; ?></div>
                 <?php if (!empty($request['request_note'])): ?><div class="setmaxx-help" style="margin-top:.35rem;">"<?= e((string)$request['request_note']) ?>"</div><?php endif; ?>
               </div>
               <div class="setmaxx-request-controls">

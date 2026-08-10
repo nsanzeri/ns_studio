@@ -43,6 +43,10 @@ function ns_ensure_public_artist_profile_table(PDO $pdo): void
               `minimum_tip_dollars` tinyint(3) unsigned NOT NULL DEFAULT 10,
               `suggested_request_dollars` tinyint(3) unsigned NOT NULL DEFAULT 10,
               `price_step_dollars` tinyint(3) unsigned NOT NULL DEFAULT 1,
+              `free_request_limit` tinyint(3) unsigned NOT NULL DEFAULT 2,
+              `request_badge_1_dollars` tinyint(3) unsigned NOT NULL DEFAULT 5,
+              `request_badge_2_dollars` tinyint(3) unsigned NOT NULL DEFAULT 10,
+              `request_badge_3_dollars` tinyint(3) unsigned NOT NULL DEFAULT 20,
               `created_at` datetime NOT NULL DEFAULT current_timestamp(),
               `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
               PRIMARY KEY (`id`),
@@ -106,6 +110,18 @@ function ns_ensure_public_artist_profile_table(PDO $pdo): void
     }
     if (!ns_public_profile_column_exists($pdo, 'price_step_dollars')) {
         $pdo->exec("ALTER TABLE setmaxx_public_profiles ADD COLUMN price_step_dollars tinyint(3) unsigned NOT NULL DEFAULT 1 AFTER suggested_request_dollars");
+    }
+    if (!ns_public_profile_column_exists($pdo, 'free_request_limit')) {
+        $pdo->exec("ALTER TABLE setmaxx_public_profiles ADD COLUMN free_request_limit tinyint(3) unsigned NOT NULL DEFAULT 2 AFTER price_step_dollars");
+    }
+    if (!ns_public_profile_column_exists($pdo, 'request_badge_1_dollars')) {
+        $pdo->exec("ALTER TABLE setmaxx_public_profiles ADD COLUMN request_badge_1_dollars tinyint(3) unsigned NOT NULL DEFAULT 5 AFTER free_request_limit");
+    }
+    if (!ns_public_profile_column_exists($pdo, 'request_badge_2_dollars')) {
+        $pdo->exec("ALTER TABLE setmaxx_public_profiles ADD COLUMN request_badge_2_dollars tinyint(3) unsigned NOT NULL DEFAULT 10 AFTER request_badge_1_dollars");
+    }
+    if (!ns_public_profile_column_exists($pdo, 'request_badge_3_dollars')) {
+        $pdo->exec("ALTER TABLE setmaxx_public_profiles ADD COLUMN request_badge_3_dollars tinyint(3) unsigned NOT NULL DEFAULT 20 AFTER request_badge_2_dollars");
     }
 }
 

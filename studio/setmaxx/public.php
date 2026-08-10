@@ -15,12 +15,35 @@ $publicDisplayName = '';
 $songs = [];
 $availableLetters = [];
 $songCount = 0;
-$publicProfile = ['artist_name' => '', 'website_url' => '', 'review_url' => '', 'booking_url' => '', 'logo_path' => '', 'venmo_handle' => '', 'minimum_tip_dollars' => 10, 'suggested_request_dollars' => 10, 'price_step_dollars' => 1];
+$publicProfile = setmaxx_public_default_profile();
 $publicHostName = 'the artist';
 $sessionMinimumDollars = 10;
 $priceStepDollars = 1;
 $venmoHandle = '';
 $venmoAvailable = false;
+$requestBadgeDollars = [5, 10, 20];
+$freeRequestLimit = 2;
+$requesterIdentifier = '';
+$freeRequestsUsed = 0;
+$freeRequestsRemaining = 0;
+
+function setmaxx_public_default_profile(): array {
+    return [
+        'artist_name' => '',
+        'website_url' => '',
+        'review_url' => '',
+        'booking_url' => '',
+        'logo_path' => '',
+        'venmo_handle' => '',
+        'minimum_tip_dollars' => 10,
+        'suggested_request_dollars' => 10,
+        'price_step_dollars' => 1,
+        'free_request_limit' => 2,
+        'request_badge_1_dollars' => 5,
+        'request_badge_2_dollars' => 10,
+        'request_badge_3_dollars' => 20,
+    ];
+}
 
 function setmaxx_public_absolute_url(string $path): string {
     if (preg_match('#^https?://#i', $path)) return $path;
@@ -36,6 +59,58 @@ function setmaxx_public_return_path(string $suffix = ''): string {
         : 'token=' . rawurlencode($token);
 
     return base_url('/request.php?' . $query . $suffix);
+}
+
+function setmaxx_public_client_ip(): ?string {
+    $candidates = [
+        (string)($_SERVER['HTTP_CF_CONNECTING_IP'] ?? ''),
+        (string)($_SERVER['HTTP_X_FORWARDED_FOR'] ?? ''),
+        (string)($_SERVER['REMOTE_ADDR'] ?? ''),
+    ];
+    foreach ($candidates as $candidate) {
+        $ip = trim(explode(',', $candidate)[0] ?? '');
+        if ($ip !== '' && filter_var($ip, FILTER_VALIDATE_IP)) {
+            return mb_substr($ip, 0, 45);
+        }
+    }
+    return null;
+}
+
+function setmaxx_public_current_url(): string {
+    $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+    $host = (string)($_SERVER['HTTP_HOST'] ?? 'localhost');
+    $uri = (string)($_SERVER['REQUEST_URI'] ?? '/request.php');
+    return mb_substr($scheme . '://' . $host . $uri, 0, 255);
+}
+
+function setmaxx_public_requester_identifier(): string {
+    $cookieName = 'setmaxx_requester_id';
+    $raw = trim((string)($_COOKIE[$cookieName] ?? ''));
+    if (!preg_match('/^[a-f0-9]{32}$/', $raw)) {
+        $raw = bin2hex(random_bytes(16));
+        setcookie($cookieName, $raw, [
+            'expires' => time() + (86400 * 365),
+            'path' => '/',
+            'secure' => (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off'),
+            'httponly' => true,
+            'samesite' => 'Lax',
+        ]);
+    }
+
+    $fallback = implode('|', [
+        setmaxx_public_client_ip() ?? '',
+        (string)($_SERVER['HTTP_USER_AGENT'] ?? ''),
+    ]);
+    return hash('sha256', $raw . '|' . $fallback);
+}
+
+function setmaxx_public_request_source(): array {
+    return [
+        'ip' => setmaxx_public_client_ip(),
+        'user_agent' => mb_substr((string)($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 255) ?: null,
+        'referrer' => mb_substr((string)($_SERVER['HTTP_REFERER'] ?? ''), 0, 255) ?: null,
+        'source_url' => setmaxx_public_current_url(),
+    ];
 }
 
 function setmaxx_public_usage_action_key(): string {
@@ -137,6 +212,10 @@ function setmaxx_public_ensure_profile_table(PDO $pdo): void {
           `minimum_tip_dollars` tinyint(3) unsigned NOT NULL DEFAULT 10,
           `suggested_request_dollars` tinyint(3) unsigned NOT NULL DEFAULT 10,
           `price_step_dollars` tinyint(3) unsigned NOT NULL DEFAULT 1,
+          `free_request_limit` tinyint(3) unsigned NOT NULL DEFAULT 2,
+          `request_badge_1_dollars` tinyint(3) unsigned NOT NULL DEFAULT 5,
+          `request_badge_2_dollars` tinyint(3) unsigned NOT NULL DEFAULT 10,
+          `request_badge_3_dollars` tinyint(3) unsigned NOT NULL DEFAULT 20,
           `created_at` datetime NOT NULL DEFAULT current_timestamp(),
           `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
           PRIMARY KEY (`id`),
@@ -185,6 +264,18 @@ function setmaxx_public_ensure_profile_pricing_columns(PDO $pdo): void {
     if (!setmaxx_public_profile_column_exists($pdo, 'price_step_dollars')) {
         $pdo->exec("ALTER TABLE setmaxx_public_profiles ADD COLUMN price_step_dollars tinyint(3) unsigned NOT NULL DEFAULT 1 AFTER suggested_request_dollars");
     }
+    if (!setmaxx_public_profile_column_exists($pdo, 'free_request_limit')) {
+        $pdo->exec("ALTER TABLE setmaxx_public_profiles ADD COLUMN free_request_limit tinyint(3) unsigned NOT NULL DEFAULT 2 AFTER price_step_dollars");
+    }
+    if (!setmaxx_public_profile_column_exists($pdo, 'request_badge_1_dollars')) {
+        $pdo->exec("ALTER TABLE setmaxx_public_profiles ADD COLUMN request_badge_1_dollars tinyint(3) unsigned NOT NULL DEFAULT 5 AFTER free_request_limit");
+    }
+    if (!setmaxx_public_profile_column_exists($pdo, 'request_badge_2_dollars')) {
+        $pdo->exec("ALTER TABLE setmaxx_public_profiles ADD COLUMN request_badge_2_dollars tinyint(3) unsigned NOT NULL DEFAULT 10 AFTER request_badge_1_dollars");
+    }
+    if (!setmaxx_public_profile_column_exists($pdo, 'request_badge_3_dollars')) {
+        $pdo->exec("ALTER TABLE setmaxx_public_profiles ADD COLUMN request_badge_3_dollars tinyint(3) unsigned NOT NULL DEFAULT 20 AFTER request_badge_2_dollars");
+    }
 }
 
 function setmaxx_public_column_exists(PDO $pdo, string $tableName, string $columnName): bool {
@@ -201,9 +292,38 @@ function setmaxx_public_ensure_venmo_columns(PDO $pdo): void {
     if (!setmaxx_public_column_exists($pdo, 'setmaxx_requests', 'payment_method')) {
         $pdo->exec("ALTER TABLE setmaxx_requests ADD COLUMN payment_method varchar(24) NOT NULL DEFAULT 'stripe' AFTER status");
     }
+    setmaxx_public_ensure_request_tracking_columns($pdo);
     setmaxx_public_ensure_general_tips_table($pdo);
     if (!setmaxx_public_column_exists($pdo, 'setmaxx_general_tips', 'payment_method')) {
         $pdo->exec("ALTER TABLE setmaxx_general_tips ADD COLUMN payment_method varchar(24) NOT NULL DEFAULT 'stripe' AFTER status");
+    }
+}
+
+function setmaxx_public_ensure_request_tracking_columns(PDO $pdo): void {
+    if (!setmaxx_public_table_exists($pdo, 'setmaxx_requests')) return;
+    if (!setmaxx_public_column_exists($pdo, 'setmaxx_requests', 'requester_identifier')) {
+        $pdo->exec("ALTER TABLE setmaxx_requests ADD COLUMN requester_identifier char(64) DEFAULT NULL AFTER requester_name");
+    }
+    if (!setmaxx_public_column_exists($pdo, 'setmaxx_requests', 'requester_ip')) {
+        $pdo->exec("ALTER TABLE setmaxx_requests ADD COLUMN requester_ip varchar(45) DEFAULT NULL AFTER requester_identifier");
+    }
+    if (!setmaxx_public_column_exists($pdo, 'setmaxx_requests', 'requester_user_agent')) {
+        $pdo->exec("ALTER TABLE setmaxx_requests ADD COLUMN requester_user_agent varchar(255) DEFAULT NULL AFTER requester_ip");
+    }
+    if (!setmaxx_public_column_exists($pdo, 'setmaxx_requests', 'request_referrer')) {
+        $pdo->exec("ALTER TABLE setmaxx_requests ADD COLUMN request_referrer varchar(255) DEFAULT NULL AFTER requester_user_agent");
+    }
+    if (!setmaxx_public_column_exists($pdo, 'setmaxx_requests', 'request_source_url')) {
+        $pdo->exec("ALTER TABLE setmaxx_requests ADD COLUMN request_source_url varchar(255) DEFAULT NULL AFTER request_referrer");
+    }
+    try {
+        $stmt = $pdo->prepare("SELECT 1 FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = 'setmaxx_requests' AND index_name = 'idx_setmaxx_requests_requester_free' LIMIT 1");
+        $stmt->execute();
+        if (!$stmt->fetchColumn()) {
+            $pdo->exec("CREATE INDEX idx_setmaxx_requests_requester_free ON setmaxx_requests (requester_identifier, payment_method, created_at)");
+        }
+    } catch (Throwable $e) {
+        error_log('SetMaxx request tracking index check failed: ' . $e->getMessage());
     }
 }
 
@@ -233,9 +353,9 @@ function setmaxx_public_ensure_general_tips_table(PDO $pdo): void {
 
 function setmaxx_public_profile(PDO $pdo, int $userId): array {
     setmaxx_public_ensure_profile_pricing_columns($pdo);
-    $stmt = $pdo->prepare("SELECT artist_name, website_url, review_url, booking_url, logo_path, venmo_handle, minimum_tip_dollars, suggested_request_dollars, price_step_dollars FROM setmaxx_public_profiles WHERE user_id = ? LIMIT 1");
+    $stmt = $pdo->prepare("SELECT artist_name, website_url, review_url, booking_url, logo_path, venmo_handle, minimum_tip_dollars, suggested_request_dollars, price_step_dollars, free_request_limit, request_badge_1_dollars, request_badge_2_dollars, request_badge_3_dollars FROM setmaxx_public_profiles WHERE user_id = ? LIMIT 1");
     $stmt->execute([$userId]);
-    return $stmt->fetch(PDO::FETCH_ASSOC) ?: ['artist_name' => '', 'website_url' => '', 'review_url' => '', 'booking_url' => '', 'logo_path' => '', 'venmo_handle' => '', 'minimum_tip_dollars' => 10, 'suggested_request_dollars' => 10, 'price_step_dollars' => 1];
+    return $stmt->fetch(PDO::FETCH_ASSOC) ?: setmaxx_public_default_profile();
 }
 
 function setmaxx_public_user_name(PDO $pdo, int $userId): string {
@@ -278,27 +398,22 @@ function setmaxx_public_price_options(int $minimumDollars, int $stepDollars, int
     return array_values(array_unique(array_filter($options, fn($amount) => $amount >= $minimumDollars && $amount <= $maxDollars)));
 }
 
-function setmaxx_public_request_badge_amounts(int $minimumDollars, int $suggestedDollars, int $stepDollars): array {
+function setmaxx_public_request_badge_amounts(int $minimumDollars, array $configuredAmounts): array {
     $minimumDollars = max(5, min(100, $minimumDollars));
-    $suggestedDollars = max($minimumDollars, min(100, $suggestedDollars));
-    $options = [$suggestedDollars];
+    $options = [];
 
-    foreach ([20] as $amount) {
+    foreach ($configuredAmounts as $amount) {
+        $amount = (int)$amount;
         if ($amount >= $minimumDollars && $amount <= 100 && !in_array($amount, $options, true)) {
             $options[] = $amount;
         }
     }
 
-    foreach (setmaxx_public_price_options($minimumDollars, $stepDollars) as $amount) {
-        if (count($options) >= 2) {
-            break;
-        }
-        if ($amount >= $minimumDollars && $amount <= 100 && !in_array($amount, $options, true)) {
-            $options[] = $amount;
-        }
+    if (!$options) {
+        $options[] = $minimumDollars;
     }
 
-    return array_slice($options, 0, 2);
+    return array_slice($options, 0, 3);
 }
 
 function setmaxx_public_tip_badge_amounts(int $minimumDollars): array {
@@ -394,7 +509,10 @@ function setmaxx_public_create_performer_checkout_session(array $checkoutPayload
 $tablesReady = setmaxx_public_tables_ready($pdo);
 if ($tablesReady) {
     setmaxx_public_ensure_venmo_columns($pdo);
+    setmaxx_public_ensure_request_tracking_columns($pdo);
 }
+
+$requesterIdentifier = setmaxx_public_requester_identifier();
 
 if ($tablesReady && $token !== '') {
     $stmt = $pdo->prepare(
@@ -449,7 +567,7 @@ if ($tablesReady && $publicUserId > 0) {
     try {
         $publicProfile = setmaxx_public_profile($pdo, $publicUserId);
     } catch (Throwable $e) {
-        $publicProfile = ['artist_name' => '', 'website_url' => '', 'review_url' => '', 'booking_url' => '', 'logo_path' => '', 'venmo_handle' => '', 'minimum_tip_dollars' => 10, 'suggested_request_dollars' => 10, 'price_step_dollars' => 1];
+        $publicProfile = setmaxx_public_default_profile();
     }
     $savedArtistName = trim((string)($publicProfile['artist_name'] ?? ''));
     if (trim($publicDisplayName) === '') {
@@ -466,11 +584,33 @@ if ($tablesReady && $publicUserId > 0) {
     }
 
     $sessionMinimumDollars = max(0, min(100, (int)($publicProfile['minimum_tip_dollars'] ?? 10)));
-    $suggestedRequestDollars = max(0, min(100, (int)($publicProfile['suggested_request_dollars'] ?? 10)));
     $priceStepDollars = (int)($publicProfile['price_step_dollars'] ?? 1);
     if (!in_array($priceStepDollars, [1, 5, 10], true)) $priceStepDollars = 1;
+    $freeRequestLimit = max(0, min(25, (int)($publicProfile['free_request_limit'] ?? 2)));
+    $requestBadgeDollars = [
+        max(1, min(100, (int)($publicProfile['request_badge_1_dollars'] ?? 5))),
+        max(1, min(100, (int)($publicProfile['request_badge_2_dollars'] ?? 10))),
+        max(1, min(100, (int)($publicProfile['request_badge_3_dollars'] ?? 20))),
+    ];
     $venmoHandle = ltrim(trim((string)($publicProfile['venmo_handle'] ?? '')), '@');
     $venmoAvailable = $session && $venmoHandle !== '';
+
+    try {
+        $freeCountStmt = $pdo->prepare(
+            "SELECT COUNT(*)
+             FROM setmaxx_requests r
+             JOIN setmaxx_gig_sessions gs ON gs.id = r.gig_session_id
+             WHERE gs.user_id = ?
+               AND r.requester_identifier = ?
+               AND r.payment_method = 'free'"
+        );
+        $freeCountStmt->execute([$publicUserId, $requesterIdentifier]);
+        $freeRequestsUsed = (int)$freeCountStmt->fetchColumn();
+        $freeRequestsRemaining = max(0, $freeRequestLimit - $freeRequestsUsed);
+    } catch (Throwable $e) {
+        $freeRequestsUsed = 0;
+        $freeRequestsRemaining = $freeRequestLimit;
+    }
 }
 
 setmaxx_public_log_usage($pdo, $publicUserId);
@@ -503,6 +643,7 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
         $errors[] = 'Please refresh the page and try again.';
     } else {
         $action = (string)($_POST['action'] ?? 'request_song');
+        $requestSource = setmaxx_public_request_source();
         if ($action === 'join_mailing_list') {
             $mailingEmail = strtolower(trim((string)($_POST['mailing_email'] ?? '')));
             $mailingFirstName = trim((string)($_POST['mailing_first_name'] ?? ''));
@@ -662,6 +803,7 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
         $requestNote = trim((string)($_POST['request_note'] ?? ''));
         $requestAmountDollars = (int)($_POST['request_amount_dollars'] ?? 0);
         $paymentMethod = (string)($_POST['payment_method'] ?? 'stripe');
+        $freeRequestAllowedForRequester = $freeRequestLimit > 0 && $freeRequestsUsed < $freeRequestLimit;
 
         $songStmt = $pdo->prepare(
             "SELECT id, title, artist, tip_amount_cents
@@ -677,7 +819,7 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
         $song = $songStmt->fetch(PDO::FETCH_ASSOC) ?: null;
         $songMinimumDollars = $song ? (int)ceil(((int)$song['tip_amount_cents']) / 100) : 0;
         $minimumDollars = max(5, min(100, max($songMinimumDollars, $sessionMinimumDollars)));
-        $freeRequestAllowed = $songMinimumDollars <= 0 && $sessionMinimumDollars <= 0;
+        $freeRequestAllowed = $songMinimumDollars <= 0 && $sessionMinimumDollars <= 0 && $freeRequestAllowedForRequester;
 
         if (!(($freeRequestAllowed && $requestAmountDollars === 0) || ($requestAmountDollars >= 5 && $requestAmountDollars <= 100))) {
             $errors[] = $freeRequestAllowed
@@ -687,6 +829,8 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
             $errors[] = 'This song starts at $' . $minimumDollars . '.';
         } elseif (!$song) {
             $errors[] = 'That song is not available for this request page.';
+        } elseif ($requestAmountDollars === 0 && !$freeRequestAllowedForRequester) {
+            $errors[] = 'Free requests are used up for this device tonight. Choose a tip amount to send another request.';
         } elseif ($requestAmountDollars > 0 && $paymentMethod === 'venmo') {
             if (!$venmoAvailable) {
                 $errors[] = 'Venmo is not available for this session.';
@@ -694,13 +838,18 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
                 try {
                     setmaxx_public_ensure_venmo_columns($pdo);
                     $insert = $pdo->prepare(
-                        "INSERT INTO setmaxx_requests (gig_session_id, song_id, requester_name, request_note, amount_cents, status, payment_method, active_lock)
-                         VALUES (?, ?, ?, ?, ?, 'pending', 'venmo', 1)"
+                        "INSERT INTO setmaxx_requests (gig_session_id, song_id, requester_name, requester_identifier, requester_ip, requester_user_agent, request_referrer, request_source_url, request_note, amount_cents, status, payment_method, active_lock)
+                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 'venmo', 1)"
                     );
                     $insert->execute([
                         (int)$session['id'],
                         $songId,
                         $requesterName !== '' ? $requesterName : null,
+                        $requesterIdentifier,
+                        $requestSource['ip'],
+                        $requestSource['user_agent'],
+                        $requestSource['referrer'],
+                        $requestSource['source_url'],
                         $requestNote !== '' ? $requestNote : null,
                         $requestAmountDollars * 100,
                     ]);
@@ -725,6 +874,11 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
                     'song_id' => (string)$songId,
                     'performer_user_id' => (string)$performerUserId,
                     'requester_name' => mb_substr($requesterName, 0, 190),
+                    'requester_identifier' => $requesterIdentifier,
+                    'requester_ip' => mb_substr((string)($requestSource['ip'] ?? ''), 0, 45),
+                    'requester_user_agent' => mb_substr((string)($requestSource['user_agent'] ?? ''), 0, 255),
+                    'request_referrer' => mb_substr((string)($requestSource['referrer'] ?? ''), 0, 255),
+                    'request_source_url' => mb_substr((string)($requestSource['source_url'] ?? ''), 0, 255),
                     'request_note' => mb_substr($requestNote, 0, 255),
                 ];
                 $checkoutPayload = [
@@ -773,22 +927,31 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
                 }
             } catch (Throwable $e) {
                 error_log('SetMaxx paid request checkout failed: ' . $e->getMessage());
-                $errors[] = 'Paid requests are not available right now. Please try a free request or check back shortly.';
+                $errors[] = $freeRequestsRemaining > 0
+                    ? 'Paid requests are not available right now. Please try a free request or check back shortly.'
+                    : 'Paid requests are not available right now. Please check back shortly.';
             }
         } else {
             try {
                 $insert = $pdo->prepare(
-                    "INSERT INTO setmaxx_requests (gig_session_id, song_id, requester_name, request_note, amount_cents, status, payment_method, active_lock)
-                     VALUES (?, ?, ?, ?, ?, 'pending', 'free', NULL)"
+                    "INSERT INTO setmaxx_requests (gig_session_id, song_id, requester_name, requester_identifier, requester_ip, requester_user_agent, request_referrer, request_source_url, request_note, amount_cents, status, payment_method, active_lock)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 'free', NULL)"
                 );
                 $insert->execute([
                     (int)$session['id'],
                     $songId,
                     $requesterName !== '' ? $requesterName : null,
+                    $requesterIdentifier,
+                    $requestSource['ip'],
+                    $requestSource['user_agent'],
+                    $requestSource['referrer'],
+                    $requestSource['source_url'],
                     $requestNote !== '' ? $requestNote : null,
                     $requestAmountDollars * 100,
                 ]);
                 rss_push_notify_setmaxx_request($pdo, (int)$pdo->lastInsertId());
+                $freeRequestsUsed += 1;
+                $freeRequestsRemaining = max(0, $freeRequestLimit - $freeRequestsUsed);
                 $messages[] = 'Your request made it to the list. No encore tap needed.';
             } catch (Throwable $e) {
                 $errors[] = 'The request could not be sent right now.';
@@ -852,7 +1015,8 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
     .amount-badge.active { background:linear-gradient(135deg,#f8db74,#d4af37); border-color:rgba(248,219,116,.72); color:#15110a; box-shadow:0 8px 20px rgba(212,175,55,.18); }
     .amount-badge-no-tip { min-height:30px; padding:.32rem .62rem; font-size:.78rem; font-weight:600; opacity:.82; }
     .amount-other-input { width:92px; min-height:38px; padding:.48rem .62rem; border-radius:999px; border:1px solid rgba(255,255,255,.14); background:rgba(255,255,255,.065); color:#fff; font:inherit; font-weight:700; }
-    .amount-free-row { flex-basis:100%; margin-top:.1rem; }
+    .amount-free-row { flex-basis:100%; margin-top:.1rem; display:flex; gap:.45rem; align-items:center; flex-wrap:wrap; }
+    .amount-free-note { color:rgba(255,255,255,.58); font-size:.78rem; }
     .amount-other-input[hidden], .request-payment-buttons[hidden], .request-free-actions[hidden] { display:none; }
     .show-status-strip { display:flex; gap:.45rem; flex-wrap:wrap; align-items:center; margin-top:.85rem; color:rgba(255,255,255,.72); font-size:.82rem; line-height:1.35; }
     .show-status-pill { display:inline-flex; align-items:center; min-height:24px; padding:.2rem .55rem; border-radius:999px; background:rgba(140,107,255,.14); border:1px solid rgba(140,107,255,.22); color:#efe7ff; font-weight:600; white-space:nowrap; }
@@ -1158,10 +1322,8 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
             $artistLetter = preg_match('/[A-Z]/', $artistFirst) ? $artistFirst : '#';
             $songMinimumDollars = (int)ceil(((int)$song['tip_amount_cents']) / 100);
             $minimumDollars = max(5, min(100, max($songMinimumDollars, $sessionMinimumDollars)));
-            $freeRequestAllowed = $songMinimumDollars <= 0 && $sessionMinimumDollars <= 0;
-            $suggestedDollars = $suggestedRequestDollars > 0 ? $suggestedRequestDollars : $minimumDollars;
-            $suggestedDollars = max($minimumDollars, min(100, $suggestedDollars));
-            $requestAmounts = setmaxx_public_request_badge_amounts($minimumDollars, $suggestedDollars, $priceStepDollars);
+            $freeRequestAllowed = $songMinimumDollars <= 0 && $sessionMinimumDollars <= 0 && $freeRequestsRemaining > 0;
+            $requestAmounts = setmaxx_public_request_badge_amounts($minimumDollars, $requestBadgeDollars);
             $defaultAmount = $requestAmounts[0] ?? $minimumDollars;
             $otherMinDollars = max(5, $minimumDollars);
           ?>
@@ -1186,7 +1348,10 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
                     <button class="amount-badge" type="button" data-amount="other">Other</button>
                     <input class="amount-other-input" type="number" min="<?= (int)$otherMinDollars ?>" max="100" step="<?= (int)$priceStepDollars ?>" inputmode="numeric" placeholder="$" hidden>
                     <?php if ($freeRequestAllowed): ?>
-                      <span class="amount-free-row"><button class="amount-badge amount-badge-no-tip" type="button" data-amount="0">No tip</button></span>
+                      <span class="amount-free-row">
+                        <button class="amount-badge amount-badge-no-tip" type="button" data-amount="0">No tip</button>
+                        <span class="amount-free-note"><?= (int)$freeRequestsRemaining ?> free <?= (int)$freeRequestsRemaining === 1 ? 'request' : 'requests' ?> left</span>
+                      </span>
                     <?php endif; ?>
                   </div>
                   <input class="request-input" name="requester_name" placeholder="First name is enough.">

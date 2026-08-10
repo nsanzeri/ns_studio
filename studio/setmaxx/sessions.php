@@ -20,6 +20,10 @@ function setmaxx_ensure_public_profile_table(PDO $pdo): void {
 		  `minimum_tip_dollars` tinyint(3) unsigned NOT NULL DEFAULT 10,
 		  `suggested_request_dollars` tinyint(3) unsigned NOT NULL DEFAULT 10,
 		  `price_step_dollars` tinyint(3) unsigned NOT NULL DEFAULT 1,
+		  `free_request_limit` tinyint(3) unsigned NOT NULL DEFAULT 2,
+		  `request_badge_1_dollars` tinyint(3) unsigned NOT NULL DEFAULT 5,
+		  `request_badge_2_dollars` tinyint(3) unsigned NOT NULL DEFAULT 10,
+		  `request_badge_3_dollars` tinyint(3) unsigned NOT NULL DEFAULT 20,
 		  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
 		  `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
 		  PRIMARY KEY (`id`),
@@ -68,6 +72,18 @@ function setmaxx_ensure_public_profile_pricing_columns(PDO $pdo): void {
 	if (!setmaxx_profile_column_exists($pdo, 'price_step_dollars')) {
 		$pdo->exec("ALTER TABLE setmaxx_public_profiles ADD COLUMN price_step_dollars tinyint(3) unsigned NOT NULL DEFAULT 1 AFTER suggested_request_dollars");
 	}
+	if (!setmaxx_profile_column_exists($pdo, 'free_request_limit')) {
+		$pdo->exec("ALTER TABLE setmaxx_public_profiles ADD COLUMN free_request_limit tinyint(3) unsigned NOT NULL DEFAULT 2 AFTER price_step_dollars");
+	}
+	if (!setmaxx_profile_column_exists($pdo, 'request_badge_1_dollars')) {
+		$pdo->exec("ALTER TABLE setmaxx_public_profiles ADD COLUMN request_badge_1_dollars tinyint(3) unsigned NOT NULL DEFAULT 5 AFTER free_request_limit");
+	}
+	if (!setmaxx_profile_column_exists($pdo, 'request_badge_2_dollars')) {
+		$pdo->exec("ALTER TABLE setmaxx_public_profiles ADD COLUMN request_badge_2_dollars tinyint(3) unsigned NOT NULL DEFAULT 10 AFTER request_badge_1_dollars");
+	}
+	if (!setmaxx_profile_column_exists($pdo, 'request_badge_3_dollars')) {
+		$pdo->exec("ALTER TABLE setmaxx_public_profiles ADD COLUMN request_badge_3_dollars tinyint(3) unsigned NOT NULL DEFAULT 20 AFTER request_badge_2_dollars");
+	}
 }
 
 function setmaxx_session_column_exists(PDO $pdo, string $columnName): bool {
@@ -110,9 +126,9 @@ function setmaxx_clean_directory_state($value): ?string {
 
 function setmaxx_public_profile(PDO $pdo, int $userId): array {
 	setmaxx_ensure_public_profile_pricing_columns($pdo);
-	$stmt = $pdo->prepare("SELECT directory_visible, directory_state, directory_show_song_count, directory_show_songlist, artist_name, website_url, review_url, booking_url, logo_path, venmo_handle, minimum_tip_dollars, suggested_request_dollars, price_step_dollars FROM setmaxx_public_profiles WHERE user_id = ? LIMIT 1");
+	$stmt = $pdo->prepare("SELECT directory_visible, directory_state, directory_show_song_count, directory_show_songlist, artist_name, website_url, review_url, booking_url, logo_path, venmo_handle, minimum_tip_dollars, suggested_request_dollars, price_step_dollars, free_request_limit, request_badge_1_dollars, request_badge_2_dollars, request_badge_3_dollars FROM setmaxx_public_profiles WHERE user_id = ? LIMIT 1");
 	$stmt->execute([$userId]);
-	return $stmt->fetch(PDO::FETCH_ASSOC) ?: ['directory_visible' => 1, 'directory_state' => '', 'directory_show_song_count' => 1, 'directory_show_songlist' => 0, 'artist_name' => '', 'website_url' => '', 'review_url' => '', 'booking_url' => '', 'logo_path' => '', 'venmo_handle' => '', 'minimum_tip_dollars' => 10, 'suggested_request_dollars' => 10, 'price_step_dollars' => 1];
+	return $stmt->fetch(PDO::FETCH_ASSOC) ?: ['directory_visible' => 1, 'directory_state' => '', 'directory_show_song_count' => 1, 'directory_show_songlist' => 0, 'artist_name' => '', 'website_url' => '', 'review_url' => '', 'booking_url' => '', 'logo_path' => '', 'venmo_handle' => '', 'minimum_tip_dollars' => 10, 'suggested_request_dollars' => 10, 'price_step_dollars' => 1, 'free_request_limit' => 2, 'request_badge_1_dollars' => 5, 'request_badge_2_dollars' => 10, 'request_badge_3_dollars' => 20];
 }
 
 $stablePublicUrl = '';
@@ -169,6 +185,10 @@ if ($tablesReady && is_post()) {
 				$suggestedRequestDollars = max(0, min(100, (int)($_POST['suggested_request_dollars'] ?? 10)));
 				$priceStepDollars = (int)($_POST['price_step_dollars'] ?? 1);
 				if (!in_array($priceStepDollars, [1, 5, 10], true)) $priceStepDollars = 1;
+				$freeRequestLimit = max(0, min(25, (int)($_POST['free_request_limit'] ?? 2)));
+				$requestBadge1Dollars = max(1, min(100, (int)($_POST['request_badge_1_dollars'] ?? 5)));
+				$requestBadge2Dollars = max(1, min(100, (int)($_POST['request_badge_2_dollars'] ?? 10)));
+				$requestBadge3Dollars = max(1, min(100, (int)($_POST['request_badge_3_dollars'] ?? 20)));
 				$directoryVisible = !empty($publicProfile['directory_visible']) ? 1 : 0;
 				$directoryState = setmaxx_clean_directory_state($publicProfile['directory_state'] ?? '');
 				$artistName = setmaxx_clean_public_text($publicProfile['artist_name'] ?? '', 190);
@@ -180,10 +200,10 @@ if ($tablesReady && is_post()) {
 				if (trim((string)($_POST['venmo_handle'] ?? '')) !== '' && $venmoHandle === null) throw new RuntimeException('Venmo handle can use letters, numbers, dots, underscores, or hyphens.');
 				
 				$pdo->prepare(
-					"INSERT INTO setmaxx_public_profiles (user_id, directory_visible, directory_state, artist_name, website_url, review_url, booking_url, logo_path, venmo_handle, minimum_tip_dollars, suggested_request_dollars, price_step_dollars)
-					 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-					 ON DUPLICATE KEY UPDATE directory_visible = VALUES(directory_visible), directory_state = VALUES(directory_state), artist_name = VALUES(artist_name), website_url = VALUES(website_url), review_url = VALUES(review_url), booking_url = VALUES(booking_url), logo_path = VALUES(logo_path), venmo_handle = VALUES(venmo_handle), minimum_tip_dollars = VALUES(minimum_tip_dollars), suggested_request_dollars = VALUES(suggested_request_dollars), price_step_dollars = VALUES(price_step_dollars)"
-				)->execute([$userId, $directoryVisible, $directoryState, $artistName, $websiteUrl, $reviewUrl, $bookingUrl, $logoPath !== '' ? $logoPath : null, $venmoHandle, $minimumTipDollars, $suggestedRequestDollars, $priceStepDollars]);
+					"INSERT INTO setmaxx_public_profiles (user_id, directory_visible, directory_state, artist_name, website_url, review_url, booking_url, logo_path, venmo_handle, minimum_tip_dollars, suggested_request_dollars, price_step_dollars, free_request_limit, request_badge_1_dollars, request_badge_2_dollars, request_badge_3_dollars)
+					 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+					 ON DUPLICATE KEY UPDATE directory_visible = VALUES(directory_visible), directory_state = VALUES(directory_state), artist_name = VALUES(artist_name), website_url = VALUES(website_url), review_url = VALUES(review_url), booking_url = VALUES(booking_url), logo_path = VALUES(logo_path), venmo_handle = VALUES(venmo_handle), minimum_tip_dollars = VALUES(minimum_tip_dollars), suggested_request_dollars = VALUES(suggested_request_dollars), price_step_dollars = VALUES(price_step_dollars), free_request_limit = VALUES(free_request_limit), request_badge_1_dollars = VALUES(request_badge_1_dollars), request_badge_2_dollars = VALUES(request_badge_2_dollars), request_badge_3_dollars = VALUES(request_badge_3_dollars)"
+				)->execute([$userId, $directoryVisible, $directoryState, $artistName, $websiteUrl, $reviewUrl, $bookingUrl, $logoPath !== '' ? $logoPath : null, $venmoHandle, $minimumTipDollars, $suggestedRequestDollars, $priceStepDollars, $freeRequestLimit, $requestBadge1Dollars, $requestBadge2Dollars, $requestBadge3Dollars]);
 				$publicProfile = setmaxx_public_profile($pdo, $userId);
 				$messages[] = 'Request page settings saved.';
 			}
@@ -340,7 +360,31 @@ setmaxx_page_head('Set Maxx | Show Setup');
             <?php endforeach; ?>
           </select>
         </div>
-        <div class="setmaxx-field"><label>Request pricing</label><div class="setmaxx-help">The minimum is the lowest allowed paid request. The suggested price is what the public dropdown selects first.</div></div>
+        <div class="setmaxx-field"><label>Request pricing</label><div class="setmaxx-help">The minimum is the lowest allowed paid request. The badge amounts below control the quick-pick buttons.</div></div>
+      </div>
+      <div class="setmaxx-form-grid">
+        <div class="setmaxx-field">
+          <label for="free_request_limit">Free requests per person</label>
+          <input class="setmaxx-input" id="free_request_limit" name="free_request_limit" type="number" min="0" max="25" step="1" value="<?= e((string)((int)($publicProfile['free_request_limit'] ?? 2))) ?>">
+        </div>
+        <div class="setmaxx-field"><label>Free request limit</label><div class="setmaxx-help">Set to 0 to remove the no-tip option for everyone.</div></div>
+      </div>
+      <div class="setmaxx-form-grid">
+        <div class="setmaxx-field">
+          <label for="request_badge_1_dollars">Badge amount 1</label>
+          <input class="setmaxx-input" id="request_badge_1_dollars" name="request_badge_1_dollars" type="number" min="1" max="100" step="1" value="<?= e((string)((int)($publicProfile['request_badge_1_dollars'] ?? 5))) ?>">
+        </div>
+        <div class="setmaxx-field">
+          <label for="request_badge_2_dollars">Badge amount 2</label>
+          <input class="setmaxx-input" id="request_badge_2_dollars" name="request_badge_2_dollars" type="number" min="1" max="100" step="1" value="<?= e((string)((int)($publicProfile['request_badge_2_dollars'] ?? 10))) ?>">
+        </div>
+      </div>
+      <div class="setmaxx-form-grid">
+        <div class="setmaxx-field">
+          <label for="request_badge_3_dollars">Badge amount 3</label>
+          <input class="setmaxx-input" id="request_badge_3_dollars" name="request_badge_3_dollars" type="number" min="1" max="100" step="1" value="<?= e((string)((int)($publicProfile['request_badge_3_dollars'] ?? 20))) ?>">
+        </div>
+        <div class="setmaxx-field"><label>Request badges</label><div class="setmaxx-help">The public page shows these three amounts plus Other.</div></div>
       </div>
       <div class="setmaxx-actions"><button class="btn btn-primary" type="submit" <?= $isProUser ? '' : 'disabled' ?>>Save public settings</button></div>
     </form>

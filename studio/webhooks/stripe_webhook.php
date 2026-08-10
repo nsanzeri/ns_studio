@@ -518,14 +518,45 @@ if (!function_exists('handle_paid_product_checkout')) {
 }
 
 if (!function_exists('handle_setmaxx_tip_checkout')) {
+    function ensure_setmaxx_request_tracking_columns(PDO $pdo): void
+    {
+        $columnExists = static function (string $columnName) use ($pdo): bool {
+            $stmt = $pdo->prepare("SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'setmaxx_requests' AND column_name = ? LIMIT 1");
+            $stmt->execute([$columnName]);
+            return (bool)$stmt->fetchColumn();
+        };
+
+        if (!$columnExists('requester_identifier')) {
+            $pdo->exec("ALTER TABLE setmaxx_requests ADD COLUMN requester_identifier char(64) DEFAULT NULL AFTER requester_name");
+        }
+        if (!$columnExists('requester_ip')) {
+            $pdo->exec("ALTER TABLE setmaxx_requests ADD COLUMN requester_ip varchar(45) DEFAULT NULL AFTER requester_identifier");
+        }
+        if (!$columnExists('requester_user_agent')) {
+            $pdo->exec("ALTER TABLE setmaxx_requests ADD COLUMN requester_user_agent varchar(255) DEFAULT NULL AFTER requester_ip");
+        }
+        if (!$columnExists('request_referrer')) {
+            $pdo->exec("ALTER TABLE setmaxx_requests ADD COLUMN request_referrer varchar(255) DEFAULT NULL AFTER requester_user_agent");
+        }
+        if (!$columnExists('request_source_url')) {
+            $pdo->exec("ALTER TABLE setmaxx_requests ADD COLUMN request_source_url varchar(255) DEFAULT NULL AFTER request_referrer");
+        }
+    }
+
     function handle_setmaxx_tip_checkout(PDO $pdo, \Stripe\Checkout\Session $session): void
     {
+        ensure_setmaxx_request_tracking_columns($pdo);
         $sessionId = (string)($session->id ?? '');
         $paymentIntentId = (string)($session->payment_intent ?? '');
         $gigSessionId = (int)($session->metadata->gig_session_id ?? 0);
         $songId = (int)($session->metadata->song_id ?? 0);
         $performerUserId = (int)($session->metadata->performer_user_id ?? 0);
         $requesterName = trim((string)($session->metadata->requester_name ?? ''));
+        $requesterIdentifier = trim((string)($session->metadata->requester_identifier ?? ''));
+        $requesterIp = trim((string)($session->metadata->requester_ip ?? ''));
+        $requesterUserAgent = trim((string)($session->metadata->requester_user_agent ?? ''));
+        $requestReferrer = trim((string)($session->metadata->request_referrer ?? ''));
+        $requestSourceUrl = trim((string)($session->metadata->request_source_url ?? ''));
         $requestNote = trim((string)($session->metadata->request_note ?? ''));
         $amountCents = (int)($session->amount_total ?? 0);
 
@@ -558,13 +589,18 @@ if (!function_exists('handle_setmaxx_tip_checkout')) {
 
         $pdo->prepare(
             "INSERT INTO setmaxx_requests
-                (gig_session_id, song_id, requester_name, request_note, amount_cents, status, active_lock, stripe_payment_intent_id)
+                (gig_session_id, song_id, requester_name, requester_identifier, requester_ip, requester_user_agent, request_referrer, request_source_url, request_note, amount_cents, status, active_lock, stripe_payment_intent_id)
              VALUES
-                (?, ?, ?, ?, ?, 'pending', NULL, ?)"
+                (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', NULL, ?)"
         )->execute([
             $gigSessionId,
             $songId,
             $requesterName !== '' ? $requesterName : null,
+            preg_match('/^[a-f0-9]{64}$/', $requesterIdentifier) ? $requesterIdentifier : null,
+            $requesterIp !== '' ? mb_substr($requesterIp, 0, 45) : null,
+            $requesterUserAgent !== '' ? mb_substr($requesterUserAgent, 0, 255) : null,
+            $requestReferrer !== '' ? mb_substr($requestReferrer, 0, 255) : null,
+            $requestSourceUrl !== '' ? mb_substr($requestSourceUrl, 0, 255) : null,
             $requestNote !== '' ? $requestNote : null,
             $amountCents,
             $paymentIntentId,

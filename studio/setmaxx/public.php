@@ -26,6 +26,7 @@ $freeRequestLimit = 2;
 $requesterIdentifier = '';
 $freeRequestsUsed = 0;
 $freeRequestsRemaining = 0;
+$showSuggestionFollowup = false;
 
 function setmaxx_public_default_profile(): array {
     return [
@@ -700,7 +701,8 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
                         $suggestionName !== '' ? mb_substr($suggestionName, 0, 190) : null,
                         $suggestionNote !== '' ? mb_substr($suggestionNote, 0, 255) : null,
                     ]);
-                    $messages[] = 'Suggestion sent to ' . $publicHostName . '.';
+                    $showSuggestionFollowup = true;
+                    $messages[] = 'Thanks for the suggestion. I will add it to my list of songs to check out.';
                 } catch (Throwable $e) {
                     $errors[] = 'The suggestion could not be sent right now.';
                 }
@@ -819,11 +821,11 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
         $song = $songStmt->fetch(PDO::FETCH_ASSOC) ?: null;
         $songMinimumDollars = $song ? (int)ceil(((int)$song['tip_amount_cents']) / 100) : 0;
         $minimumDollars = max(5, min(100, max($songMinimumDollars, $sessionMinimumDollars)));
-        $freeRequestAllowed = $songMinimumDollars <= 0 && $sessionMinimumDollars <= 0 && $freeRequestAllowedForRequester;
+        $freeRequestAllowed = $freeRequestAllowedForRequester;
 
         if (!(($freeRequestAllowed && $requestAmountDollars === 0) || ($requestAmountDollars >= 5 && $requestAmountDollars <= 100))) {
             $errors[] = $freeRequestAllowed
-                ? 'Choose $5 to $100 to move your song up the list, or choose $0 for a free request.'
+                ? 'Choose $5 to $100 to move your song up the list, or use one of your free requests.'
                 : 'This song starts at $' . $minimumDollars . '.';
         } elseif ($requestAmountDollars > 0 && $minimumDollars > 0 && $requestAmountDollars < $minimumDollars) {
             $errors[] = 'This song starts at $' . $minimumDollars . '.';
@@ -974,12 +976,12 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;700&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <style>
     body { background: radial-gradient(circle at top, rgba(140,107,255,.22), transparent 35%), #090814; }
-    .public-shell { padding: 2rem 0 4rem; }
+    .public-shell { padding: 2rem 0 7.5rem; }
     .public-card {
       max-width: 1120px; margin: 0 auto; background: rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.08);
       border-radius: 26px; padding: 1.4rem; box-shadow: 0 20px 50px rgba(0,0,0,.28);
     }
-    .alpha-menu { position:sticky; top:.5rem; z-index:3; display:flex; gap:.35rem; flex-wrap:wrap; align-items:center; margin-top:1rem; padding:.65rem; border-radius:16px; background:rgba(9,8,20,.92); border:1px solid rgba(255,255,255,.08); }
+    .alpha-menu { position:sticky; top:.5rem; z-index:3; display:flex; gap:.35rem; flex-wrap:wrap; align-items:center; margin-top:.8rem; padding:.65rem; border-radius:16px; background:rgba(9,8,20,.92); border:1px solid rgba(255,255,255,.08); }
     .alpha-label { color:rgba(255,255,255,.68); font-size:.82rem; font-weight:600; padding:0 .25rem; }
     .alpha-spacer { flex:1 1 1rem; }
     .alpha-button, .sort-button { min-width:34px; height:34px; border-radius:10px; border:1px solid rgba(255,255,255,.12); background:rgba(255,255,255,.05); color:#fff; font:inherit; font-size:.82rem; cursor:pointer; }
@@ -990,7 +992,7 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
     .catalog-search::placeholder { color:rgba(255,255,255,.5); }
     .catalog-empty { display:none; margin-top:.85rem; padding:1rem; border-radius:14px; background:rgba(255,255,255,.035); border:1px solid rgba(255,255,255,.07); color:rgba(255,255,255,.72); }
     .catalog-empty.visible { display:block; }
-    .public-grid { display:grid; gap:.45rem; margin-top:.85rem; }
+    .public-grid { display:grid; gap:.45rem; margin-top:.85rem; padding-bottom:4.85rem; }
     .song-card { padding:.6rem .7rem; border-radius:14px; background: rgba(255,255,255,.035); border:1px solid rgba(255,255,255,.07); }
     details.song-card { padding:0; overflow:hidden; }
     .song-card.locked { padding:0; opacity:.6; }
@@ -1011,30 +1013,39 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
     .request-input::placeholder { color:rgba(255,255,255,.52); }
     .request-submit { padding:.54rem .85rem; white-space:nowrap; }
     .amount-picker { display:flex; gap:.38rem; align-items:center; flex-wrap:wrap; }
-    .amount-badge { min-height:38px; padding:.48rem .72rem; border-radius:999px; border:1px solid rgba(255,255,255,.14); background:rgba(255,255,255,.055); color:#fff; font:inherit; font-weight:700; cursor:pointer; }
+    .amount-badge { min-height:34px; padding:.38rem .64rem; border-radius:999px; border:1px solid rgba(255,255,255,.14); background:rgba(255,255,255,.055); color:#fff; font:inherit; font-weight:700; cursor:pointer; }
     .amount-badge.active { background:linear-gradient(135deg,#f8db74,#d4af37); border-color:rgba(248,219,116,.72); color:#15110a; box-shadow:0 8px 20px rgba(212,175,55,.18); }
     .amount-badge-no-tip { min-height:30px; padding:.32rem .62rem; font-size:.78rem; font-weight:600; opacity:.82; }
     .amount-other-input { width:92px; min-height:38px; padding:.48rem .62rem; border-radius:999px; border:1px solid rgba(255,255,255,.14); background:rgba(255,255,255,.065); color:#fff; font:inherit; font-weight:700; }
     .amount-free-row { flex-basis:100%; margin-top:.1rem; display:flex; gap:.45rem; align-items:center; flex-wrap:wrap; }
     .amount-free-note { color:rgba(255,255,255,.58); font-size:.78rem; }
     .amount-other-input[hidden], .request-payment-buttons[hidden], .request-free-actions[hidden] { display:none; }
-    .show-status-strip { display:flex; gap:.45rem; flex-wrap:wrap; align-items:center; margin-top:.85rem; color:rgba(255,255,255,.72); font-size:.82rem; line-height:1.35; }
-    .show-status-pill { display:inline-flex; align-items:center; min-height:24px; padding:.2rem .55rem; border-radius:999px; background:rgba(140,107,255,.14); border:1px solid rgba(140,107,255,.22); color:#efe7ff; font-weight:600; white-space:nowrap; }
-    .show-status-note { color:rgba(255,255,255,.62); }
-    .public-logo { width:64px; height:64px; object-fit:contain; border-radius:16px; background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.1); padding:.4rem; }
-    .public-hero { display:grid; grid-template-columns:auto minmax(0, 1fr); gap:.75rem 1rem; align-items:start; }
-    .public-hero-status { display:inline-flex; width:max-content; max-width:100%; padding:.3rem .7rem; border-radius:999px; background:rgba(140,107,255,.16); color:#efe7ff; font-weight:600; }
-    .public-hero-title, .public-hero-subtitle, .public-quick-links { grid-column:1 / -1; }
-    .public-hero-title { margin:.15rem 0 0; }
-    .public-hero-subtitle { margin:0; }
-    .public-quick-links { display:flex; gap:.5rem; flex-wrap:nowrap; margin-top:.15rem; }
+    .sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+    .public-logo { width:66px; height:66px; object-fit:contain; border-radius:16px; background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.1); padding:.35rem; }
+    .public-hero { display:grid; grid-template-columns:auto minmax(0, 1fr); gap:.45rem .7rem; align-items:center; }
+    .public-hero-status { display:inline-flex; flex-direction:column; align-items:flex-start; width:max-content; max-width:100%; padding:.34rem .75rem; border-radius:999px; background:rgba(140,107,255,.16); color:#efe7ff; font-weight:600; font-size:.92rem; line-height:1.12; }
+    .public-hero-status-name { display:block; font-size:1.24em; line-height:1.06; }
+    .public-hero-heading { grid-column:1 / -1; display:flex; gap:.45rem; align-items:baseline; flex-wrap:wrap; margin-top:.05rem; }
+    .public-hero-title { margin:0; font-size:clamp(1.02rem, 4.2vw,1.16rem); line-height:1.2; }
+    .public-hero-subtitle { margin:0; font-size:clamp(1.02rem, 4.2vw,1.16rem); line-height:1.2; }
+    .public-hero-separator { color:rgba(255,255,255,.62); font-weight:700; }
+    .public-quick-links { grid-column:1 / -1; display:flex; gap:.35rem; flex-wrap:nowrap; justify-self:start; margin-top:-.05rem; }
     .public-mini-button { display:inline-flex; align-items:center; min-height:34px; padding:.4rem .75rem; border-radius:999px; border:1px solid rgba(255,255,255,.14); color:#fff; text-decoration:none; font-size:.86rem; background:rgba(255,255,255,.04); }
-    .public-action-bar { display:flex; gap:.45rem; flex-wrap:wrap; align-items:center; margin-top:1rem; }
-    .public-action-bar .action-card { margin-top:0; overflow:visible; background:transparent; border:0; border-radius:0; }
+    .public-icon-button { justify-content:center; width:34px; min-height:34px; padding:0; }
+    .public-icon-button svg { width:17px; height:17px; stroke:currentColor; stroke-width:2; fill:none; stroke-linecap:round; stroke-linejoin:round; }
+    .public-action-bar {
+      position:fixed; left:50%; bottom:max(.75rem, env(safe-area-inset-bottom)); transform:translateX(-50%);
+      z-index:100; width:min(860px, calc(100vw - 1rem)); display:flex; gap:.35rem; flex-wrap:wrap;
+      align-items:center; justify-content:center; padding:.4rem; border-radius:16px;
+      background:rgba(9,8,20,.94); border:1px solid rgba(255,255,255,.12);
+      box-shadow:0 18px 50px rgba(0,0,0,.42); backdrop-filter:blur(10px);
+    }
+    .public-action-bar .public-mini-button { min-height:32px; background:rgba(255,255,255,.055); }
+    .public-action-bar .action-card { margin-top:0; min-width:0; overflow:visible; background:transparent; border:0; border-radius:0; }
     .public-action-bar .action-card[open] { position:relative; z-index:20; }
     .public-action-bar .action-summary {
-      min-height:36px; padding:.42rem .72rem; border-radius:999px; border:1px solid rgba(255,255,255,.14);
-      background:rgba(255,255,255,.055); font-size:.86rem; gap:.45rem;
+      min-height:32px; padding:.34rem .62rem; border-radius:999px; border:1px solid rgba(255,255,255,.14);
+      background:rgba(255,255,255,.055); font-size:.82rem; gap:.35rem;
     }
     .public-action-bar .action-summary:hover, .public-action-bar .action-card[open] .action-summary, .public-mini-button:hover {
       background:rgba(140,107,255,.2); border-color:rgba(140,107,255,.36);
@@ -1062,6 +1073,13 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
     .alert { border-radius:18px; padding:1.05rem 1.15rem; margin-bottom:1rem; font-weight:700; line-height:1.35; }
     .alert-success { position:sticky; top:.75rem; z-index:50; background:linear-gradient(135deg, rgba(58,206,118,.96), rgba(28,126,78,.96)); border:1px solid rgba(198,255,219,.6); color:#07160d; box-shadow:0 18px 46px rgba(0,0,0,.38); font-size:1.05rem; }
     .alert-success strong { display:block; margin-bottom:.18rem; color:#06120a; font-size:1.22rem; }
+    .alert-dismissible { position:relative; padding-right:3.2rem; }
+    .alert-dismiss {
+      position:absolute; top:.65rem; right:.65rem; width:32px; height:32px; border-radius:999px;
+      border:1px solid rgba(7,22,13,.18); background:rgba(255,255,255,.32); color:#07160d;
+      font:inherit; font-size:1.25rem; font-weight:800; line-height:1; cursor:pointer;
+    }
+    .alert-dismiss:hover { background:rgba(255,255,255,.52); }
     .alert-error { background:rgba(199,64,64,.16); border:1px solid rgba(199,64,64,.28); }
     .success-modal-backdrop { position:fixed; inset:0; z-index:2000; display:grid; place-items:center; padding:1rem; background:rgba(5,6,12,.78); backdrop-filter:blur(6px); }
     .success-modal-backdrop[hidden] { display:none; }
@@ -1069,9 +1087,24 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
     .success-modal h2 { margin:0 0 .45rem; color:#07160d; font-size:1.55rem; }
     .success-modal p { margin:0 0 1rem; color:#173923; font-weight:600; }
     .success-modal button { width:100%; min-height:46px; border:0; border-radius:999px; background:#0b7a3a; color:#fff; font:inherit; font-weight:800; cursor:pointer; }
+    .success-next-actions { display:grid; gap:.5rem; margin:.75rem 0 1rem; }
+    .success-next-actions a { display:flex; align-items:center; justify-content:center; min-height:44px; padding:.6rem .9rem; border-radius:999px; background:#0b7a3a; color:#fff; text-decoration:none; font-weight:800; }
+    .success-next-actions a.secondary { background:#dff6e7; color:#0b5930; border:1px solid #b8e7c8; }
     @media (max-width: 900px) {
       .song-row, .request-form, .suggestion-form, .mailing-form, .tip-form { grid-template-columns:1fr; }
       .request-submit { width:100%; }
+    }
+    @media (max-width: 640px) {
+      .public-shell { padding-bottom:7rem; }
+      .public-grid { padding-bottom:5.5rem; }
+      .public-action-bar { display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); align-items:stretch; }
+      .public-action-bar .public-mini-button, .public-action-bar .action-summary { justify-content:center; width:100%; min-width:0; }
+      .public-action-bar .public-mini-button, .public-action-bar .action-summary { font-size:.76rem; padding-left:.28rem; padding-right:.28rem; }
+      .public-action-bar .action-chevron { display:none; }
+      .public-action-bar .action-panel {
+        top:auto; bottom:calc(max(.75rem, env(safe-area-inset-bottom)) + 3.45rem); transform:translateX(-50%);
+        max-height:calc(100vh - 5.25rem);
+      }
     }
   </style>
 </head>
@@ -1081,14 +1114,23 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
     <?php if ($messages): ?>
       <div class="success-modal-backdrop" id="successModal" role="dialog" aria-modal="true" aria-labelledby="successModalTitle">
         <div class="success-modal">
-          <h2 id="successModalTitle">All set</h2>
+          <h2 id="successModalTitle"><?= $showSuggestionFollowup ? 'Thanks for the suggestion' : 'All set' ?></h2>
           <p><?= e((string)$messages[0]) ?></p>
+          <?php if ($showSuggestionFollowup): ?>
+            <div class="success-next-actions" aria-label="Next actions">
+              <?php if (!empty($publicProfile['review_url'])): ?><a href="<?= e((string)$publicProfile['review_url']) ?>" target="_blank" rel="noopener">Leave a review</a><?php endif; ?>
+              <a class="secondary" href="#join-list-action" data-success-open-action="join-list-action">Join my email list</a>
+            </div>
+          <?php endif; ?>
           <button type="button" id="successModalClose">Got it</button>
         </div>
       </div>
     <?php endif; ?>
     <?php foreach ($messages as $message): ?>
-      <div class="alert alert-success" role="status" aria-live="polite"><strong>All set</strong><?= e($message) ?></div>
+      <div class="alert alert-success alert-dismissible" role="status" aria-live="polite">
+        <strong>All set</strong><?= e($message) ?>
+        <button class="alert-dismiss" type="button" aria-label="Dismiss message">&times;</button>
+      </div>
     <?php endforeach; ?>
     <?php foreach ($errors as $error): ?>
       <div class="alert alert-error"><?= e($error) ?></div>
@@ -1103,18 +1145,29 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
             <img class="public-logo" src="<?= e(base_url((string)$publicProfile['logo_path'])) ?>" alt="">
           <?php endif; ?>
           <div class="public-hero-status">Requests are taking five</div>
-          <h1 class="public-hero-title"><?= e($publicHostName) ?></h1>
-          <p class="song-meta public-hero-subtitle">The request list is closed right now, but the show energy is still welcome. Drop a tip, leave a song idea, or keep in touch below.</p>
-            <?php if (!empty($publicProfile['website_url']) || !empty($publicProfile['review_url'])): ?>
+          <div class="public-hero-heading">
+            <h1 class="public-hero-title"><?= e($publicHostName) ?></h1>
+            <p class="song-meta public-hero-subtitle">Requests are closed right now.</p>
+          </div>
+            <?php if (!empty($publicProfile['website_url']) || !empty($publicProfile['booking_url'])): ?>
               <div class="public-quick-links">
-                <?php if (!empty($publicProfile['website_url'])): ?><a class="public-mini-button" href="<?= e((string)$publicProfile['website_url']) ?>" target="_blank" rel="noopener">Website</a><?php endif; ?>
-                <?php if (!empty($publicProfile['review_url'])): ?><a class="public-mini-button" href="<?= e((string)$publicProfile['review_url']) ?>" target="_blank" rel="noopener">Leave a review</a><?php endif; ?>
+                <?php if (!empty($publicProfile['website_url'])): ?>
+                  <a class="public-mini-button public-icon-button" href="<?= e((string)$publicProfile['website_url']) ?>" target="_blank" rel="noopener" aria-label="Website">
+                    <svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><path d="M2 12h20"></path><path d="M12 2a15.3 15.3 0 0 1 0 20"></path><path d="M12 2a15.3 15.3 0 0 0 0 20"></path></svg>
+                    <span class="sr-only">Website</span>
+                  </a>
+                <?php endif; ?>
+                <?php if (!empty($publicProfile['booking_url'])): ?>
+                  <a class="public-mini-button public-icon-button" href="<?= e((string)$publicProfile['booking_url']) ?>" target="_blank" rel="noopener" aria-label="Book">
+                    <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M8 2v4"></path><path d="M16 2v4"></path><rect x="3" y="4" width="18" height="18" rx="2"></rect><path d="M3 10h18"></path><path d="M8 14h.01"></path><path d="M12 14h.01"></path><path d="M16 14h.01"></path></svg>
+                    <span class="sr-only">Book</span>
+                  </a>
+                <?php endif; ?>
               </div>
             <?php endif; ?>
         </div>
 
         <div class="public-action-bar" aria-label="More ways to connect">
-        <?php if (!empty($publicProfile['booking_url'])): ?><a class="public-mini-button" href="<?= e((string)$publicProfile['booking_url']) ?>" target="_blank" rel="noopener">Book</a><?php endif; ?>
         <details class="action-card">
           <summary class="action-summary">
             <span class="action-summary-text">
@@ -1151,8 +1204,9 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
             </form>
           </div>
         </details>
+        <?php if (!empty($publicProfile['review_url'])): ?><a class="public-mini-button" href="<?= e((string)$publicProfile['review_url']) ?>" target="_blank" rel="noopener">Leave a review</a><?php endif; ?>
 
-        <details class="action-card">
+        <details class="action-card" id="join-list-action">
           <summary class="action-summary">
             <span class="action-summary-text">
               <span>Join list</span>
@@ -1174,8 +1228,8 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
         <details class="action-card">
           <summary class="action-summary">
             <span class="action-summary-text">
-              <span>Suggest song</span>
-              <span class="action-summary-hint">Open if you do not see the song you want.</span>
+              <span>Learn this song</span>
+              <span class="action-summary-hint">Open if the song you want is not on the list.</span>
             </span>
             <span class="action-chevron" aria-hidden="true">&darr;</span>
           </summary>
@@ -1187,7 +1241,7 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
               <input class="request-input" name="suggested_artist" placeholder="Artist">
               <input class="request-input" name="suggestion_name" placeholder="Your name">
               <input class="request-input" name="suggestion_note" placeholder="Optional note">
-              <button class="btn btn-outline request-submit" type="submit">Suggest</button>
+              <button class="btn btn-outline request-submit" type="submit">Send suggestion</button>
             </form>
           </div>
         </details>
@@ -1201,19 +1255,31 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
           <?php if (!empty($publicProfile['logo_path'])): ?>
             <img class="public-logo" src="<?= e(base_url((string)$publicProfile['logo_path'])) ?>" alt="">
           <?php endif; ?>
-          <div class="public-hero-status">Live requests for <?= e($publicHostName) ?></div>
-          <h1 class="public-hero-title"><?= e($session['title']) ?></h1>
-          <div class="song-meta public-hero-subtitle"><?= e((string)($session['venue_name'] ?: 'Tonight\'s show')) ?> &middot; hosted by <?= e($publicHostName) ?></div>
-          <?php if (!empty($publicProfile['website_url']) || !empty($publicProfile['review_url'])): ?>
+          <div class="public-hero-status">Live requests for<span class="public-hero-status-name"><?= e($publicHostName) ?></span></div>
+          <div class="public-hero-heading">
+            <h1 class="public-hero-title"><?= e($session['title']) ?></h1>
+            <span class="public-hero-separator" aria-hidden="true">-</span>
+            <div class="song-meta public-hero-subtitle"><?= e((string)($session['venue_name'] ?: 'Tonight\'s show')) ?></div>
+          </div>
+          <?php if (!empty($publicProfile['website_url']) || !empty($publicProfile['booking_url'])): ?>
             <div class="public-quick-links">
-              <?php if (!empty($publicProfile['website_url'])): ?><a class="public-mini-button" href="<?= e((string)$publicProfile['website_url']) ?>" target="_blank" rel="noopener">Website</a><?php endif; ?>
-              <?php if (!empty($publicProfile['review_url'])): ?><a class="public-mini-button" href="<?= e((string)$publicProfile['review_url']) ?>" target="_blank" rel="noopener">Leave a review</a><?php endif; ?>
+              <?php if (!empty($publicProfile['website_url'])): ?>
+                <a class="public-mini-button public-icon-button" href="<?= e((string)$publicProfile['website_url']) ?>" target="_blank" rel="noopener" aria-label="Website">
+                  <svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><path d="M2 12h20"></path><path d="M12 2a15.3 15.3 0 0 1 0 20"></path><path d="M12 2a15.3 15.3 0 0 0 0 20"></path></svg>
+                  <span class="sr-only">Website</span>
+                </a>
+              <?php endif; ?>
+              <?php if (!empty($publicProfile['booking_url'])): ?>
+                <a class="public-mini-button public-icon-button" href="<?= e((string)$publicProfile['booking_url']) ?>" target="_blank" rel="noopener" aria-label="Book">
+                  <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M8 2v4"></path><path d="M16 2v4"></path><rect x="3" y="4" width="18" height="18" rx="2"></rect><path d="M3 10h18"></path><path d="M8 14h.01"></path><path d="M12 14h.01"></path><path d="M16 14h.01"></path></svg>
+                  <span class="sr-only">Book</span>
+                </a>
+              <?php endif; ?>
             </div>
           <?php endif; ?>
       </div>
 
       <div class="public-action-bar" aria-label="More ways to connect">
-      <?php if (!empty($publicProfile['booking_url'])): ?><a class="public-mini-button" href="<?= e((string)$publicProfile['booking_url']) ?>" target="_blank" rel="noopener">Book</a><?php endif; ?>
       <details class="action-card">
         <summary class="action-summary">
           <span class="action-summary-text">
@@ -1250,8 +1316,9 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
           </form>
         </div>
       </details>
+      <?php if (!empty($publicProfile['review_url'])): ?><a class="public-mini-button" href="<?= e((string)$publicProfile['review_url']) ?>" target="_blank" rel="noopener">Leave a review</a><?php endif; ?>
 
-      <details class="action-card">
+      <details class="action-card" id="join-list-action">
         <summary class="action-summary">
           <span class="action-summary-text">
             <span>Join list</span>
@@ -1273,8 +1340,8 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
       <details class="action-card">
         <summary class="action-summary">
           <span class="action-summary-text">
-            <span>Suggest song</span>
-            <span class="action-summary-hint">Open if you do not see the song you want.</span>
+            <span>Learn this song</span>
+            <span class="action-summary-hint">Open if the song you want is not on the list.</span>
           </span>
           <span class="action-chevron" aria-hidden="true">&darr;</span>
         </summary>
@@ -1286,18 +1353,15 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
             <input class="request-input" name="suggested_artist" placeholder="Artist">
             <input class="request-input" name="suggestion_name" placeholder="Your name">
             <input class="request-input" name="suggestion_note" placeholder="Optional note">
-            <button class="btn btn-outline request-submit" type="submit">Suggest</button>
+            <button class="btn btn-outline request-submit" type="submit">Send suggestion</button>
           </form>
         </div>
       </details>
       </div>
 
       <?php if ($songs): ?>
-        <div class="show-status-strip">
-          <span class="show-status-pill"><?= (int)$songCount ?> active <?= $songCount === 1 ? 'song' : 'songs' ?></span>
-        </div>
         <div class="alpha-menu" aria-label="Song alphabet filter">
-          <input class="catalog-search" id="catalogSearch" type="search" placeholder="Search songs or artists" autocomplete="off" aria-label="Search songs or artists">
+          <input class="catalog-search" id="catalogSearch" type="search" placeholder="Search <?= (int)$songCount ?> <?= $songCount === 1 ? 'song' : 'songs' ?>" autocomplete="off" aria-label="Search <?= (int)$songCount ?> <?= $songCount === 1 ? 'song' : 'songs' ?>">
           <span class="alpha-label">Filter</span>
           <button class="alpha-button active" type="button" data-letter="all">All</button>
           <?php foreach (array_merge(['#'], range('A', 'Z')) as $letter): ?>
@@ -1322,7 +1386,7 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
             $artistLetter = preg_match('/[A-Z]/', $artistFirst) ? $artistFirst : '#';
             $songMinimumDollars = (int)ceil(((int)$song['tip_amount_cents']) / 100);
             $minimumDollars = max(5, min(100, max($songMinimumDollars, $sessionMinimumDollars)));
-            $freeRequestAllowed = $songMinimumDollars <= 0 && $sessionMinimumDollars <= 0 && $freeRequestsRemaining > 0;
+            $freeRequestAllowed = $freeRequestsRemaining > 0;
             $requestAmounts = setmaxx_public_request_badge_amounts($minimumDollars, $requestBadgeDollars);
             $defaultAmount = $requestAmounts[0] ?? $minimumDollars;
             $otherMinDollars = max(5, $minimumDollars);
@@ -1397,6 +1461,17 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
     function closeSuccessModal() {
       successModal.hidden = true;
     }
+    successModal.querySelectorAll('[data-success-open-action]').forEach(function(link) {
+      link.addEventListener('click', function(event) {
+        const targetId = link.getAttribute('data-success-open-action') || '';
+        const target = document.getElementById(targetId);
+        if (!target) return;
+        event.preventDefault();
+        closeSuccessModal();
+        target.open = true;
+        target.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      });
+    });
     successModalClose.addEventListener('click', closeSuccessModal);
     successModal.addEventListener('click', function(event) {
       if (event.target === successModal) closeSuccessModal();
@@ -1424,6 +1499,13 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
   document.addEventListener('keydown', function(event) {
     if (event.key !== 'Escape') return;
     actionDetails.forEach(function(detail) { detail.open = false; });
+  });
+
+  document.querySelectorAll('.alert-dismiss').forEach(function(button) {
+    button.addEventListener('click', function() {
+      const alert = button.closest('.alert');
+      if (alert) alert.remove();
+    });
   });
 
   function rememberedRequesterName() {

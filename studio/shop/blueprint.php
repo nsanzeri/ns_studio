@@ -786,7 +786,7 @@ This 66-page PDF shows you exactly how I build and run my backing tracks, the ge
   <section class="section">
     <div class="section-head">
       <h2>What people are saying</h2>
-      <p>These reactions matter because they sound like real people responding to a real show — not canned marketing copy.</p>
+      <p>Real reactions from musicians and audiences who’ve heard the difference.</p>
     </div>
 
     <div class="testimonial-grid">
@@ -821,7 +821,7 @@ This 66-page PDF shows you exactly how I build and run my backing tracks, the ge
   <section class="section">
     <div class="section-head">
       <h2>Quick questions musicians usually have</h2>
-      <p>These answers remove friction without forcing people to guess.</p>
+      <p>Wondering if this will work for your setup? Here are a few things you might want to know.</p>
     </div>
 
     <div class="faq-grid">

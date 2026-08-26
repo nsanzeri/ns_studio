@@ -576,11 +576,11 @@ if ($tablesReady && $publicUserId > 0) {
     }
     $publicHostName = $savedArtistName !== '' ? $savedArtistName : (trim($publicDisplayName) !== '' ? trim($publicDisplayName) : 'the artist');
 
-    if (isset($_GET['tip'])) {
+    if (!is_post() && isset($_GET['tip'])) {
         $messages[] = 'Thank you. Your tip was sent to ' . $publicHostName . '.';
-    } elseif (isset($_GET['canceled'])) {
+    } elseif (!is_post() && isset($_GET['canceled'])) {
         $errors[] = 'Payment was canceled.';
-    } elseif (isset($_GET['paid'])) {
+    } elseif (!is_post() && isset($_GET['paid'])) {
         $messages[] = 'Payment received. Your request is being sent to ' . $publicHostName . '.';
     }
 
@@ -1040,7 +1040,7 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
       background:rgba(9,8,20,.94); border:1px solid rgba(255,255,255,.12);
       box-shadow:0 18px 50px rgba(0,0,0,.42); backdrop-filter:blur(10px);
     }
-    .public-action-bar .public-mini-button { min-height:32px; background:rgba(255,255,255,.055); }
+    .public-action-bar .public-mini-button { min-height:32px; justify-content:center; text-align:center; background:rgba(255,255,255,.055); }
     .public-action-bar .action-card { margin-top:0; min-width:0; overflow:visible; background:transparent; border:0; border-radius:0; }
     .public-action-bar .action-card[open] { position:relative; z-index:20; }
     .public-action-bar .action-summary {
@@ -1050,7 +1050,7 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
     .public-action-bar .action-summary:hover, .public-action-bar .action-card[open] .action-summary, .public-mini-button:hover {
       background:rgba(140,107,255,.2); border-color:rgba(140,107,255,.36);
     }
-    .public-action-bar .action-summary-text { display:block; }
+    .public-action-bar .action-summary-text { display:block; width:100%; text-align:center; }
     .public-action-bar .action-summary-hint { display:none; }
     .public-action-bar .action-chevron { font-size:.92rem; }
     .public-action-bar .action-card[open] .action-summary { border-bottom:1px solid rgba(140,107,255,.36); }
@@ -1177,7 +1177,7 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
             <span class="action-chevron" aria-hidden="true">&darr;</span>
           </summary>
           <div class="action-panel">
-            <form method="post" class="tip-form" action="">
+            <form method="post" class="tip-form" action="<?= e(setmaxx_public_return_path()) ?>">
               <input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>">
               <input type="hidden" name="action" value="general_tip">
               <?php
@@ -1215,7 +1215,7 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
             <span class="action-chevron" aria-hidden="true">&darr;</span>
           </summary>
           <div class="action-panel">
-            <form method="post" class="mailing-form" action="">
+            <form method="post" class="mailing-form" action="<?= e(setmaxx_public_return_path()) ?>">
               <input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>">
               <input type="hidden" name="action" value="join_mailing_list">
               <input class="request-input" name="mailing_email" type="email" placeholder="Email address" required>
@@ -1234,7 +1234,7 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
             <span class="action-chevron" aria-hidden="true">&darr;</span>
           </summary>
           <div class="action-panel">
-            <form method="post" class="suggestion-form" action="">
+            <form method="post" class="suggestion-form" action="<?= e(setmaxx_public_return_path()) ?>">
               <input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>">
               <input type="hidden" name="action" value="suggest_song">
               <input class="request-input" name="suggested_title" placeholder="Song title" required>
@@ -1289,7 +1289,7 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
           <span class="action-chevron" aria-hidden="true">&darr;</span>
         </summary>
         <div class="action-panel">
-          <form method="post" class="tip-form" action="">
+          <form method="post" class="tip-form" action="<?= e(setmaxx_public_return_path()) ?>">
             <input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>">
             <input type="hidden" name="action" value="general_tip">
             <?php
@@ -1327,7 +1327,7 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
           <span class="action-chevron" aria-hidden="true">&darr;</span>
         </summary>
         <div class="action-panel">
-          <form method="post" class="mailing-form" action="">
+          <form method="post" class="mailing-form" action="<?= e(setmaxx_public_return_path()) ?>">
             <input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>">
             <input type="hidden" name="action" value="join_mailing_list">
             <input class="request-input" name="mailing_email" type="email" placeholder="Email address" required>
@@ -1346,7 +1346,7 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
           <span class="action-chevron" aria-hidden="true">&darr;</span>
         </summary>
         <div class="action-panel">
-          <form method="post" class="suggestion-form" action="">
+          <form method="post" class="suggestion-form" action="<?= e(setmaxx_public_return_path()) ?>">
             <input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>">
             <input type="hidden" name="action" value="suggest_song">
             <input class="request-input" name="suggested_title" placeholder="Song title" required>
@@ -1400,7 +1400,7 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
                 <span class="song-chevron" aria-hidden="true">&darr;</span>
               </summary>
               <div class="song-request-panel">
-                <form method="post" class="request-form" action="">
+                <form method="post" class="request-form" action="<?= e(setmaxx_public_return_path()) ?>">
                   <input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>">
                   <input type="hidden" name="action" value="request_song">
                   <input type="hidden" name="song_id" value="<?= (int)$song['id'] ?>">

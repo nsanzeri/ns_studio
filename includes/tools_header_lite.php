@@ -5,6 +5,7 @@ $isLocal = str_contains($currentPath, '/ns_studio/');
 $siteBase   = $isLocal ? '/ns_studio' : '';
 $studioBase = $siteBase . '/studio';
 $rssHomeUrl = $siteBase . '/index.php' . ($isLocal ? '?rss_preview=1' : '');
+require_once __DIR__ . '/rss_pwa.php';
 
 $trialStatus = null;
 if (isset($pdo) && function_exists('rss_get_current_user_trial_status')) {
@@ -33,6 +34,7 @@ if (isset($pdo) && function_exists('rss_get_current_user_trial_status')) {
 
         <!-- CTA -->
         <div class="tools-header-cta">
+            <?php rss_render_pwa_install_button('tools-install-button'); ?>
             <?php if (!isset($user) || !$user): ?>
                 <a class="btn btn-outline" href="<?= e($loginUrl ?? '#') ?>">Log In</a>
                 <a class="btn btn-primary" href="<?= e($trialUrl ?? '#') ?>">Start Free Trial</a>
@@ -75,6 +77,15 @@ if (isset($pdo) && function_exists('rss_get_current_user_trial_status')) {
     font-weight: 600;
 }
 
+.tools-brand-lite {
+    min-width: 0;
+}
+
+.tools-brand-lite .brand-text,
+.tools-brand-lite .brand-name {
+    min-width: 0;
+}
+
 .tools-brand-lite .brand-tagline {
     font-size: .78rem;
     opacity: .75;
@@ -101,5 +112,24 @@ if (isset($pdo) && function_exists('rss_get_current_user_trial_status')) {
         padding: .5rem .7rem;
         font-size: .8rem;
     }
+
+    .tools-header-cta {
+        flex: 0 0 auto;
+        gap: .4rem;
+    }
+
+    .tools-brand-lite {
+        flex: 1 1 auto;
+        overflow: hidden;
+    }
+
+    .tools-brand-lite .brand-name {
+        display: block;
+        max-width: clamp(8rem, 36vw, 14rem);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
 }
 </style>
+<?php rss_render_pwa_script(); ?>

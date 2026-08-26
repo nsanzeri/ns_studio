@@ -8,6 +8,7 @@ $studioBase = $siteBase . '/studio';
 $rssHomeUrl = $siteBase . '/index.php' . ($isLocal ? '?rss_preview=1' : '');
 
 require_once __DIR__ . '/rss_header_widgets.php';
+require_once __DIR__ . '/rss_pwa.php';
 
 $trialStatus = null;
 $headerPdo = (isset($pdo) && $pdo instanceof PDO) ? $pdo : ($GLOBALS['pdo'] ?? null);
@@ -82,6 +83,7 @@ $suiteModules = $headerAccountType === 'customer'
         </nav>
 
         <div class="setmaxx-header-actions">
+            <?php rss_render_pwa_install_button('setmaxx-install-button'); ?>
             <?php rss_render_account_menu('setmaxx'); ?>
         </div>
     </div>
@@ -138,6 +140,7 @@ $suiteModules = $headerAccountType === 'customer'
 <?php endif; ?>
 
 <?php rss_render_header_widget_script('setmaxx'); ?>
+<?php rss_render_pwa_script(); ?>
 
 <style>
   .setmaxx-site-header {
@@ -154,6 +157,13 @@ $suiteModules = $headerAccountType === 'customer'
     align-items:center;
     justify-content:space-between;
     gap:1rem;
+  }
+  .setmaxx-brand {
+    min-width:0;
+  }
+  .setmaxx-brand .brand-text,
+  .setmaxx-brand .brand-name {
+    min-width:0;
   }
   .rss-suite-nav {
     display:flex;
@@ -261,7 +271,15 @@ $suiteModules = $headerAccountType === 'customer'
     .setmaxx-desktop-nav,
     .rss-suite-nav,
     .setmaxx-subheader { display:none !important; }
-    .setmaxx-header-actions { margin-left:auto; }
+    .setmaxx-header-actions { margin-left:auto; flex:0 0 auto; gap:.4rem; }
+    .setmaxx-brand { flex:1 1 auto; overflow:hidden; }
+    .setmaxx-brand .brand-name {
+      display:block;
+      max-width:clamp(8rem, 36vw, 14rem);
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+    }
     .setmaxx-nav-toggle { display:inline-flex !important; align-items:center; justify-content:center; }
     .setmaxx-mobile-nav { position:absolute; top:100%; left:1rem; right:1rem; z-index:1001; display:block; }
     .setmaxx-mobile-nav[hidden] { display:none !important; }

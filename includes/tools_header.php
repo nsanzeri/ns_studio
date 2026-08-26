@@ -7,6 +7,7 @@ $siteBase   = $isLocal ? '/ns_studio' : '';
 $studioBase = $siteBase . '/studio';
 $rssHomeUrl = $siteBase . '/index.php' . ($isLocal ? '?rss_preview=1' : '');
 require_once __DIR__ . '/rss_header_widgets.php';
+require_once __DIR__ . '/rss_pwa.php';
 
 $isLoggedIn = class_exists('Auth') && Auth::isLoggedIn();
 $isDirectoryPage = in_array($currentPage, ['directory.php', 'artist.php'], true) || str_contains($currentPath, '/artist.php/') || str_contains($currentPath, '/artist/');
@@ -91,6 +92,7 @@ $showCalendarSubnav = str_contains($currentPath, '/tools/');
             <?php endif; ?>
         </nav>
         <div class="tools-header-actions">
+            <?php rss_render_pwa_install_button('tools-install-button'); ?>
             <?php rss_render_account_menu('tools'); ?>
         </div>
     </div>
@@ -149,6 +151,7 @@ $showCalendarSubnav = str_contains($currentPath, '/tools/');
 </div>
 <?php endif; ?>
 <?php rss_render_header_widget_script('tools'); ?>
+<?php rss_render_pwa_script(); ?>
 
 <style>
   .tools-site-header {
@@ -170,6 +173,15 @@ $showCalendarSubnav = str_contains($currentPath, '/tools/');
 
   .tools-brand .brand-tagline {
     opacity: .82;
+  }
+
+  .tools-brand {
+    min-width:0;
+  }
+
+  .tools-brand .brand-text,
+  .tools-brand .brand-name {
+    min-width:0;
   }
 
   .rss-suite-nav {
@@ -323,6 +335,21 @@ $showCalendarSubnav = str_contains($currentPath, '/tools/');
 
     .tools-header-actions {
       margin-left:auto;
+      flex:0 0 auto;
+      gap:.4rem;
+    }
+
+    .tools-brand {
+      flex:1 1 auto;
+      overflow:hidden;
+    }
+
+    .tools-brand .brand-name {
+      display:block;
+      max-width:clamp(8rem, 36vw, 14rem);
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
     }
 
     .tools-mobile-nav {

@@ -84,12 +84,16 @@ if (is_post()) {
     } else {
         $inviteId = (int)($_POST['invite_id'] ?? 0);
         $invite = artist_booking_invite($pdo, $inviteId, $userId);
+        $action = (string)($_POST['action'] ?? '');
         if (!$invite) {
             $err = 'That booking request was not found for your account.';
+        } elseif ($action === 'delete_invite') {
+            $pdo->prepare("UPDATE booking_invites SET status = 'cancelled', responded_at = COALESCE(responded_at, NOW()) WHERE id = ? AND target_user_id = ?")->execute([$inviteId, $userId]);
+            flash_set('success', 'Lead removed.');
+            redirect($siteBase . '/artist-bookings.php');
         } elseif ((string)($invite['request_status'] ?? 'open') !== 'open') {
             $err = 'This event has been closed by the customer.';
         } else {
-            $action = (string)($_POST['action'] ?? '');
             if ($action === 'quote') {
                 $amount = (float)($_POST['amount'] ?? 0);
                 $message = trim((string)($_POST['message'] ?? ''));
@@ -140,6 +144,7 @@ $listStmt = $pdo->prepare("
     JOIN booking_requests br ON br.id = bi.request_id
     LEFT JOIN booking_bids bb ON bb.invite_id = bi.id AND bb.bidder_user_id = bi.target_user_id AND bb.status IN ('sent', 'accepted')
     WHERE bi.target_user_id = ?
+      AND bi.status <> 'cancelled'
     ORDER BY
         CASE br.status WHEN 'open' THEN 1 ELSE 2 END,
         CASE bi.status WHEN 'pending' THEN 1 WHEN 'accepted' THEN 2 WHEN 'declined' THEN 3 ELSE 4 END,
@@ -174,8 +179,16 @@ $trialUrl = $siteBase . '/studio/member/pricing.php';
     .artist-booking-layout { display:grid; grid-template-columns:minmax(260px,.85fr) minmax(0,1.35fr); gap:1rem; align-items:start; }
     .artist-panel { border:1px solid rgba(255,255,255,.08); border-radius:8px; background:rgba(255,255,255,.045); padding:1rem; }
     .artist-invite-list { display:grid; gap:.6rem; }
-    .artist-invite-list a { display:block; padding:.8rem; border-radius:8px; border:1px solid rgba(255,255,255,.08); text-decoration:none; color:rgba(255,255,255,.9); }
+    .artist-invite-card { position:relative; border-radius:8px; }
+    .artist-invite-list a { display:block; padding:.8rem 2.8rem .8rem .8rem; border-radius:8px; border:1px solid rgba(255,255,255,.08); text-decoration:none; color:rgba(255,255,255,.9); }
     .artist-invite-list a.active, .artist-invite-list a:hover { border-color:rgba(212,175,55,.45); background:rgba(212,175,55,.1); color:#f4d57a; }
+    .artist-lead-delete {
+      position:absolute; top:50%; right:.55rem; transform:translateY(-50%); width:34px; height:34px;
+      display:inline-flex; align-items:center; justify-content:center; border-radius:999px;
+      border:1px solid rgba(255,255,255,.1); background:rgba(255,255,255,.04); color:rgba(255,255,255,.62);
+      cursor:pointer;
+    }
+    .artist-lead-delete:hover { border-color:rgba(255,122,122,.5); background:rgba(255,122,122,.12); color:#ffaaaa; }
     .artist-meta { color:rgba(255,255,255,.68); font-size:.92rem; }
     .artist-action-buttons { display:flex; gap:.7rem; flex-wrap:wrap; margin-top:1.1rem; }
     .artist-action-panel { display:none; margin-top:1rem; }
@@ -213,13 +226,21 @@ $trialUrl = $siteBase . '/studio/member/pricing.php';
         <div class="artist-invite-list">
           <?php foreach ($invites as $invite): ?>
             <?php $dateText = !empty($invite['event_date']) ? date('M j, Y', strtotime((string)$invite['event_date'])) : 'Date TBD'; ?>
-            <a class="<?= (int)$invite['id'] === $selectedId ? 'active' : '' ?>" href="<?= e($siteBase . '/artist-bookings.php?invite=' . (int)$invite['id']) ?>">
-              <strong><?= e((string)($invite['event_title'] ?: 'Untitled event')) ?></strong>
-              <div class="artist-meta">
-                <?= e($dateText) ?> &middot; <?= e((string)$invite['status']) ?><?= !empty($invite['bid_amount']) ? ' &middot; $' . e(number_format((float)$invite['bid_amount'], 0)) : '' ?>
-                <?php if ((string)$invite['request_status'] !== 'open'): ?> &middot; <span class="artist-status-pill">closed</span><?php endif; ?>
-              </div>
-            </a>
+            <div class="artist-invite-card">
+              <a class="<?= (int)$invite['id'] === $selectedId ? 'active' : '' ?>" href="<?= e($siteBase . '/artist-bookings.php?invite=' . (int)$invite['id']) ?>">
+                <strong><?= e((string)($invite['event_title'] ?: 'Untitled event')) ?></strong>
+                <div class="artist-meta">
+                  <?= e($dateText) ?> &middot; <?= e((string)$invite['status']) ?><?= !empty($invite['bid_amount']) ? ' &middot; $' . e(number_format((float)$invite['bid_amount'], 0)) : '' ?>
+                  <?php if ((string)$invite['request_status'] !== 'open'): ?> &middot; <span class="artist-status-pill">closed</span><?php endif; ?>
+                </div>
+              </a>
+              <form method="post" action="" onsubmit="return confirm('Remove this lead from your list?');">
+                <input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>">
+                <input type="hidden" name="action" value="delete_invite">
+                <input type="hidden" name="invite_id" value="<?= (int)$invite['id'] ?>">
+                <button class="artist-lead-delete" type="submit" aria-label="Remove <?= e((string)($invite['event_title'] ?: 'lead')) ?>" title="Remove lead"><i class="fa-solid fa-trash-can" aria-hidden="true"></i></button>
+              </form>
+            </div>
           <?php endforeach; ?>
         </div>
       </aside>

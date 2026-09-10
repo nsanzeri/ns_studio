@@ -197,7 +197,7 @@ if ($tablesReady && is_post()) {
                     "UPDATE setmaxx_songs
                      SET title = ?, artist = ?, release_year = ?, genre = ?, broad_genre = ?, is_prerecorded = ?, track_length_seconds = ?,
                          is_medley = ?, medley_name = ?, opening_song = ?, vocal_difficulty = ?, song_key = ?,
-                         tempo_bpm = ?, family_friendly = ?, instrumental = ?, performance_notes = ?, tip_amount_cents = ?, is_active = ?
+                         tempo_bpm = ?, family_friendly = ?, instrumental = ?, tip_amount_cents = ?, is_active = ?
                      WHERE id = ? AND user_id = ?"
                 );
                 $saved = 0;
@@ -227,7 +227,6 @@ if ($tablesReady && is_post()) {
                         setmaxx_clean_int($row['tempo_bpm'] ?? '', 1, 400),
                         !empty($row['family_friendly']) ? 1 : 0,
                         !empty($row['instrumental']) ? 1 : 0,
-                        setmaxx_clean_text($row['performance_notes'] ?? '', 2000),
                         max(0, (int)round($tipDollars * 100)),
                         !empty($row['is_active']) ? 1 : 0,
                         $songId,
@@ -353,6 +352,8 @@ setmaxx_page_head('Set Maxx | Song Catalog');
       <div class="setmaxx-actions">
         <button class="btn btn-outline" type="button" id="setmaxxEnrichBtn" <?= $songs ? '' : 'disabled' ?>>Enrich visible</button>
         <button class="btn btn-outline" type="button" id="setmaxxExportBtn" <?= $songs ? '' : 'disabled' ?>>Export / print</button>
+        <button class="btn btn-outline" type="button" id="setmaxxCacheNotesBtn" <?= $songs ? '' : 'disabled' ?>>Cache notes</button>
+        <span class="setmaxx-cache-status" id="setmaxxCacheNotesStatus" role="status" aria-live="polite"></span>
         <button class="btn btn-outline" type="submit" name="action" value="delete_selected" id="setmaxxDeleteSelectedBtn" <?= $songs ? '' : 'disabled' ?>>Delete selected</button>
         <button class="btn btn-primary" type="submit" <?= $songs ? '' : 'disabled' ?>>Save catalog</button>
       </div>
@@ -390,7 +391,6 @@ setmaxx_page_head('Set Maxx | Song Catalog');
             <col class="setmaxx-col-key">
             <col class="setmaxx-col-tempo">
             <col class="setmaxx-col-check">
-            <col class="setmaxx-col-notes">
           </colgroup>
           <thead>
             <tr>
@@ -409,7 +409,6 @@ setmaxx_page_head('Set Maxx | Song Catalog');
               <th>Key</th>
               <th>Tempo</th>
               <th>Instr.</th>
-              <th>Notes</th>
             </tr>
           </thead>
           <tbody>
@@ -427,7 +426,12 @@ setmaxx_page_head('Set Maxx | Song Catalog');
                 <td><input type="hidden" name="songs[<?= $id ?>][is_active]" value="0"><input type="checkbox" name="songs[<?= $id ?>][is_active]" value="1" <?= !empty($song['is_active']) ? 'checked' : '' ?>></td>
                 <td><input class="setmaxx-grid-input js-title" name="songs[<?= $id ?>][title]" value="<?= e($song['title']) ?>" required></td>
                 <td><input class="setmaxx-grid-input js-artist" name="songs[<?= $id ?>][artist]" value="<?= e((string)$song['artist']) ?>"></td>
-                <td><a class="setmaxx-mini-link" href="<?= e(setmaxx_lyrics_url((string)$song['title'], (string)$song['artist'])) ?>" target="_blank" rel="noopener">Lyrics</a></td>
+                <td>
+                  <div class="setmaxx-link-stack">
+                    <a class="setmaxx-mini-link" href="<?= e(setmaxx_lyrics_url((string)$song['title'], (string)$song['artist'])) ?>" target="_blank" rel="noopener">Lyrics</a>
+                    <a class="setmaxx-mini-link" href="<?= e(base_url('/setmaxx/song_notes.php?id=' . $id)) ?>" target="_blank" rel="noopener" data-performance-notes-url>Notes</a>
+                  </div>
+                </td>
                 <td><input class="setmaxx-grid-input setmaxx-grid-input-compact" name="songs[<?= $id ?>][tip_dollars]" type="number" min="0" max="100" step="1" value="<?= e((string)(((int)$song['tip_amount_cents']) / 100)) ?>"></td>
                 <td><input type="hidden" name="songs[<?= $id ?>][opening_song]" value="0"><input type="checkbox" name="songs[<?= $id ?>][opening_song]" value="1" <?= !empty($song['opening_song']) ? 'checked' : '' ?>></td>
                 <td>
@@ -444,13 +448,12 @@ setmaxx_page_head('Set Maxx | Song Catalog');
                 <td><input class="setmaxx-grid-input setmaxx-grid-input-compact js-length" name="songs[<?= $id ?>][track_length]" placeholder="3:45" value="<?= e(setmaxx_seconds_to_length((int)($song['track_length_seconds'] ?? 0))) ?>"></td>
                 <td><input class="setmaxx-grid-input setmaxx-grid-input-compact" name="songs[<?= $id ?>][song_key]" value="<?= e((string)$song['song_key']) ?>"></td>
                 <td><input class="setmaxx-grid-input setmaxx-grid-input-compact" name="songs[<?= $id ?>][tempo_bpm]" type="number" min="1" max="400" value="<?= e((string)$song['tempo_bpm']) ?>"></td>
-                <td><input type="hidden" name="songs[<?= $id ?>][instrumental]" value="0"><input type="checkbox" name="songs[<?= $id ?>][instrumental]" value="1" <?= !empty($song['instrumental']) ? 'checked' : '' ?>></td>
                 <td>
+                  <input type="hidden" name="songs[<?= $id ?>][instrumental]" value="0"><input type="checkbox" name="songs[<?= $id ?>][instrumental]" value="1" <?= !empty($song['instrumental']) ? 'checked' : '' ?>>
                   <input class="js-prerecorded" type="hidden" name="songs[<?= $id ?>][is_prerecorded]" value="<?= !empty($song['is_prerecorded']) ? '1' : '0' ?>">
                   <input type="hidden" name="songs[<?= $id ?>][is_medley]" value="<?= !empty($song['is_medley']) ? '1' : '0' ?>">
                   <input type="hidden" name="songs[<?= $id ?>][medley_name]" value="<?= e((string)$song['medley_name']) ?>">
                   <input type="hidden" name="songs[<?= $id ?>][family_friendly]" value="<?= !empty($song['family_friendly']) ? '1' : '0' ?>">
-                  <textarea class="setmaxx-grid-notes" name="songs[<?= $id ?>][performance_notes]"><?= e((string)$song['performance_notes']) ?></textarea>
                 </td>
               </tr>
             <?php endforeach; ?>
@@ -495,7 +498,8 @@ ADDICTED TO LOVE - ROBERT PALMER</pre>
         <li><strong>Min $</strong> is the minimum request amount for that song.</li>
         <li><strong>Opener, vocal, key, tempo, and instrumental</strong> are stage-planning fields.</li>
         <li><strong>Year, source genre, broad genre, and length</strong> help organize the catalog and build better sets.</li>
-        <li><strong>Notes</strong> are private performance reminders for arrangement, capo, transitions, or special instructions.</li>
+        <li><strong>Notes</strong> can hold lyrics, chord changes, arrangement cues, capo reminders, or anything you need on stage.</li>
+        <li><strong>Cache notes</strong> saves those private note pages on this device so you can open them at a gig after they have been cached.</li>
       </ul>
     </div>
   </dialog>
@@ -540,7 +544,7 @@ ADDICTED TO LOVE - ROBERT PALMER</pre>
   .setmaxx-col-check { width:56px; }
   .setmaxx-col-title { width:210px; }
   .setmaxx-col-artist { width:132px; }
-  .setmaxx-col-lyrics { width:66px; }
+  .setmaxx-col-lyrics { width:104px; }
   .setmaxx-col-money { width:76px; }
   .setmaxx-col-vocal { width:88px; }
   .setmaxx-col-year { width:76px; }
@@ -548,22 +552,21 @@ ADDICTED TO LOVE - ROBERT PALMER</pre>
   .setmaxx-col-length { width:76px; }
   .setmaxx-col-key { width:66px; }
   .setmaxx-col-tempo { width:76px; }
-  .setmaxx-col-notes { width:180px; }
   .setmaxx-song-table th,
   .setmaxx-song-table td { padding:.55rem; border-bottom:1px solid rgba(255,255,255,.07); vertical-align:top; }
   .setmaxx-song-table th { position:sticky; top:0; z-index:1; background:#151323; color:rgba(255,255,255,.78); font-size:.78rem; text-align:left; font-weight:600; }
   .setmaxx-song-table tbody tr:nth-child(even) { background:rgba(255,255,255,.025); }
-  .setmaxx-grid-input,
-  .setmaxx-grid-notes { width:100%; min-width:0; padding:.55rem .6rem; border-radius:10px; border:1px solid rgba(255,255,255,.1); background:rgba(255,255,255,.05); color:#fff; font:inherit; font-size:.88rem; }
+  .setmaxx-grid-input { width:100%; min-width:0; padding:.55rem .6rem; border-radius:10px; border:1px solid rgba(255,255,255,.1); background:rgba(255,255,255,.05); color:#fff; font:inherit; font-size:.88rem; }
   .setmaxx-grid-input-compact { padding-left:.5rem; padding-right:.5rem; }
   .setmaxx-song-table input[type="number"] { appearance:textfield; -moz-appearance:textfield; }
   .setmaxx-song-table input[type="number"]::-webkit-outer-spin-button,
   .setmaxx-song-table input[type="number"]::-webkit-inner-spin-button { -webkit-appearance:none; margin:0; }
   .setmaxx-grid-input option { background:#151323; color:#fff; }
-  .setmaxx-grid-notes { min-width:180px; height:42px; resize:vertical; }
   .setmaxx-song-table input[type="checkbox"] { width:18px; height:18px; accent-color:#8c6bff; }
+  .setmaxx-link-stack { display:flex; gap:.45rem; align-items:center; flex-wrap:wrap; }
   .setmaxx-mini-link { display:inline-flex; align-items:center; min-height:34px; color:#efe7ff; font-size:.86rem; text-decoration:none; }
   .setmaxx-mini-link:hover { text-decoration:underline; }
+  .setmaxx-cache-status { min-height:1.2rem; color:rgba(255,255,255,.72); font-size:.88rem; }
   .setmaxx-section-head { display:flex; align-items:center; gap:.65rem; margin-bottom:1rem; }
   .setmaxx-section-head h2 { margin:0; }
   .setmaxx-help-button { display:inline-flex; align-items:center; justify-content:center; width:32px; height:32px; border-radius:999px; border:1px solid rgba(255,255,255,.18); background:rgba(255,255,255,.06); color:#efe7ff; font-weight:700; cursor:pointer; }
@@ -624,6 +627,8 @@ ADDICTED TO LOVE - ROBERT PALMER</pre>
   const exportArtist = document.getElementById('setmaxxExportArtist');
   const exportKey = document.getElementById('setmaxxExportKey');
   const exportSummary = document.getElementById('setmaxxExportSummary');
+  const cacheNotesButton = document.getElementById('setmaxxCacheNotesBtn');
+  const cacheNotesStatus = document.getElementById('setmaxxCacheNotesStatus');
   const deleteButton = document.getElementById('setmaxxDeleteSelectedBtn');
   const selectAll = document.getElementById('setmaxxSelectAll');
   const table = document.getElementById('setmaxxSongTable');
@@ -631,6 +636,7 @@ ADDICTED TO LOVE - ROBERT PALMER</pre>
   const sortButtons = Array.from(document.querySelectorAll('.setmaxx-sort-button'));
   const csrfToken = <?= json_encode(csrf_token()) ?>;
   const usageEndpoint = <?= json_encode(base_url('/api/log_tool_usage.php')) ?>;
+  const notesSwUrl = <?= json_encode(base_url('/sw.js')) ?>;
   let currentLetter = 'all';
   let currentSort = 'title';
   if (!button || !table) return;
@@ -672,6 +678,66 @@ ADDICTED TO LOVE - ROBERT PALMER</pre>
       credentials: 'same-origin',
       keepalive: true
     }).catch(function() {});
+  }
+
+  function setCacheStatus(message) {
+    if (cacheNotesStatus) cacheNotesStatus.textContent = message;
+  }
+
+  function activeServiceWorker(registration) {
+    if (registration.active) return Promise.resolve(registration.active);
+    const worker = registration.installing || registration.waiting;
+    if (!worker) return Promise.reject(new Error('Offline cache is not ready yet.'));
+    return new Promise(function(resolve, reject) {
+      const timer = window.setTimeout(function() {
+        reject(new Error('Offline cache setup timed out.'));
+      }, 8000);
+      worker.addEventListener('statechange', function() {
+        if (worker.state === 'activated') {
+          window.clearTimeout(timer);
+          resolve(worker);
+        }
+      });
+    });
+  }
+
+  async function cachePerformanceNotes() {
+    if (!('serviceWorker' in navigator) || !window.caches) {
+      throw new Error('Offline caching is not available in this browser.');
+    }
+
+    const urls = Array.from(table.querySelectorAll('[data-performance-notes-url]'))
+      .map(function(link) { return link.href; })
+      .filter(Boolean);
+
+    if (!urls.length) throw new Error('No performance notes were found to cache.');
+
+    const registration = await navigator.serviceWorker.register(notesSwUrl);
+    const worker = await activeServiceWorker(registration);
+
+    const result = await new Promise(function(resolve, reject) {
+      const channel = new MessageChannel();
+      const timer = window.setTimeout(function() {
+        reject(new Error('Offline cache did not respond.'));
+      }, 20000);
+
+      channel.port1.onmessage = function(event) {
+        window.clearTimeout(timer);
+        const data = event.data || {};
+        if (!data.success) {
+          reject(new Error(data.error || 'Could not cache performance notes.'));
+          return;
+        }
+        resolve(data);
+      };
+
+      worker.postMessage({
+        type: 'SETMAXX_CACHE_PERFORMANCE_NOTES',
+        urls: urls
+      }, [channel.port2]);
+    });
+
+    return result;
   }
 
   table.querySelectorAll('.setmaxx-song-row').forEach(function(row) {
@@ -991,6 +1057,30 @@ ADDICTED TO LOVE - ROBERT PALMER</pre>
   if (csvButton) csvButton.addEventListener('click', downloadCsv);
   if (exportArtist) exportArtist.addEventListener('change', updateExportSummary);
   if (exportKey) exportKey.addEventListener('change', updateExportSummary);
+
+  if (cacheNotesButton) {
+    cacheNotesButton.addEventListener('click', async function() {
+      if (table.querySelector('.setmaxx-song-row.is-dirty')) {
+        setCacheStatus('Save catalog first, then cache notes.');
+        return;
+      }
+      cacheNotesButton.disabled = true;
+      setCacheStatus('Saving notes for offline use...');
+      try {
+        const result = await cachePerformanceNotes();
+        const cached = result && typeof result.cached === 'number' ? result.cached : 0;
+        const failed = result && typeof result.failed === 'number' ? result.failed : 0;
+        setCacheStatus(failed > 0 ? cached + ' saved, ' + failed + ' missed.' : cached + ' note pages saved.');
+        logUsage('setmaxx_song_catalog', 'cache_performance_notes', cached);
+      } catch (error) {
+        setCacheStatus(error && error.message ? error.message : 'Could not cache notes.');
+      } finally {
+        window.setTimeout(function() {
+          cacheNotesButton.disabled = false;
+        }, 900);
+      }
+    });
+  }
 
   if (deleteButton) {
     deleteButton.addEventListener('click', function(event) {

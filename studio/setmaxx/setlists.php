@@ -266,7 +266,7 @@ if ($tablesReady && is_post()) {
 
         $songStmt = $pdo->prepare(
             "SELECT id, title, artist, release_year, genre, broad_genre, track_length_seconds, opening_song,
-                    vocal_difficulty, song_key, tempo_bpm, family_friendly, is_active
+                    vocal_difficulty, song_key, tempo_bpm, family_friendly, is_active, performance_notes
              FROM setmaxx_songs
              WHERE " . implode(' AND ', $where) . "
              ORDER BY opening_song DESC, title ASC, artist ASC"
@@ -471,7 +471,12 @@ setmaxx_page_head('Set Maxx | Setlist Generator');
                           <strong>Set <?= (int)($favoriteSet['number'] ?? 0) ?></strong>
                           <ol>
                             <?php foreach ((array)($favoriteSet['songs'] ?? []) as $favoriteSong): ?>
-                              <li><?= e((string)($favoriteSong['title'] ?? 'Untitled')) ?> <span><?= e((string)($favoriteSong['artist'] ?? 'Artist not set')) ?></span></li>
+                              <li>
+                                <?= e((string)($favoriteSong['title'] ?? 'Untitled')) ?> <span><?= e((string)($favoriteSong['artist'] ?? 'Artist not set')) ?></span>
+                                <?php if (trim((string)($favoriteSong['performanceNotes'] ?? '')) !== ''): ?>
+                                  <div class="setmaxx-favorite-notes"><?= nl2br(e((string)$favoriteSong['performanceNotes'])) ?></div>
+                                <?php endif; ?>
+                              </li>
                             <?php endforeach; ?>
                           </ol>
                         </div>
@@ -549,6 +554,7 @@ setmaxx_page_head('Set Maxx | Setlist Generator');
                             data-song-key="<?= e((string)($optionSong['song_key'] ?? '')) ?>"
                             data-bpm="<?= (int)($optionSong['tempo_bpm'] ?? 0) ?>"
                             data-lyrics="<?= e($optionLyrics) ?>"
+                            data-performance-notes="<?= e((string)($optionSong['performance_notes'] ?? '')) ?>"
                             <?= (int)$optionSong['id'] === (int)$song['id'] ? 'selected' : '' ?>
                           ><?= e($optionTitle . ' - ' . $optionArtist) ?></option>
                         <?php endforeach; ?>
@@ -565,6 +571,7 @@ setmaxx_page_head('Set Maxx | Setlist Generator');
                       <span><?= e(setmaxx_setlist_display_length($song)) ?></span>
                       <a href="<?= e(setmaxx_lyrics_url((string)$song['title'], (string)$song['artist'])) ?>" target="_blank" rel="noopener">Lyrics</a>
                     </div>
+                    <div class="setmaxx-performance-notes" data-performance-notes><?= trim((string)($song['performance_notes'] ?? '')) !== '' ? nl2br(e((string)$song['performance_notes'])) : '' ?></div>
                   </li>
                 <?php endforeach; ?>
               </ol>
@@ -664,11 +671,14 @@ setmaxx_page_head('Set Maxx | Setlist Generator');
   .setmaxx-favorite-set { margin-top:.55rem; }
   .setmaxx-favorite-set ol { margin:.25rem 0 0; padding-left:1.25rem; color:rgba(255,255,255,.82); }
   .setmaxx-favorite-set li span { color:rgba(255,255,255,.58); }
+  .setmaxx-favorite-notes { margin:.18rem 0 .45rem; color:#efe7ff; font-size:.86rem; white-space:pre-wrap; }
   .setmaxx-multi-select { min-height:132px; }
   .setmaxx-song-badges { display:flex; gap:.35rem; flex-wrap:wrap; margin-top:.3rem; }
   .setmaxx-song-badges span { display:inline-flex; padding:.16rem .48rem; border-radius:999px; background:rgba(255,255,255,.07); color:rgba(255,255,255,.82); font-size:.78rem; }
   .setmaxx-song-badges a { display:inline-flex; padding:.16rem .48rem; border-radius:999px; background:rgba(140,107,255,.16); color:#efe7ff; font-size:.78rem; text-decoration:none; }
   .setmaxx-song-badges a:hover { text-decoration:underline; }
+  .setmaxx-performance-notes { margin-top:.42rem; color:#efe7ff; font-size:.96rem; line-height:1.45; white-space:pre-wrap; }
+  .setmaxx-performance-notes:empty { display:none; }
   .setmaxx-section-head { display:flex; align-items:center; gap:.65rem; margin-bottom:1rem; }
   .setmaxx-section-head h2 { margin:0; }
   .setmaxx-help-button { display:inline-flex; align-items:center; justify-content:center; width:32px; height:32px; border-radius:999px; border:1px solid rgba(255,255,255,.18); background:rgba(255,255,255,.06); color:#efe7ff; font-weight:700; cursor:pointer; }
@@ -698,6 +708,7 @@ setmaxx_page_head('Set Maxx | Setlist Generator');
     .setmaxx-set-songs strong { font-weight:500 !important; }
     .setmaxx-song-display { display:block !important; }
     .setmaxx-set-songs span { display:none !important; }
+    .setmaxx-performance-notes { display:block !important; color:#333 !important; font-size:8pt !important; line-height:1.15 !important; margin:.02in 0 .04in !important; white-space:pre-wrap !important; }
   }
   @media (max-width: 640px) { .setmaxx-save-row, .setmaxx-favorite-row { grid-template-columns:1fr; } }
 </style>
@@ -714,7 +725,8 @@ setmaxx_page_head('Set Maxx | Setlist Generator');
       opener: option.getAttribute('data-opener') === '1',
       songKey: option.getAttribute('data-song-key') || '',
       bpm: parseInt(option.getAttribute('data-bpm') || '0', 10),
-      lyrics: option.getAttribute('data-lyrics') || '#'
+      lyrics: option.getAttribute('data-lyrics') || '#',
+      performanceNotes: option.getAttribute('data-performance-notes') || ''
     };
   }
 
@@ -741,6 +753,9 @@ setmaxx_page_head('Set Maxx | Setlist Generator');
     link.rel = 'noopener';
     link.textContent = 'Lyrics';
     container.appendChild(link);
+    const row = container.closest('[data-setlist-song]');
+    const notes = row ? row.querySelector('[data-performance-notes]') : null;
+    if (notes) notes.textContent = song.performanceNotes;
   }
 
   function refreshSetTotals() {

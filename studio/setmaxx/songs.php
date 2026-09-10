@@ -637,6 +637,7 @@ ADDICTED TO LOVE - ROBERT PALMER</pre>
   const csrfToken = <?= json_encode(csrf_token()) ?>;
   const usageEndpoint = <?= json_encode(base_url('/api/log_tool_usage.php')) ?>;
   const notesSwUrl = <?= json_encode(base_url('/sw.js')) ?>;
+  const performanceNotesCacheName = 'setmaxx-performance-notes-v1';
   let currentLetter = 'all';
   let currentSort = 'title';
   if (!button || !table) return;
@@ -684,23 +685,6 @@ ADDICTED TO LOVE - ROBERT PALMER</pre>
     if (cacheNotesStatus) cacheNotesStatus.textContent = message;
   }
 
-  function activeServiceWorker(registration) {
-    if (registration.active) return Promise.resolve(registration.active);
-    const worker = registration.installing || registration.waiting;
-    if (!worker) return Promise.reject(new Error('Offline cache is not ready yet.'));
-    return new Promise(function(resolve, reject) {
-      const timer = window.setTimeout(function() {
-        reject(new Error('Offline cache setup timed out.'));
-      }, 8000);
-      worker.addEventListener('statechange', function() {
-        if (worker.state === 'activated') {
-          window.clearTimeout(timer);
-          resolve(worker);
-        }
-      });
-    });
-  }
-
   async function cachePerformanceNotes() {
     if (!('serviceWorker' in navigator) || !window.caches) {
       throw new Error('Offline caching is not available in this browser.');
@@ -712,32 +696,31 @@ ADDICTED TO LOVE - ROBERT PALMER</pre>
 
     if (!urls.length) throw new Error('No performance notes were found to cache.');
 
-    const registration = await navigator.serviceWorker.register(notesSwUrl);
-    const worker = await activeServiceWorker(registration);
+    await navigator.serviceWorker.register(notesSwUrl);
+    const cache = await caches.open(performanceNotesCacheName);
+    let cached = 0;
+    let failed = 0;
 
-    const result = await new Promise(function(resolve, reject) {
-      const channel = new MessageChannel();
-      const timer = window.setTimeout(function() {
-        reject(new Error('Offline cache did not respond.'));
-      }, 20000);
+    for (const url of urls) {
+      try {
+        const response = await fetch(url, {
+          credentials: 'same-origin',
+          cache: 'reload'
+        });
 
-      channel.port1.onmessage = function(event) {
-        window.clearTimeout(timer);
-        const data = event.data || {};
-        if (!data.success) {
-          reject(new Error(data.error || 'Could not cache performance notes.'));
-          return;
+        if (!response.ok) {
+          failed++;
+          continue;
         }
-        resolve(data);
-      };
 
-      worker.postMessage({
-        type: 'SETMAXX_CACHE_PERFORMANCE_NOTES',
-        urls: urls
-      }, [channel.port2]);
-    });
+        await cache.put(url, response.clone());
+        cached++;
+      } catch (error) {
+        failed++;
+      }
+    }
 
-    return result;
+    return { cached: cached, failed: failed };
   }
 
   table.querySelectorAll('.setmaxx-song-row').forEach(function(row) {

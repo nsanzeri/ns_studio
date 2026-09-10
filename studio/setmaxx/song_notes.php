@@ -238,6 +238,7 @@ $updatedAt = $song && !empty($song['updated_at']) ? date('M j, Y g:i A', strtoti
     (function() {
       const notesWereSaved = <?= $message !== '' ? 'true' : 'false' ?>;
       const notesSwUrl = <?= json_encode(base_url('/sw.js')) ?>;
+      const performanceNotesCacheName = 'setmaxx-performance-notes-v1';
       const editButton = document.getElementById('editNotesBtn');
       const cancelButton = document.getElementById('cancelEditBtn');
       const decreaseFontButton = document.getElementById('decreaseFontBtn');
@@ -275,16 +276,17 @@ $updatedAt = $song && !empty($song['updated_at']) ? date('M j, Y g:i A', strtoti
 
       applyFontScale(savedScale());
 
-      if (notesWereSaved && 'serviceWorker' in navigator && window.MessageChannel) {
+      if (notesWereSaved && 'serviceWorker' in navigator && window.caches) {
         window.addEventListener('load', function() {
-          navigator.serviceWorker.register(notesSwUrl).then(function(registration) {
-            const worker = registration.active || registration.waiting || registration.installing;
-            if (!worker) return;
-            const channel = new MessageChannel();
-            worker.postMessage({
-              type: 'SETMAXX_CACHE_PERFORMANCE_NOTES',
-              urls: [window.location.href]
-            }, [channel.port2]);
+          navigator.serviceWorker.register(notesSwUrl).then(function() {
+            return caches.open(performanceNotesCacheName);
+          }).then(function(cache) {
+            return fetch(window.location.href, {
+              credentials: 'same-origin',
+              cache: 'reload'
+            }).then(function(response) {
+              if (response.ok) return cache.put(window.location.href, response.clone());
+            });
           }).catch(function() {});
         });
       }

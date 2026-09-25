@@ -2,9 +2,9 @@
 require __DIR__ . '/studio/_private/_core/bootstrap.php';
 require_once __DIR__ . '/studio/_private/_core/tool_access.php';
 
-$selectedState = strtoupper(trim((string)($_GET['state'] ?? '')));
-if (!preg_match('/^[A-Z]{2}$/', $selectedState)) {
-    $selectedState = '';
+$selectedLocation = trim((string)($_GET['location'] ?? ($_GET['state'] ?? '')));
+if (mb_strlen($selectedLocation) > 96 || preg_match('/[^A-Za-z0-9| &.,\'’()+\/:-]/u', $selectedLocation)) {
+    $selectedLocation = '';
 }
 
 function directory_column_exists(PDO $pdo, string $tableName, string $columnName): bool {
@@ -39,6 +39,56 @@ function directory_profile_contact_columns_ready(PDO $pdo): bool {
 function directory_artist_slug(string $artistName): string {
     $base = strtolower(trim(preg_replace('/[^a-zA-Z0-9]+/', '-', $artistName), '-'));
     return $base !== '' ? $base : 'artist';
+}
+
+function directory_artist_name_is_readable(string $artistName): bool {
+    $name = trim($artistName);
+    if (mb_strlen($name) < 2) return false;
+    if (!preg_match('/[A-Za-z]/', $name)) return false;
+    if (preg_match('/[^A-Za-z0-9 &.,\'’!?()+\/:-]/u', $name)) return false;
+
+    $lettersOnly = preg_replace('/[^A-Za-z]/', '', $name) ?? '';
+    if (strlen($lettersOnly) >= 12 && preg_match('/[bcdfghjklmnpqrstvwxz]{7,}/i', $lettersOnly)) return false;
+
+    return true;
+}
+
+function directory_country_options(): array {
+    return [
+        'US' => 'United States',
+        'CA' => 'Canada',
+        'GB' => 'United Kingdom',
+        'IE' => 'Ireland',
+        'AU' => 'Australia',
+        'NZ' => 'New Zealand',
+        'DE' => 'Germany',
+        'FR' => 'France',
+        'NL' => 'Netherlands',
+        'SE' => 'Sweden',
+        'NO' => 'Norway',
+        'DK' => 'Denmark',
+        'MX' => 'Mexico',
+        'BR' => 'Brazil',
+        'JP' => 'Japan',
+        'OTHER' => 'International',
+    ];
+}
+
+function directory_location_key(?string $country, ?string $region): string {
+    $country = strtoupper(trim((string)$country));
+    $region = trim((string)$region);
+    if ($region === '') return '';
+    return ($country !== '' ? $country : 'OTHER') . '|' . $region;
+}
+
+function directory_location_label(?string $country, ?string $region): string {
+    $country = strtoupper(trim((string)$country));
+    $region = trim((string)$region);
+    if ($region === '') return 'Region not set';
+    $countries = directory_country_options();
+    $countryLabel = $countries[$country] ?? '';
+    if ($countryLabel === '' || $country === 'OTHER') return $region;
+    return $region . ', ' . $countryLabel;
 }
 
 function directory_user_has_request_page_access(PDO $pdo, int $userId): bool {
@@ -87,7 +137,7 @@ function directory_download_filename(string $artistName): string {
 }
 
 $artists = [];
-$states = [];
+$locations = [];
 $directoryReady = directory_public_profiles_ready($pdo);
 $visibilityReady = $directoryReady && directory_profile_visibility_columns_ready($pdo);
 $descriptionReady = $directoryReady && directory_profile_description_ready($pdo);
@@ -150,26 +200,16 @@ if ($downloadSonglistUserId > 0) {
 }
 
 if ($directoryReady) {
-    $stateStmt = $pdo->query("
-        SELECT DISTINCT directory_state
-        FROM setmaxx_public_profiles
-        WHERE directory_visible = 1
-          AND directory_state IS NOT NULL
-          AND directory_state <> ''
-        ORDER BY directory_state
-    ");
-    $states = array_values(array_filter(array_map('strval', $stateStmt->fetchAll(PDO::FETCH_COLUMN))));
-
     $where = "WHERE pp.directory_visible = 1";
     $params = [];
-    if ($selectedState !== '') {
-        $where .= " AND pp.directory_state = ?";
-        $params[] = $selectedState;
-    }
+    $locationReady = directory_column_exists($pdo, 'setmaxx_public_profiles', 'directory_country')
+        && directory_column_exists($pdo, 'setmaxx_public_profiles', 'directory_region');
 
     $sql = "
         SELECT
             pp.user_id,
+            " . ($locationReady ? "pp.directory_country" : "NULL") . " AS directory_country,
+            " . ($locationReady ? "pp.directory_region" : "NULL") . " AS directory_region,
             pp.directory_state,
             pp.artist_name,
             pp.website_url,
@@ -190,7 +230,7 @@ if ($directoryReady) {
         " . ($songsReady ? "LEFT JOIN setmaxx_songs s ON s.user_id = pp.user_id AND s.is_active = 1" : "") . "
         " . ($linksReady ? "LEFT JOIN setmaxx_public_links spl ON spl.user_id = pp.user_id" : "") . "
         {$where}
-        GROUP BY pp.user_id, pp.directory_state, pp.artist_name, pp.website_url" . ($contactReady ? ", pp.youtube_url, pp.contact_email, pp.contact_phone, pp.review_url, pp.booking_url" : "") . ", pp.logo_path" . ($descriptionReady ? ", pp.directory_description" : "") . ($visibilityReady ? ", pp.directory_show_song_count, pp.directory_show_songlist" : "") . ", u.display_name" . ($linksReady ? ", spl.public_token" : "") . "
+        GROUP BY pp.user_id" . ($locationReady ? ", pp.directory_country, pp.directory_region" : "") . ", pp.directory_state, pp.artist_name, pp.website_url" . ($contactReady ? ", pp.youtube_url, pp.contact_email, pp.contact_phone, pp.review_url, pp.booking_url" : "") . ", pp.logo_path" . ($descriptionReady ? ", pp.directory_description" : "") . ($visibilityReady ? ", pp.directory_show_song_count, pp.directory_show_songlist" : "") . ", u.display_name" . ($linksReady ? ", spl.public_token" : "") . "
         HAVING COALESCE(NULLIF(pp.artist_name, ''), NULLIF(u.display_name, '')) IS NOT NULL
         ORDER BY
             CASE WHEN pp.directory_state IS NULL OR pp.directory_state = '' THEN 1 ELSE 0 END,
@@ -200,16 +240,36 @@ if ($directoryReady) {
     $stmt = $pdo->prepare($sql);
     $stmt->execute($params);
     $artists = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $artists = array_values(array_filter($artists, static function (array $artist): bool {
+        $name = trim((string)($artist['artist_name'] ?: $artist['display_name']));
+        $region = trim((string)($artist['directory_region'] ?: ($artist['directory_state'] ?? '')));
+        return directory_artist_name_is_readable($name) && $region !== '';
+    }));
     foreach ($artists as &$artist) {
         $name = trim((string)($artist['artist_name'] ?: $artist['display_name']));
+        $artist['directory_country'] = (string)($artist['directory_country'] ?: 'OTHER');
+        $artist['directory_region'] = trim((string)($artist['directory_region'] ?: ($artist['directory_state'] ?? '')));
+        $artist['location_key'] = directory_location_key((string)$artist['directory_country'], (string)$artist['directory_region']);
+        $artist['location_label'] = directory_location_label((string)$artist['directory_country'], (string)$artist['directory_region']);
         $artist['is_subscriber'] = directory_user_has_request_page_access($pdo, (int)$artist['user_id']) ? 1 : 0;
         $artist['profile_slug'] = directory_artist_slug($name);
     }
     unset($artist);
+    foreach ($artists as $artist) {
+        $locationKey = (string)($artist['location_key'] ?? '');
+        if ($locationKey !== '') $locations[$locationKey] = (string)($artist['location_label'] ?? $locationKey);
+    }
+    natcasesort($locations);
+    if ($selectedLocation !== '') {
+        $artists = array_values(array_filter($artists, static function (array $artist) use ($selectedLocation): bool {
+            return (string)($artist['location_key'] ?? '') === $selectedLocation
+                || (!str_contains($selectedLocation, '|') && strcasecmp((string)($artist['directory_region'] ?? ''), $selectedLocation) === 0);
+        }));
+    }
     usort($artists, static function (array $a, array $b): int {
         $subscriberCompare = (int)($b['is_subscriber'] ?? 0) <=> (int)($a['is_subscriber'] ?? 0);
         if ($subscriberCompare !== 0) return $subscriberCompare;
-        $stateCompare = strcmp((string)($a['directory_state'] ?? ''), (string)($b['directory_state'] ?? ''));
+        $stateCompare = strcmp((string)($a['location_label'] ?? ''), (string)($b['location_label'] ?? ''));
         if ($stateCompare !== 0) return $stateCompare;
         return strcasecmp((string)($a['artist_name'] ?: $a['display_name']), (string)($b['artist_name'] ?: $b['display_name']));
     });
@@ -230,7 +290,7 @@ $showQuoteAction = $directoryViewerAccountType !== 'artist';
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Artist Directory | Ready Set Shows</title>
-  <meta name="description" content="Discover prepared, working artists and bands using Ready Set Shows to manage songs, requests, and show details. Browse public artist profiles by state.">
+  <meta name="description" content="Discover prepared, working artists and bands using Ready Set Shows to manage songs, requests, and show details. Browse public artist profiles by location.">
   <link rel="stylesheet" href="<?= e($siteBase . '/assets/css/style.css') ?>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -280,14 +340,14 @@ $showQuoteAction = $directoryViewerAccountType !== 'artist';
   <section class="directory-hero">
     <div class="directory-kicker">Artist Directory</div>
     <h1>Find artists who take the show seriously.</h1>
-    <p>Ready Set Shows artists are already doing the extra work: organizing songs, managing requests, and making the night easier for hosts and audiences. Browse public profiles by state and connect with acts who show up prepared.</p>
+    <p>Ready Set Shows artists are already doing the extra work: organizing songs, managing requests, and making the night easier for hosts and audiences. Browse public profiles by location and connect with acts who show up prepared.</p>
   </section>
 
-  <?php if ($directoryReady && $states): ?>
-    <nav class="directory-filter" aria-label="Filter artists by state">
-      <a href="<?= e($siteBase . '/directory.php') ?>" class="<?= $selectedState === '' ? 'active' : '' ?>">All</a>
-      <?php foreach ($states as $state): ?>
-        <a href="<?= e($siteBase . '/directory.php?state=' . rawurlencode($state)) ?>" class="<?= $selectedState === $state ? 'active' : '' ?>"><?= e($state) ?></a>
+  <?php if ($directoryReady && $locations): ?>
+    <nav class="directory-filter" aria-label="Filter artists by location">
+      <a href="<?= e($siteBase . '/directory.php') ?>" class="<?= $selectedLocation === '' ? 'active' : '' ?>">All</a>
+      <?php foreach ($locations as $locationKey => $locationLabel): ?>
+        <a href="<?= e($siteBase . '/directory.php?location=' . rawurlencode((string)$locationKey)) ?>" class="<?= $selectedLocation === (string)$locationKey ? 'active' : '' ?>"><?= e($locationLabel) ?></a>
       <?php endforeach; ?>
     </nav>
   <?php endif; ?>
@@ -295,7 +355,7 @@ $showQuoteAction = $directoryViewerAccountType !== 'artist';
   <?php if (!$directoryReady): ?>
     <div class="directory-empty">The artist directory needs the latest database update before listings can appear.</div>
   <?php elseif (!$artists): ?>
-    <div class="directory-empty">No artists are listed<?= $selectedState !== '' ? ' in ' . e($selectedState) : '' ?> yet.</div>
+    <div class="directory-empty">No artists are listed<?= $selectedLocation !== '' && isset($locations[$selectedLocation]) ? ' in ' . e($locations[$selectedLocation]) : '' ?> yet.</div>
   <?php else: ?>
     <section class="directory-grid" aria-label="Artists">
       <?php foreach ($artists as $artist): ?>
@@ -308,8 +368,8 @@ $showQuoteAction = $directoryViewerAccountType !== 'artist';
           $requestUrl = (!empty($artist['public_token']) && $isSubscriber) ? $siteBase . '/studio/request.php?link=' . rawurlencode((string)$artist['public_token']) : '';
           $songlistUrl = (!empty($artist['directory_show_songlist']) && (int)$artist['active_song_count'] > 0) ? $siteBase . '/directory.php?songlist=' . (int)$artist['user_id'] : '';
           $profileUrl = $siteBase . '/artist/' . rawurlencode((string)$artist['profile_slug']);
-          $stateText = (string)($artist['directory_state'] ?: 'State not set');
-          $cardAttrs = 'data-name="' . e($name) . '" data-state="' . e($stateText) . '" data-photo="' . e($logoUrl) . '" data-description="' . e(trim((string)($artist['directory_description'] ?? ''))) . '" data-website="' . e((string)($artist['website_url'] ?? '')) . '" data-youtube="' . e((string)($artist['youtube_url'] ?? '')) . '" data-email="' . e((string)($artist['contact_email'] ?? '')) . '" data-phone="' . e((string)($artist['contact_phone'] ?? '')) . '" data-review="' . e((string)($artist['review_url'] ?? '')) . '" data-booking="' . e((string)($artist['booking_url'] ?? '')) . '" data-request="' . e($requestUrl) . '" data-songlist="' . e($songlistUrl) . '"';
+          $locationText = (string)($artist['location_label'] ?? 'Region not set');
+          $cardAttrs = 'data-name="' . e($name) . '" data-state="' . e($locationText) . '" data-photo="' . e($logoUrl) . '" data-description="' . e(trim((string)($artist['directory_description'] ?? ''))) . '" data-website="' . e((string)($artist['website_url'] ?? '')) . '" data-youtube="' . e((string)($artist['youtube_url'] ?? '')) . '" data-email="' . e((string)($artist['contact_email'] ?? '')) . '" data-phone="' . e((string)($artist['contact_phone'] ?? '')) . '" data-review="' . e((string)($artist['review_url'] ?? '')) . '" data-booking="' . e((string)($artist['booking_url'] ?? '')) . '" data-request="' . e($requestUrl) . '" data-songlist="' . e($songlistUrl) . '"';
         ?>
         <<?= $isSubscriber ? 'a' : 'button' ?> class="directory-card" <?= $isSubscriber ? 'href="' . e($profileUrl) . '"' : 'type="button" ' . $cardAttrs . ' onclick="return window.openDirectoryPhoto ? window.openDirectoryPhoto(this) : false;"' ?>>
           <?php if ($logoUrl !== ''): ?>
@@ -319,7 +379,7 @@ $showQuoteAction = $directoryViewerAccountType !== 'artist';
           <?php endif; ?>
           <div>
             <h2><?= e($name) ?></h2>
-            <div class="directory-meta"><?= e($stateText) ?></div>
+            <div class="directory-meta"><?= e($locationText) ?></div>
             <?php if ($isSubscriber): ?><span class="directory-pro-pill">Featured profile</span><?php endif; ?>
           </div>
         </<?= $isSubscriber ? 'a' : 'button' ?>>

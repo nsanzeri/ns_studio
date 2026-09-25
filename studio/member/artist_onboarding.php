@@ -28,10 +28,46 @@ function rss_onboarding_column_exists(PDO $pdo, string $columnName): bool
 	return (bool)$stmt->fetchColumn();
 }
 
+function rss_onboarding_ensure_location_columns(PDO $pdo): void
+{
+	if (!rss_onboarding_table_exists($pdo, 'setmaxx_public_profiles')) return;
+	if (!rss_onboarding_column_exists($pdo, 'directory_country')) {
+		$pdo->exec("ALTER TABLE setmaxx_public_profiles ADD COLUMN directory_country char(2) DEFAULT NULL AFTER directory_visible");
+	}
+	if (!rss_onboarding_column_exists($pdo, 'directory_region')) {
+		$pdo->exec("ALTER TABLE setmaxx_public_profiles ADD COLUMN directory_region varchar(80) DEFAULT NULL AFTER directory_country");
+	}
+}
+
 function rss_onboarding_clean_text($value, int $maxLength = 190): ?string
 {
 	$text = trim(preg_replace('/\s+/', ' ', (string)$value) ?? '');
 	return $text === '' ? null : mb_substr($text, 0, $maxLength);
+}
+
+function rss_onboarding_validate_artist_name(?string $name): ?string
+{
+	if ($name === null) return 'Add your artist or band name.';
+	if (mb_strlen($name) < 2) return 'Artist or band name must be at least 2 characters.';
+	if (!preg_match('/[A-Za-z]/', $name)) return 'Artist or band name must include letters.';
+	if (preg_match('/[^A-Za-z0-9 &.,\'’!?()+\/:-]/u', $name)) {
+		return 'Artist or band name can only use letters, numbers, spaces, and common punctuation.';
+	}
+
+	$lettersOnly = preg_replace('/[^A-Za-z]/', '', $name) ?? '';
+	if (strlen($lettersOnly) >= 12 && preg_match('/[bcdfghjklmnpqrstvwxz]{7,}/i', $lettersOnly)) {
+		return 'Artist or band name does not look readable. Please enter the public name fans would recognize.';
+	}
+
+	return null;
+}
+
+function rss_onboarding_validate_description(?string $description): ?string
+{
+	if ($description === null) return null;
+	if (mb_strlen($description) < 12) return 'Band description should be a short readable sentence.';
+	if (!preg_match('/[A-Za-z]/', $description)) return 'Band description must include readable text.';
+	return null;
 }
 
 function rss_onboarding_clean_url($value): ?string
@@ -49,14 +85,69 @@ function rss_onboarding_clean_email($value): ?string
 	return filter_var($email, FILTER_VALIDATE_EMAIL) ? mb_substr($email, 0, 190) : null;
 }
 
-function rss_onboarding_clean_state($value): ?string
+function rss_onboarding_country_options(): array
 {
-	$state = strtoupper(trim((string)$value));
-	return preg_match('/^[A-Z]{2}$/', $state) ? $state : null;
+	return [
+		'US' => 'United States',
+		'CA' => 'Canada',
+		'GB' => 'United Kingdom',
+		'IE' => 'Ireland',
+		'AU' => 'Australia',
+		'NZ' => 'New Zealand',
+		'DE' => 'Germany',
+		'FR' => 'France',
+		'NL' => 'Netherlands',
+		'SE' => 'Sweden',
+		'NO' => 'Norway',
+		'DK' => 'Denmark',
+		'MX' => 'Mexico',
+		'BR' => 'Brazil',
+		'JP' => 'Japan',
+		'OTHER' => 'Other / international',
+	];
 }
+
+function rss_onboarding_us_state_is_valid(string $state): bool
+{
+	$state = strtoupper(trim($state));
+	$validStates = [
+		'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA',
+		'HI', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME', 'MD',
+		'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ',
+		'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC',
+		'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY',
+		'DC',
+	];
+	return in_array($state, $validStates, true);
+}
+
+function rss_onboarding_clean_country($value): string
+{
+	$country = strtoupper(trim((string)$value));
+	return array_key_exists($country, rss_onboarding_country_options()) ? $country : 'OTHER';
+}
+
+function rss_onboarding_clean_region($value, string $country): ?string
+{
+	$region = rss_onboarding_clean_text($value, 80);
+	if ($region === null) return null;
+	if (!preg_match('/[A-Za-z0-9]/', $region)) return null;
+	if (preg_match('/[^A-Za-z0-9 &.,\'’()+\/:-]/u', $region)) return null;
+
+	if ($country === 'US') {
+		$region = strtoupper($region);
+		return rss_onboarding_us_state_is_valid($region) ? $region : null;
+	}
+
+	return $region;
+}
+
+rss_onboarding_ensure_location_columns($pdo);
 
 $profileReady = rss_onboarding_table_exists($pdo, 'setmaxx_public_profiles')
 	&& rss_onboarding_column_exists($pdo, 'directory_visible')
+	&& rss_onboarding_column_exists($pdo, 'directory_country')
+	&& rss_onboarding_column_exists($pdo, 'directory_region')
 	&& rss_onboarding_column_exists($pdo, 'directory_state')
 	&& rss_onboarding_column_exists($pdo, 'artist_name')
 	&& rss_onboarding_column_exists($pdo, 'website_url')
@@ -75,17 +166,22 @@ if (is_post()) {
 			$artistName = rss_onboarding_clean_text($_POST['artist_name'] ?? '', 190);
 			$websiteUrl = rss_onboarding_clean_url($_POST['website_url'] ?? '');
 			$contactEmail = rss_onboarding_clean_email($_POST['contact_email'] ?? '');
-			$directoryState = rss_onboarding_clean_state($_POST['directory_state'] ?? '');
+			$directoryCountry = rss_onboarding_clean_country($_POST['directory_country'] ?? 'US');
+			$directoryRegion = rss_onboarding_clean_region($_POST['directory_region'] ?? ($_POST['directory_state'] ?? ''), $directoryCountry);
+			$directoryState = $directoryCountry === 'US' && $directoryRegion !== null ? $directoryRegion : null;
 			$postedGenres = isset($_POST['directory_genres']) && is_array($_POST['directory_genres']) ? $_POST['directory_genres'] : [];
 			$directoryGenres = array_values(array_intersect($artistGenreOptions, array_map('strval', $postedGenres)));
 			$directoryGenresText = implode(',', $directoryGenres);
 			$directoryDescription = rss_onboarding_clean_text($_POST['directory_description'] ?? '', 700);
 			$logoPath = null;
 
-			if (!$artistName) throw new RuntimeException('Add your artist or band name.');
+			$artistNameErr = rss_onboarding_validate_artist_name($artistName);
+			if ($artistNameErr) throw new RuntimeException($artistNameErr);
+			$descriptionErr = rss_onboarding_validate_description($directoryDescription);
+			if ($descriptionErr) throw new RuntimeException($descriptionErr);
 			if (trim((string)($_POST['website_url'] ?? '')) !== '' && $websiteUrl === null) throw new RuntimeException('Website link is not valid.');
 			if (!$contactEmail) throw new RuntimeException('Add a valid contact email.');
-			if (!$directoryState) throw new RuntimeException('Add your two-letter directory state.');
+			if (!$directoryRegion) throw new RuntimeException($directoryCountry === 'US' ? 'Add your valid two-letter directory state.' : 'Add your directory region.');
 
 			if (!empty($_FILES['logo_file']['tmp_name']) && is_uploaded_file($_FILES['logo_file']['tmp_name'])) {
 				$tmpPath = (string)$_FILES['logo_file']['tmp_name'];
@@ -104,10 +200,10 @@ if (is_post()) {
 			}
 
 			$pdo->prepare(
-				"INSERT INTO setmaxx_public_profiles (user_id, directory_visible, directory_state, directory_show_song_count, directory_show_songlist, directory_genres, directory_description, artist_name, website_url, contact_email, logo_path)
-				 VALUES (?, 1, ?, 1, 0, ?, ?, ?, ?, ?, ?)
-				 ON DUPLICATE KEY UPDATE directory_visible = VALUES(directory_visible), directory_state = VALUES(directory_state), directory_genres = VALUES(directory_genres), directory_description = VALUES(directory_description), artist_name = VALUES(artist_name), website_url = VALUES(website_url), contact_email = VALUES(contact_email), logo_path = COALESCE(VALUES(logo_path), logo_path)"
-			)->execute([$userId, $directoryState, $directoryGenresText !== '' ? $directoryGenresText : null, $directoryDescription, $artistName, $websiteUrl, $contactEmail, $logoPath]);
+				"INSERT INTO setmaxx_public_profiles (user_id, directory_visible, directory_country, directory_region, directory_state, directory_show_song_count, directory_show_songlist, directory_genres, directory_description, artist_name, website_url, contact_email, logo_path)
+				 VALUES (?, 1, ?, ?, ?, 1, 0, ?, ?, ?, ?, ?, ?)
+				 ON DUPLICATE KEY UPDATE directory_visible = VALUES(directory_visible), directory_country = VALUES(directory_country), directory_region = VALUES(directory_region), directory_state = VALUES(directory_state), directory_genres = VALUES(directory_genres), directory_description = VALUES(directory_description), artist_name = VALUES(artist_name), website_url = VALUES(website_url), contact_email = VALUES(contact_email), logo_path = COALESCE(VALUES(logo_path), logo_path)"
+			)->execute([$userId, $directoryCountry, $directoryRegion, $directoryState, $directoryGenresText !== '' ? $directoryGenresText : null, $directoryDescription, $artistName, $websiteUrl, $contactEmail, $logoPath]);
 
 			flash_set('success', 'Your artist profile is ready.');
 			redirect(base_url('member/settings.php?brand=rss'));
@@ -149,7 +245,7 @@ $trialUrl = base_url('member/pricing.php');
     <input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>">
     <div class="form-field">
       <label>Artist or band name*</label>
-      <input type="text" name="artist_name" required placeholder="Your stage name or band name" value="<?= e((string)($_POST['artist_name'] ?? ($user['display_name'] ?? ''))) ?>">
+      <input type="text" name="artist_name" required minlength="2" maxlength="190" pattern="[A-Za-z0-9 &.,'!?()+/:-]{2,190}" placeholder="Your stage name or band name" value="<?= e((string)($_POST['artist_name'] ?? ($user['display_name'] ?? ''))) ?>">
     </div>
     <div class="form-field">
       <label style="margin-top:1rem;">Website</label>
@@ -160,8 +256,17 @@ $trialUrl = base_url('member/pricing.php');
       <input type="email" name="contact_email" required placeholder="booking@your-site.com" value="<?= e((string)($_POST['contact_email'] ?? ($user['email'] ?? ''))) ?>">
     </div>
     <div class="form-field">
-      <label style="margin-top:1rem;">Directory state*</label>
-      <input type="text" name="directory_state" required maxlength="2" pattern="[A-Za-z]{2}" placeholder="IL" value="<?= e((string)($_POST['directory_state'] ?? '')) ?>">
+      <label style="margin-top:1rem;">Country*</label>
+      <?php $selectedCountry = (string)($_POST['directory_country'] ?? 'US'); ?>
+      <select name="directory_country" required>
+        <?php foreach (rss_onboarding_country_options() as $countryCode => $countryLabel): ?>
+          <option value="<?= e($countryCode) ?>" <?= $selectedCountry === $countryCode ? 'selected' : '' ?>><?= e($countryLabel) ?></option>
+        <?php endforeach; ?>
+      </select>
+    </div>
+    <div class="form-field">
+      <label style="margin-top:1rem;">State / province / region*</label>
+      <input type="text" name="directory_region" required maxlength="80" placeholder="IL, ON, London, etc." value="<?= e((string)($_POST['directory_region'] ?? ($_POST['directory_state'] ?? ''))) ?>">
     </div>
     <fieldset class="form-field" style="margin-top:1rem;">
       <legend>Genres</legend>
@@ -174,7 +279,7 @@ $trialUrl = base_url('member/pricing.php');
     </fieldset>
     <div class="form-field">
       <label style="margin-top:1rem;">Band description</label>
-      <textarea name="directory_description" rows="3" placeholder="A sentence or two about your band."><?= e((string)($_POST['directory_description'] ?? '')) ?></textarea>
+      <textarea name="directory_description" rows="3" maxlength="700" placeholder="A sentence or two about your band."><?= e((string)($_POST['directory_description'] ?? '')) ?></textarea>
     </div>
     <div class="form-field">
       <label style="margin-top:1rem;">Profile image</label>

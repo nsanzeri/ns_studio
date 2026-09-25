@@ -31,6 +31,8 @@ function ns_ensure_public_artist_profile_table(PDO $pdo): void
               `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
               `user_id` int(10) unsigned NOT NULL,
               `directory_visible` tinyint(1) NOT NULL DEFAULT 1,
+              `directory_country` char(2) DEFAULT NULL,
+              `directory_region` varchar(80) DEFAULT NULL,
               `directory_state` char(2) DEFAULT NULL,
               `directory_show_song_count` tinyint(1) NOT NULL DEFAULT 1,
               `directory_show_songlist` tinyint(1) NOT NULL DEFAULT 0,
@@ -62,6 +64,12 @@ function ns_ensure_public_artist_profile_table(PDO $pdo): void
     }
     if (!ns_public_profile_column_exists($pdo, 'directory_state')) {
         $pdo->exec("ALTER TABLE setmaxx_public_profiles ADD COLUMN directory_state char(2) DEFAULT NULL AFTER directory_visible");
+    }
+    if (!ns_public_profile_column_exists($pdo, 'directory_country')) {
+        $pdo->exec("ALTER TABLE setmaxx_public_profiles ADD COLUMN directory_country char(2) DEFAULT NULL AFTER directory_visible");
+    }
+    if (!ns_public_profile_column_exists($pdo, 'directory_region')) {
+        $pdo->exec("ALTER TABLE setmaxx_public_profiles ADD COLUMN directory_region varchar(80) DEFAULT NULL AFTER directory_country");
     }
     if (!ns_public_profile_column_exists($pdo, 'directory_show_song_count')) {
         $pdo->exec("ALTER TABLE setmaxx_public_profiles ADD COLUMN directory_show_song_count tinyint(1) NOT NULL DEFAULT 1 AFTER directory_state");
@@ -132,6 +140,31 @@ function ns_clean_profile_text($value, int $maxLength = 190): ?string
     return mb_substr($text, 0, $maxLength);
 }
 
+function ns_validate_artist_profile_name(?string $name): ?string
+{
+    if ($name === null) return 'Artist or band name is required.';
+    if (mb_strlen($name) < 2) return 'Artist or band name must be at least 2 characters.';
+    if (!preg_match('/[A-Za-z]/', $name)) return 'Artist or band name must include letters.';
+    if (preg_match('/[^A-Za-z0-9 &.,\'’!?()+\/:-]/u', $name)) {
+        return 'Artist or band name can only use letters, numbers, spaces, and common punctuation.';
+    }
+
+    $lettersOnly = preg_replace('/[^A-Za-z]/', '', $name) ?? '';
+    if (strlen($lettersOnly) >= 12 && preg_match('/[bcdfghjklmnpqrstvwxz]{7,}/i', $lettersOnly)) {
+        return 'Artist or band name does not look readable. Please enter the public name fans would recognize.';
+    }
+
+    return null;
+}
+
+function ns_validate_profile_description(?string $description): ?string
+{
+    if ($description === null) return null;
+    if (mb_strlen($description) < 12) return 'Band description should be a short readable sentence.';
+    if (!preg_match('/[A-Za-z]/', $description)) return 'Band description must include readable text.';
+    return null;
+}
+
 function ns_clean_profile_url($value): ?string
 {
     $url = trim((string)$value);
@@ -167,19 +200,72 @@ function ns_clean_profile_phone($value): ?string
     return mb_substr($phone, 0, 64);
 }
 
-function ns_clean_profile_state($value): ?string
+function ns_directory_country_options(): array
 {
-    $state = strtoupper(trim((string)$value));
-    return preg_match('/^[A-Z]{2}$/', $state) ? $state : null;
+    return [
+        'US' => 'United States',
+        'CA' => 'Canada',
+        'GB' => 'United Kingdom',
+        'IE' => 'Ireland',
+        'AU' => 'Australia',
+        'NZ' => 'New Zealand',
+        'DE' => 'Germany',
+        'FR' => 'France',
+        'NL' => 'Netherlands',
+        'SE' => 'Sweden',
+        'NO' => 'Norway',
+        'DK' => 'Denmark',
+        'MX' => 'Mexico',
+        'BR' => 'Brazil',
+        'JP' => 'Japan',
+        'OTHER' => 'Other / international',
+    ];
+}
+
+function ns_us_state_is_valid(string $state): bool
+{
+    $state = strtoupper(trim($state));
+    $validStates = [
+        'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA',
+        'HI', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME', 'MD',
+        'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ',
+        'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC',
+        'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY',
+        'DC',
+    ];
+    return in_array($state, $validStates, true);
+}
+
+function ns_clean_profile_country($value): string
+{
+    $country = strtoupper(trim((string)$value));
+    return array_key_exists($country, ns_directory_country_options()) ? $country : 'OTHER';
+}
+
+function ns_clean_profile_region($value, string $country): ?string
+{
+    $region = ns_clean_profile_text($value, 80);
+    if ($region === null) return null;
+    if (!preg_match('/[A-Za-z0-9]/', $region)) return null;
+    if (preg_match('/[^A-Za-z0-9 &.,\'’()+\/:-]/u', $region)) return null;
+
+    if ($country === 'US') {
+        $region = strtoupper($region);
+        return ns_us_state_is_valid($region) ? $region : null;
+    }
+
+    return $region;
 }
 
 function ns_public_artist_profile(PDO $pdo, int $userId): array
 {
     ns_ensure_public_artist_profile_table($pdo);
-    $stmt = $pdo->prepare("SELECT directory_visible, directory_state, directory_show_song_count, directory_show_songlist, directory_genres, directory_description, artist_name, website_url, youtube_url, contact_email, contact_phone, logo_path FROM setmaxx_public_profiles WHERE user_id = ? LIMIT 1");
+    $stmt = $pdo->prepare("SELECT directory_visible, directory_country, directory_region, directory_state, directory_show_song_count, directory_show_songlist, directory_genres, directory_description, artist_name, website_url, youtube_url, contact_email, contact_phone, logo_path FROM setmaxx_public_profiles WHERE user_id = ? LIMIT 1");
     $stmt->execute([$userId]);
     return $stmt->fetch(PDO::FETCH_ASSOC) ?: [
         'directory_visible' => 1,
+        'directory_country' => 'US',
+        'directory_region' => '',
         'directory_state' => '',
         'directory_show_song_count' => 1,
         'directory_show_songlist' => 0,
@@ -268,7 +354,9 @@ if (is_post()) {
                 $youtubeUrl = ns_clean_profile_url($_POST['youtube_url'] ?? '');
                 $contactEmail = ns_clean_profile_email($_POST['contact_email'] ?? '');
                 $contactPhone = ns_clean_profile_phone($_POST['contact_phone'] ?? '');
-                $directoryState = ns_clean_profile_state($_POST['directory_state'] ?? '');
+                $directoryCountry = ns_clean_profile_country($_POST['directory_country'] ?? 'US');
+                $directoryRegion = ns_clean_profile_region($_POST['directory_region'] ?? ($_POST['directory_state'] ?? ''), $directoryCountry);
+                $directoryState = $directoryCountry === 'US' && $directoryRegion !== null ? $directoryRegion : null;
                 $directoryVisible = !empty($_POST['directory_visible']) ? 1 : 0;
                 $directoryShowSongCount = !empty($_POST['directory_show_song_count']) ? 1 : 0;
                 $directoryShowSonglist = !empty($_POST['directory_show_songlist']) ? 1 : 0;
@@ -288,14 +376,22 @@ if (is_post()) {
                 if (!$artistName) {
                     throw new RuntimeException('Artist or band name is required.');
                 }
+                $artistNameErr = ns_validate_artist_profile_name($artistName);
+                if ($artistNameErr) {
+                    throw new RuntimeException($artistNameErr);
+                }
+                $descriptionErr = ns_validate_profile_description($directoryDescription);
+                if ($descriptionErr) {
+                    throw new RuntimeException($descriptionErr);
+                }
                 if (trim((string)($_POST['contact_email'] ?? '')) !== '' && $contactEmail === null) {
                     throw new RuntimeException('Contact email is not valid.');
                 }
                 if (!$contactEmail) {
                     throw new RuntimeException('Contact email is required.');
                 }
-                if (!$directoryState) {
-                    throw new RuntimeException('Directory state is required. Use a two-letter state abbreviation.');
+                if (!$directoryRegion) {
+                    throw new RuntimeException($directoryCountry === 'US' ? 'Directory state is required. Use a valid two-letter state abbreviation.' : 'Directory region is required.');
                 }
 
                 if (!empty($_FILES['logo_file']['tmp_name']) && is_uploaded_file($_FILES['logo_file']['tmp_name'])) {
@@ -331,10 +427,10 @@ if (is_post()) {
                 }
 
                 $pdo->prepare(
-                    "INSERT INTO setmaxx_public_profiles (user_id, directory_visible, directory_state, directory_show_song_count, directory_show_songlist, directory_genres, directory_description, artist_name, website_url, youtube_url, contact_email, contact_phone, logo_path)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                     ON DUPLICATE KEY UPDATE directory_visible = VALUES(directory_visible), directory_state = VALUES(directory_state), directory_show_song_count = VALUES(directory_show_song_count), directory_show_songlist = VALUES(directory_show_songlist), directory_genres = VALUES(directory_genres), directory_description = VALUES(directory_description), artist_name = VALUES(artist_name), website_url = VALUES(website_url), youtube_url = VALUES(youtube_url), contact_email = VALUES(contact_email), contact_phone = VALUES(contact_phone), logo_path = VALUES(logo_path)"
-                )->execute([$userId, $directoryVisible, $directoryState, $directoryShowSongCount, $directoryShowSonglist, $directoryGenresText !== '' ? $directoryGenresText : null, $directoryDescription, $artistName, $websiteUrl, $youtubeUrl, $contactEmail, $contactPhone, $logoPath !== '' ? $logoPath : null]);
+                    "INSERT INTO setmaxx_public_profiles (user_id, directory_visible, directory_country, directory_region, directory_state, directory_show_song_count, directory_show_songlist, directory_genres, directory_description, artist_name, website_url, youtube_url, contact_email, contact_phone, logo_path)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     ON DUPLICATE KEY UPDATE directory_visible = VALUES(directory_visible), directory_country = VALUES(directory_country), directory_region = VALUES(directory_region), directory_state = VALUES(directory_state), directory_show_song_count = VALUES(directory_show_song_count), directory_show_songlist = VALUES(directory_show_songlist), directory_genres = VALUES(directory_genres), directory_description = VALUES(directory_description), artist_name = VALUES(artist_name), website_url = VALUES(website_url), youtube_url = VALUES(youtube_url), contact_email = VALUES(contact_email), contact_phone = VALUES(contact_phone), logo_path = VALUES(logo_path)"
+                )->execute([$userId, $directoryVisible, $directoryCountry, $directoryRegion, $directoryState, $directoryShowSongCount, $directoryShowSonglist, $directoryGenresText !== '' ? $directoryGenresText : null, $directoryDescription, $artistName, $websiteUrl, $youtubeUrl, $contactEmail, $contactPhone, $logoPath !== '' ? $logoPath : null]);
 
                 $publicArtistProfile = ns_public_artist_profile($pdo, $userId);
                 if ($imageErr) {
@@ -346,7 +442,9 @@ if (is_post()) {
                 $err = $e->getMessage();
                 $publicArtistProfile = array_merge($publicArtistProfile, [
                     'directory_visible' => !empty($_POST['directory_visible']) ? 1 : 0,
-                    'directory_state' => strtoupper(trim((string)($_POST['directory_state'] ?? ''))),
+                    'directory_country' => strtoupper(trim((string)($_POST['directory_country'] ?? 'US'))),
+                    'directory_region' => trim((string)($_POST['directory_region'] ?? ($_POST['directory_state'] ?? ''))),
+                    'directory_state' => strtoupper(trim((string)($_POST['directory_region'] ?? ($_POST['directory_state'] ?? '')))),
                     'directory_show_song_count' => !empty($_POST['directory_show_song_count']) ? 1 : 0,
                     'directory_show_songlist' => !empty($_POST['directory_show_songlist']) ? 1 : 0,
                     'directory_genres' => implode(',', array_values(array_intersect($artistGenreOptions, array_map('strval', isset($_POST['directory_genres']) && is_array($_POST['directory_genres']) ? $_POST['directory_genres'] : [])))),
@@ -470,7 +568,7 @@ if ($isReadySetShowsHost) {
       <input type="hidden" name="action" value="public_artist_profile">
       <div class="form-field">
         <label>Artist or band name*</label>
-        <input type="text" name="artist_name" required placeholder="Your stage name or band name" value="<?= e((string)($publicArtistProfile['artist_name'] ?? '')) ?>">
+        <input type="text" name="artist_name" required minlength="2" maxlength="190" pattern="[A-Za-z0-9 &.,'!?()+/:-]{2,190}" placeholder="Your stage name or band name" value="<?= e((string)($publicArtistProfile['artist_name'] ?? '')) ?>">
       </div>
       <div class="form-field">
         <label style="margin-top:1rem;">Website</label>
@@ -489,8 +587,17 @@ if ($isReadySetShowsHost) {
         <input type="tel" id="contact_phone" name="contact_phone" placeholder="Optional public phone number" value="<?= e((string)($publicArtistProfile['contact_phone'] ?? '')) ?>">
       </div>
       <div class="form-field">
-        <label style="margin-top:1rem;">Directory state*</label>
-        <input type="text" name="directory_state" required maxlength="2" pattern="[A-Za-z]{2}" placeholder="IL" value="<?= e((string)($publicArtistProfile['directory_state'] ?? '')) ?>">
+        <label style="margin-top:1rem;">Country*</label>
+        <?php $selectedCountry = (string)($publicArtistProfile['directory_country'] ?? 'US'); ?>
+        <select name="directory_country" required>
+          <?php foreach (ns_directory_country_options() as $countryCode => $countryLabel): ?>
+            <option value="<?= e($countryCode) ?>" <?= $selectedCountry === $countryCode ? 'selected' : '' ?>><?= e($countryLabel) ?></option>
+          <?php endforeach; ?>
+        </select>
+      </div>
+      <div class="form-field">
+        <label style="margin-top:1rem;">State / province / region*</label>
+        <input type="text" name="directory_region" required maxlength="80" placeholder="IL, ON, London, etc." value="<?= e((string)($publicArtistProfile['directory_region'] ?: ($publicArtistProfile['directory_state'] ?? ''))) ?>">
       </div>
       <fieldset class="form-field" style="margin-top:1rem;">
         <legend>Genres</legend>
@@ -503,7 +610,7 @@ if ($isReadySetShowsHost) {
       </fieldset>
       <div class="form-field">
         <label style="margin-top:1rem;">Band description</label>
-        <textarea name="directory_description" rows="3" placeholder="A sentence or two about your band."><?= e((string)($publicArtistProfile['directory_description'] ?? '')) ?></textarea>
+        <textarea name="directory_description" rows="3" maxlength="700" placeholder="A sentence or two about your band."><?= e((string)($publicArtistProfile['directory_description'] ?? '')) ?></textarea>
       </div>
       <label style="display:flex; gap:.6rem; align-items:flex-start; margin-top:1rem;">
         <input type="checkbox" name="directory_visible" value="1" <?= !array_key_exists('directory_visible', $publicArtistProfile) || !empty($publicArtistProfile['directory_visible']) ? 'checked' : '' ?>>

@@ -440,7 +440,7 @@ setmaxx_page_head('Set Maxx | Show Setup');
         <li>This QR code is meant for signs, table tents, business cards, and repeat use.</li>
         <li>The QR code does not change from show to show.</li>
         <li>It routes fans to whichever session is currently live.</li>
-        <li>If no session is live, fans will not have an active show request page to use.</li>
+        <li>If no session is live, fans will still see your tipping, reviews, website, song suggestion, and other public links.</li>
         <li>Use "Open Request Dashboard" to watch incoming requests and tips during the show.</li>
       </ul>
     </div>

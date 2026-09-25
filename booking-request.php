@@ -41,9 +41,61 @@ function booking_selected_genres(array $source): array {
     return array_values($genres);
 }
 
+function booking_artist_name_is_readable(string $artistName): bool {
+    $name = trim($artistName);
+    if (mb_strlen($name) < 2) return false;
+    if (!preg_match('/[A-Za-z]/', $name)) return false;
+    if (preg_match('/[^A-Za-z0-9 &.,\'’!?()+\/:-]/u', $name)) return false;
+
+    $lettersOnly = preg_replace('/[^A-Za-z]/', '', $name) ?? '';
+    if (strlen($lettersOnly) >= 12 && preg_match('/[bcdfghjklmnpqrstvwxz]{7,}/i', $lettersOnly)) return false;
+
+    return true;
+}
+
+function booking_country_options(): array {
+    return [
+        'US' => 'United States',
+        'CA' => 'Canada',
+        'GB' => 'United Kingdom',
+        'IE' => 'Ireland',
+        'AU' => 'Australia',
+        'NZ' => 'New Zealand',
+        'DE' => 'Germany',
+        'FR' => 'France',
+        'NL' => 'Netherlands',
+        'SE' => 'Sweden',
+        'NO' => 'Norway',
+        'DK' => 'Denmark',
+        'MX' => 'Mexico',
+        'BR' => 'Brazil',
+        'JP' => 'Japan',
+        'OTHER' => 'International',
+    ];
+}
+
+function booking_location_key(?string $country, ?string $region): string {
+    $country = strtoupper(trim((string)$country));
+    $region = trim((string)$region);
+    if ($region === '') return '';
+    return ($country !== '' ? $country : 'OTHER') . '|' . $region;
+}
+
+function booking_location_label(?string $country, ?string $region): string {
+    $country = strtoupper(trim((string)$country));
+    $region = trim((string)$region);
+    if ($region === '') return 'Region not set';
+    $countries = booking_country_options();
+    $countryLabel = $countries[$country] ?? '';
+    if ($countryLabel === '' || $country === 'OTHER') return $region;
+    return $region . ', ' . $countryLabel;
+}
+
 function booking_fetch_directory_artists(PDO $pdo, bool $profilesReady, bool $directoryMetaReady): array {
     $profileSelect = $profilesReady ? 'p.id AS profile_id' : 'NULL AS profile_id';
     $directoryMetaSelect = $directoryMetaReady ? 'pp.directory_genres, pp.directory_description,' : 'NULL AS directory_genres, NULL AS directory_description,';
+    $locationReady = booking_column_exists($pdo, 'setmaxx_public_profiles', 'directory_country')
+        && booking_column_exists($pdo, 'setmaxx_public_profiles', 'directory_region');
     $profileJoin = $profilesReady ? "
         LEFT JOIN (
             SELECT user_id, MIN(id) AS id
@@ -58,6 +110,8 @@ function booking_fetch_directory_artists(PDO $pdo, bool $profilesReady, bool $di
     $sql = "
         SELECT
             pp.user_id,
+            " . ($locationReady ? "pp.directory_country" : "NULL") . " AS directory_country,
+            " . ($locationReady ? "pp.directory_region" : "NULL") . " AS directory_region,
             pp.directory_state,
             pp.artist_name,
             pp.website_url,
@@ -76,7 +130,20 @@ function booking_fetch_directory_artists(PDO $pdo, bool $profilesReady, bool $di
             pp.directory_state ASC,
             COALESCE(NULLIF(pp.artist_name, ''), NULLIF(u.display_name, '')) ASC
     ";
-    return $pdo->query($sql)->fetchAll(PDO::FETCH_ASSOC);
+    $artists = $pdo->query($sql)->fetchAll(PDO::FETCH_ASSOC);
+    $artists = array_values(array_filter($artists, static function (array $artist): bool {
+        $name = trim((string)($artist['artist_name'] ?: $artist['display_name']));
+        $region = trim((string)($artist['directory_region'] ?: ($artist['directory_state'] ?? '')));
+        return booking_artist_name_is_readable($name) && $region !== '';
+    }));
+    foreach ($artists as &$artist) {
+        $artist['directory_country'] = (string)($artist['directory_country'] ?: 'OTHER');
+        $artist['directory_region'] = trim((string)($artist['directory_region'] ?: ($artist['directory_state'] ?? '')));
+        $artist['location_key'] = booking_location_key((string)$artist['directory_country'], (string)$artist['directory_region']);
+        $artist['location_label'] = booking_location_label((string)$artist['directory_country'], (string)$artist['directory_region']);
+    }
+    unset($artist);
+    return $artists;
 }
 
 function booking_clean_text(string $value, int $maxLen): string {
@@ -146,17 +213,17 @@ if ($currentUser && Auth::accountTypeForUser($pdo, (int)$currentUser['id']) === 
 }
 $artists = $ready ? booking_fetch_directory_artists($pdo, $profilesReady, $directoryMetaReady) : [];
 $artistByUserId = [];
-$artistStates = [];
+$artistLocations = [];
 $artistGenres = [];
 foreach ($artists as $artist) {
     $artistByUserId[(int)$artist['user_id']] = $artist;
-    $state = trim((string)($artist['directory_state'] ?? ''));
-    if ($state !== '') $artistStates[$state] = $state;
+    $locationKey = (string)($artist['location_key'] ?? '');
+    if ($locationKey !== '') $artistLocations[$locationKey] = (string)($artist['location_label'] ?? $locationKey);
     foreach (array_filter(array_map('trim', explode(',', (string)($artist['directory_genres'] ?? '')))) as $genre) {
         $artistGenres[$genre] = $genre;
     }
 }
-sort($artistStates);
+natcasesort($artistLocations);
 ksort($artistGenres, SORT_NATURAL | SORT_FLAG_CASE);
 
 $myRequests = [];
@@ -176,7 +243,7 @@ if ($ready) {
 
 $selectedIds = booking_selected_artist_ids($_GET);
 $activeGenreFilters = booking_selected_genres($_POST);
-$activeStateFilter = strtoupper(booking_clean_text((string)($_POST['state_filter'] ?? ''), 2));
+$activeLocationFilter = booking_clean_text((string)($_POST['location_filter'] ?? ($_POST['state_filter'] ?? '')), 96);
 $errors = [];
 $successRequestId = 0;
 
@@ -201,7 +268,7 @@ if (is_post()) {
     $venueName = booking_clean_text((string)($_POST['venue_name'] ?? ''), 190);
     $city = booking_clean_text((string)($_POST['city'] ?? ''), 120);
     $state = strtoupper(booking_clean_text((string)($_POST['state'] ?? ''), 2));
-    $activeStateFilter = strtoupper(booking_clean_text((string)($_POST['state_filter'] ?? ''), 2));
+    $activeLocationFilter = booking_clean_text((string)($_POST['location_filter'] ?? ($_POST['state_filter'] ?? '')), 96);
     $budgetMax = (float)($_POST['budget_max'] ?? 0);
     $guestCount = (int)($_POST['guest_count'] ?? 0);
     $notes = trim((string)($_POST['notes'] ?? ''));
@@ -209,15 +276,17 @@ if (is_post()) {
 
     $autoAddMatching = !empty($_POST['auto_add_matching']);
     $activeGenreFilters = booking_selected_genres($_POST);
-    $autoAddState = $activeStateFilter !== '' ? $activeStateFilter : $state;
+    $autoAddRegion = $activeLocationFilter !== '' && isset($artistLocations[$activeLocationFilter])
+        ? strtoupper(trim(substr($activeLocationFilter, (int)strpos($activeLocationFilter, '|') + 1)))
+        : $state;
     if ($autoAddMatching) {
         foreach ($artists as $artist) {
             $artistUserId = (int)$artist['user_id'];
-            $artistState = strtoupper(trim((string)($artist['directory_state'] ?? '')));
+            $artistRegion = strtoupper(trim((string)($artist['directory_region'] ?? ($artist['directory_state'] ?? ''))));
             $artistGenresForMatch = booking_selected_genres([
                 'genre_filter' => explode(',', (string)($artist['directory_genres'] ?? '')),
             ]);
-            $matchesState = $autoAddState !== '' && $artistState === $autoAddState;
+            $matchesState = $autoAddRegion !== '' && $artistRegion === $autoAddRegion;
             $matchesGenre = $activeGenreFilters && array_intersect($activeGenreFilters, $artistGenresForMatch);
             if ($matchesState || $matchesGenre) {
                 $selectedIds[$artistUserId] = $artistUserId;
@@ -493,11 +562,11 @@ if (!$selectedIds && count($artists) === 1) {
             <input id="bandNameFilter" type="search" placeholder="Search by band name">
           </div>
           <div class="form-field">
-            <label for="bandStateFilter">State</label>
-            <select id="bandStateFilter" name="state_filter">
-              <option value="">All states</option>
-              <?php foreach ($artistStates as $stateOption): ?>
-                <option value="<?= e($stateOption) ?>" <?= $activeStateFilter === strtoupper((string)$stateOption) ? 'selected' : '' ?>><?= e($stateOption) ?></option>
+            <label for="bandStateFilter">Location</label>
+            <select id="bandStateFilter" name="location_filter">
+              <option value="">All locations</option>
+              <?php foreach ($artistLocations as $locationKey => $locationLabel): ?>
+                <option value="<?= e((string)$locationKey) ?>" <?= $activeLocationFilter === (string)$locationKey ? 'selected' : '' ?>><?= e($locationLabel) ?></option>
               <?php endforeach; ?>
             </select>
           </div>
@@ -515,28 +584,29 @@ if (!$selectedIds && count($artists) === 1) {
         </div>
         <label class="booking-auto-add">
           <input type="checkbox" name="auto_add_matching" value="1" <?= !empty($_POST['auto_add_matching']) ? 'checked' : '' ?>>
-          <span>Auto-add bands that match the event state or selected genres.</span>
+          <span>Auto-add bands that match the event state/region or selected genres.</span>
         </label>
         <div class="booking-band-list">
           <?php foreach ($artists as $artist): ?>
             <?php
               $artistUserId = (int)$artist['user_id'];
               $name = trim((string)($artist['artist_name'] ?: $artist['display_name']));
-              $state = trim((string)($artist['directory_state'] ?? ''));
+              $locationKey = (string)($artist['location_key'] ?? '');
+              $locationLabel = (string)($artist['location_label'] ?? 'Region not set');
               $genres = array_filter(array_map('trim', explode(',', (string)($artist['directory_genres'] ?? ''))));
               $description = trim((string)($artist['directory_description'] ?? ''));
               $logoPath = trim((string)($artist['logo_path'] ?? ''));
               $logoUrl = $logoPath !== '' ? $siteBase . '/' . ltrim(preg_replace('#^\.\./#', '', $logoPath), '/') : '';
               $initial = strtoupper(substr($name !== '' ? $name : 'A', 0, 1));
             ?>
-            <label class="booking-band-option" data-band-card data-name="<?= e(strtolower($name)) ?>" data-state="<?= e($state) ?>" data-genres="<?= e(strtolower(implode(',', $genres))) ?>">
+            <label class="booking-band-option" data-band-card data-name="<?= e(strtolower($name)) ?>" data-state="<?= e($locationKey) ?>" data-genres="<?= e(strtolower(implode(',', $genres))) ?>">
               <input type="checkbox" name="artists[]" value="<?= $artistUserId ?>" <?= in_array($artistUserId, $selectedIds, true) ? 'checked' : '' ?>>
-              <button type="button" class="booking-band-photo" data-photo="<?= e($logoUrl) ?>" data-name="<?= e($name) ?>" data-state="<?= e($state !== '' ? $state : 'State not set') ?>" data-description="<?= e($description) ?>" aria-label="View <?= e($name) ?> photo">
+              <button type="button" class="booking-band-photo" data-photo="<?= e($logoUrl) ?>" data-name="<?= e($name) ?>" data-state="<?= e($locationLabel) ?>" data-description="<?= e($description) ?>" aria-label="View <?= e($name) ?> photo">
                 <?php if ($logoUrl !== ''): ?><img src="<?= e($logoUrl) ?>" alt=""><?php else: ?><?= e($initial) ?><?php endif; ?>
               </button>
               <span class="booking-band-copy">
                 <strong><?= e($name) ?></strong>
-                <span><?= e($state !== '' ? $state : 'State not set') ?></span>
+                <span><?= e($locationLabel) ?></span>
                 <?php if ($genres): ?>
                   <span class="booking-genre-chips">
                     <?php foreach ($genres as $genre): ?><span><?= e($genre) ?></span><?php endforeach; ?>

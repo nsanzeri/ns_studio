@@ -181,7 +181,7 @@ if ($tablesReady) {
     $sessionsStmt->execute([$userId]);
     $liveSession = $sessionsStmt->fetch(PDO::FETCH_ASSOC) ?: null;
     if ($liveSession) {
-        $reqStmt = $pdo->prepare("SELECT r.id, r.requester_name, r.requester_identifier, r.requester_ip, r.request_note, r.amount_cents, r.status, r.payment_method, r.created_at, s.title, s.artist FROM setmaxx_requests r JOIN setmaxx_songs s ON s.id = r.song_id WHERE r.gig_session_id = ? ORDER BY FIELD(r.status, 'pending', 'queued', 'played', 'declined', 'canceled'), r.amount_cents DESC, r.created_at DESC");
+        $reqStmt = $pdo->prepare("SELECT r.id, r.requester_name, r.requester_identifier, r.requester_ip, r.request_note, r.amount_cents, r.status, r.payment_method, r.created_at, s.id AS song_id, s.title, s.artist FROM setmaxx_requests r JOIN setmaxx_songs s ON s.id = r.song_id WHERE r.gig_session_id = ? ORDER BY FIELD(r.status, 'pending', 'queued', 'played', 'declined', 'canceled'), r.amount_cents DESC, r.created_at DESC");
         $reqStmt->execute([(int)$liveSession['id']]);
         $requests = $reqStmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -288,7 +288,7 @@ setmaxx_page_head('Set Maxx | Request Dashboard');
             ?>
             <div class="setmaxx-row setmaxx-request-row" data-request-id="<?= (int)$request['id'] ?>">
               <div class="setmaxx-request-main">
-                <div class="setmaxx-request-title-row"><div style="font-weight:600;"><?= e($request['title']) ?></div><a class="setmaxx-mini-link" href="<?= e(setmaxx_lyrics_url((string)$request['title'], (string)$request['artist'])) ?>" target="_blank" rel="noopener">Lyrics</a><span class="setmaxx-status <?= e((string)$request['status']) ?>"><?= e((string)$request['status']) ?></span><?php if (($request['payment_method'] ?? '') === 'venmo'): ?><span class="setmaxx-pill">Venmo recorded</span><?php endif; ?></div>
+                <div class="setmaxx-request-title-row"><div style="font-weight:600;"><?= e($request['title']) ?></div><a class="setmaxx-mini-link" href="<?= e(setmaxx_lyrics_url((string)$request['title'], (string)$request['artist'])) ?>" target="_blank" rel="noopener">Lyrics</a><a class="setmaxx-mini-link" href="<?= e(base_url('/setmaxx/song_notes.php?id=' . (int)$request['song_id'])) ?>" target="_blank" rel="noopener">Notes</a><span class="setmaxx-status <?= e((string)$request['status']) ?>"><?= e((string)$request['status']) ?></span><?php if (($request['payment_method'] ?? '') === 'venmo'): ?><span class="setmaxx-pill">Venmo recorded</span><?php endif; ?></div>
                 <div class="setmaxx-meta"><?= e((string)($request['artist'] ?: 'Artist not set')) ?> &middot; from <?= e($requesterLabel) ?><?= $requestTime !== '' ? ' &middot; ' . e($requestTime) : '' ?><?php if (!empty($request['requester_ip'])): ?> &middot; <?= e((string)$request['requester_ip']) ?><?php endif; ?></div>
                 <?php if (!empty($request['request_note'])): ?><div class="setmaxx-help" style="margin-top:.35rem;">"<?= e((string)$request['request_note']) ?>"</div><?php endif; ?>
               </div>

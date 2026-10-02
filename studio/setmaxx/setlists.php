@@ -473,6 +473,9 @@ setmaxx_page_head('Set Maxx | Setlist Generator');
                             <?php foreach ((array)($favoriteSet['songs'] ?? []) as $favoriteSong): ?>
                               <li>
                                 <?= e((string)($favoriteSong['title'] ?? 'Untitled')) ?> <span><?= e((string)($favoriteSong['artist'] ?? 'Artist not set')) ?></span>
+                                <?php if ((int)($favoriteSong['id'] ?? 0) > 0): ?>
+                                  <a class="setmaxx-mini-link" href="<?= e(base_url('/setmaxx/song_notes.php?id=' . (int)$favoriteSong['id'])) ?>" target="_blank" rel="noopener">Notes</a>
+                                <?php endif; ?>
                                 <?php if (trim((string)($favoriteSong['performanceNotes'] ?? '')) !== ''): ?>
                                   <div class="setmaxx-favorite-notes"><?= nl2br(e((string)$favoriteSong['performanceNotes'])) ?></div>
                                 <?php endif; ?>
@@ -554,6 +557,7 @@ setmaxx_page_head('Set Maxx | Setlist Generator');
                             data-song-key="<?= e((string)($optionSong['song_key'] ?? '')) ?>"
                             data-bpm="<?= (int)($optionSong['tempo_bpm'] ?? 0) ?>"
                             data-lyrics="<?= e($optionLyrics) ?>"
+                            data-notes-url="<?= e(base_url('/setmaxx/song_notes.php?id=' . (int)$optionSong['id'])) ?>"
                             data-performance-notes="<?= e((string)($optionSong['performance_notes'] ?? '')) ?>"
                             <?= (int)$optionSong['id'] === (int)$song['id'] ? 'selected' : '' ?>
                           ><?= e($optionTitle . ' - ' . $optionArtist) ?></option>
@@ -570,6 +574,7 @@ setmaxx_page_head('Set Maxx | Setlist Generator');
                       <?php if (!empty($song['tempo_bpm'])): ?><span><?= (int)$song['tempo_bpm'] ?> bpm</span><?php endif; ?>
                       <span><?= e(setmaxx_setlist_display_length($song)) ?></span>
                       <a href="<?= e(setmaxx_lyrics_url((string)$song['title'], (string)$song['artist'])) ?>" target="_blank" rel="noopener">Lyrics</a>
+                      <a href="<?= e(base_url('/setmaxx/song_notes.php?id=' . (int)$song['id'])) ?>" target="_blank" rel="noopener">Notes</a>
                     </div>
                     <div class="setmaxx-performance-notes" data-performance-notes><?= trim((string)($song['performance_notes'] ?? '')) !== '' ? nl2br(e((string)$song['performance_notes'])) : '' ?></div>
                   </li>
@@ -671,6 +676,8 @@ setmaxx_page_head('Set Maxx | Setlist Generator');
   .setmaxx-favorite-set { margin-top:.55rem; }
   .setmaxx-favorite-set ol { margin:.25rem 0 0; padding-left:1.25rem; color:rgba(255,255,255,.82); }
   .setmaxx-favorite-set li span { color:rgba(255,255,255,.58); }
+  .setmaxx-mini-link { display:inline-flex; align-items:center; min-height:28px; margin-left:.35rem; color:#efe7ff; font-size:.84rem; text-decoration:none; }
+  .setmaxx-mini-link:hover { text-decoration:underline; }
   .setmaxx-favorite-notes { margin:.18rem 0 .45rem; color:#efe7ff; font-size:.86rem; white-space:pre-wrap; }
   .setmaxx-multi-select { min-height:132px; }
   .setmaxx-song-badges { display:flex; gap:.35rem; flex-wrap:wrap; margin-top:.3rem; }
@@ -726,6 +733,7 @@ setmaxx_page_head('Set Maxx | Setlist Generator');
       songKey: option.getAttribute('data-song-key') || '',
       bpm: parseInt(option.getAttribute('data-bpm') || '0', 10),
       lyrics: option.getAttribute('data-lyrics') || '#',
+      notesUrl: option.getAttribute('data-notes-url') || '#',
       performanceNotes: option.getAttribute('data-performance-notes') || ''
     };
   }
@@ -753,6 +761,12 @@ setmaxx_page_head('Set Maxx | Setlist Generator');
     link.rel = 'noopener';
     link.textContent = 'Lyrics';
     container.appendChild(link);
+    const notesLink = document.createElement('a');
+    notesLink.href = song.notesUrl;
+    notesLink.target = '_blank';
+    notesLink.rel = 'noopener';
+    notesLink.textContent = 'Notes';
+    container.appendChild(notesLink);
     const row = container.closest('[data-setlist-song]');
     const notes = row ? row.querySelector('[data-performance-notes]') : null;
     if (notes) notes.textContent = song.performanceNotes;

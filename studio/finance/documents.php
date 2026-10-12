@@ -90,6 +90,46 @@ function finance_manual_invoice_card(): void { ?>
   </section>
 <?php }
 
+function finance_manual_contract_card(): void { ?>
+  <section class="finance-card" style="margin-bottom:1rem;">
+    <h2 style="margin-top:0;">New contract</h2>
+    <p class="finance-muted" style="margin-top:-.25rem;">Start a performance agreement without tying it to a calendar event.</p>
+    <form class="finance-grid" method="get" action="<?= e(base_url('/finance/document.php')) ?>" target="_blank" rel="noopener" style="align-items:end;">
+      <input type="hidden" name="type" value="contract">
+      <input type="hidden" name="manual" value="1">
+      <div class="finance-field">
+        <label for="manual-contract-client">Client</label>
+        <input class="finance-input" id="manual-contract-client" name="bill_to_company" type="text" maxlength="190" placeholder="Company, client, or organization">
+      </div>
+      <div class="finance-field">
+        <label for="manual-contract-date">Performance date</label>
+        <input class="finance-input" id="manual-contract-date" name="date" type="date" value="<?= e(date('Y-m-d')) ?>">
+      </div>
+      <div class="finance-field">
+        <label for="manual-contract-amount">Guaranteed fee</label>
+        <input class="finance-input" id="manual-contract-amount" name="amount" type="text" inputmode="decimal" placeholder="275.00">
+      </div>
+      <div class="finance-field">
+        <label for="manual-contract-care-of">Care of</label>
+        <input class="finance-input" id="manual-contract-care-of" name="bill_to_care_of" type="text" maxlength="190" placeholder="Contact person">
+      </div>
+      <div class="finance-field">
+        <label for="manual-contract-location">Venue / address</label>
+        <input class="finance-input" id="manual-contract-location" name="bill_to_address" type="text" maxlength="700" placeholder="Venue or performance address">
+      </div>
+      <div class="finance-field">
+        <label for="manual-contract-phone">Phone</label>
+        <input class="finance-input" id="manual-contract-phone" name="bill_to_phone" type="tel" maxlength="80" placeholder="(262) 639-3941">
+      </div>
+      <div class="finance-field">
+        <label for="manual-contract-email">Email</label>
+        <input class="finance-input" id="manual-contract-email" name="bill_to_email" type="email" maxlength="190" placeholder="contact@example.com">
+      </div>
+      <button class="btn btn-primary" type="submit">Create contract</button>
+    </form>
+  </section>
+<?php }
+
 finance_page_head('Contracts & Invoices | Ready Set Shows');
 ?>
 <main class="container finance-shell">
@@ -99,7 +139,7 @@ finance_page_head('Contracts & Invoices | Ready Set Shows');
     <div style="display:flex; justify-content:space-between; gap:1rem; align-items:flex-start; flex-wrap:wrap;">
       <div>
         <h1 style="margin:0 0 .35rem;">Contracts &amp; invoices</h1>
-        <p class="finance-muted" style="margin:0;">Generate simple show paperwork from calendar events or start a standalone invoice.</p>
+        <p class="finance-muted" style="margin:0;">Generate simple show paperwork from calendar events or start standalone paperwork.</p>
       </div>
       <div style="display:flex; gap:.65rem; flex-wrap:wrap;">
         <a class="btn btn-outline" href="<?= e(base_url('/finance/index.php')) ?>">Finance</a>
@@ -121,6 +161,7 @@ finance_page_head('Contracts & Invoices | Ready Set Shows');
     </section>
   <?php elseif (!$mainGigCalendar): ?>
     <?php finance_manual_invoice_card(); ?>
+    <?php finance_manual_contract_card(); ?>
     <section class="finance-card">
       <h2 style="margin-top:0;">Choose a main gig calendar</h2>
       <p class="finance-muted">Contracts and invoices use the events, dates, and addresses from whichever calendar is marked as your main gig calendar.</p>
@@ -128,6 +169,7 @@ finance_page_head('Contracts & Invoices | Ready Set Shows');
     </section>
   <?php else: ?>
     <?php finance_manual_invoice_card(); ?>
+    <?php finance_manual_contract_card(); ?>
     <section class="finance-card" style="margin-bottom:1rem;">
       <form class="finance-grid" method="get" action="<?= e(base_url('/finance/documents.php')) ?>" style="align-items:end;">
         <div class="finance-field">

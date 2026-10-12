@@ -16,9 +16,10 @@ $type = strtolower(trim((string)($_GET['type'] ?? 'contract')));
 if (!in_array($type, ['contract', 'invoice'], true)) {
     $type = 'contract';
 }
-$isManualInvoice = $type === 'invoice' && (string)($_GET['manual'] ?? '') === '1';
+$isManualDocument = (string)($_GET['manual'] ?? '') === '1';
+$isManualInvoice = $type === 'invoice' && $isManualDocument;
 
-if (!$isManualInvoice && !finance_column_exists($pdo, 'calendars', 'is_main_gig')) {
+if (!$isManualDocument && !finance_column_exists($pdo, 'calendars', 'is_main_gig')) {
     http_response_code(503);
     echo 'Main gig calendar setup is required.';
     exit;
@@ -59,13 +60,14 @@ $calendarName = '';
 $eventTitle = '';
 $eventLocation = '';
 $billToBlock = '';
+$clientBlock = '';
 $startsAt = null;
 $guaranteeCents = 0;
 $tipsCents = 0;
 $hasKnownAmount = false;
 $docSourceId = '';
 
-if ($isManualInvoice) {
+if ($isManualDocument) {
     $calendarName = '';
     $eventTitle = 'Performance';
     $billToCompany = finance_clean_text($_GET['bill_to_company'] ?? '', 190);
@@ -81,8 +83,16 @@ if ($isManualInvoice) {
         $billToEmail,
     ], static fn($line) => $line !== null && trim((string)$line) !== ''));
     $billToBlock = $billToLines ? implode("\n", $billToLines) : 'Client billing details to be confirmed';
+    $clientLines = array_values(array_filter([
+        $billToCompany,
+        $billToCareOf ? 'Care of: ' . $billToCareOf : null,
+        $billToPhone,
+        $billToEmail,
+    ], static fn($line) => $line !== null && trim((string)$line) !== ''));
+    $clientBlock = implode("\n", $clientLines);
     $invoiceDate = preg_match('/^\d{4}-\d{2}-\d{2}$/', (string)($_GET['date'] ?? '')) ? (string)$_GET['date'] : date('Y-m-d');
     $startsAt = new DateTime($invoiceDate);
+    $eventLocation = $billToAddress ?: 'Venue / address to be confirmed';
     $guaranteeCents = finance_parse_money($_GET['amount'] ?? 0);
     $hasKnownAmount = $guaranteeCents > 0;
     $docSourceId = substr(hash('sha256', implode('|', [$userId, $eventTitle, $billToBlock, $invoiceDate, $guaranteeCents])), 0, 8);
@@ -174,7 +184,8 @@ if ($isManualInvoice) {
 $amountCents = $type === 'invoice' ? $guaranteeCents : $guaranteeCents + $tipsCents;
 $docTitle = $type === 'invoice' ? 'Invoice' : 'Performance Agreement';
 $docNumber = strtoupper($type) . '-' . preg_replace('/[^A-Za-z0-9]/', '', $docSourceId) . '-' . $startsAt->format('Ymd');
-$invoiceGeneratedAt = new DateTime('today');
+$documentGeneratedAt = new DateTime('today');
+$documentDateLabel = $type === 'invoice' ? 'Invoice Date' : 'Contract Date';
 ?>
 <!doctype html>
 <html lang="en">
@@ -199,6 +210,7 @@ $invoiceGeneratedAt = new DateTime('today');
     button { border:0; border-radius:999px; background:#111; color:#fff; padding:12px 18px; font-weight:700; cursor:pointer; }
     .signature { margin-top:34px; display:grid; grid-template-columns:1fr 1fr; gap:30px; }
     .line { border-top:1px solid #111; padding-top:8px; margin-top:50px; }
+    .script-signature { font-family:"Brush Script MT", "Segoe Script", "Lucida Handwriting", cursive; font-size:30px; line-height:1; margin:20px 0 -36px; }
     @media print { body { background:#fff; } .page { width:auto; margin:0; box-shadow:none; padding:24px; } .actions { display:none; } }
   </style>
 </head>
@@ -210,7 +222,7 @@ $invoiceGeneratedAt = new DateTime('today');
         <h1><?= e($docTitle) ?></h1>
         <div class="invoice-meta">
           <div><?= e($docNumber) ?></div>
-          <div><strong>Invoice Date:</strong> <?= e($invoiceGeneratedAt->format('F j, Y')) ?></div>
+          <div><strong><?= e($documentDateLabel) ?>:</strong> <?= e($documentGeneratedAt->format('F j, Y')) ?></div>
         </div>
       </div>
       <div style="text-align:right;">
@@ -222,13 +234,12 @@ $invoiceGeneratedAt = new DateTime('today');
       </div>
     </div>
 
-    <div class="bill-to">
-      <strong>Bill To</strong><br>
-      <?= nl2br(e($billToBlock)) ?>
-      <?php if ($calendarName !== ''): ?><br><span class="muted"><?= e($calendarName) ?></span><?php endif; ?>
-    </div>
-
     <?php if ($type === 'invoice'): ?>
+      <div class="bill-to">
+        <strong>Bill To</strong><br>
+        <?= nl2br(e($billToBlock)) ?>
+        <?php if ($calendarName !== ''): ?><br><span class="muted"><?= e($calendarName) ?></span><?php endif; ?>
+      </div>
       <h2>Services</h2>
       <table>
         <thead><tr><th>Date</th><th>Description</th><th>Amount</th></tr></thead>
@@ -241,11 +252,11 @@ $invoiceGeneratedAt = new DateTime('today');
       <p><?= e(implode(' ', $paymentTermLines)) ?></p>
     <?php else: ?>
       <h2>Agreement</h2>
-      <p>This agreement confirms the performance listed above between the performer and the hiring party. The performer will provide live entertainment for the event date and location shown.</p>
+      <p>This agreement confirms the performance between the performer and the hiring party. The performer will provide live entertainment for the event date and location shown.</p>
       <table>
         <tbody>
+          <?php if ($clientBlock !== ''): ?><tr><th>Client</th><td><?= nl2br(e($clientBlock)) ?></td></tr><?php endif; ?>
           <tr><th>Performance date</th><td><?= e($startsAt->format('F j, Y')) ?></td></tr>
-          <tr><th>Show title</th><td><?= e($eventTitle) ?></td></tr>
           <tr><th>Venue / address</th><td><?= e($eventLocation) ?></td></tr>
           <tr><th>Guaranteed fee</th><td><?= $hasKnownAmount ? finance_money($guaranteeCents) : 'To be confirmed' ?></td></tr>
         </tbody>
@@ -254,13 +265,13 @@ $invoiceGeneratedAt = new DateTime('today');
       <ol>
         <li>The performer will provide live music for the event date, time, and location listed above.</li>
         <li>The client will provide a safe performance area, reasonable access for setup and load-out, and standard power when needed.</li>
-        <li>Payment is due as agreed by the performer and client. Any remaining balance should be paid no later than the event date unless both parties agree otherwise.</li>
-        <li>Schedule, location, or material production changes should be confirmed by both parties in writing.</li>
-        <li>Outdoor events require suitable weather protection for performers, instruments, and equipment.</li>
-        <li>Cancellation or rescheduling terms may be added by the performer and client before signing.</li>
+        <li>Any remaining balance should be paid no later than the event date unless both parties agree otherwise.</li>
       </ol>
       <div class="signature">
-        <div class="line">Performer signature</div>
+        <div>
+          <div class="script-signature"><?= e($payableTo) ?></div>
+          <div class="line">Performer signature</div>
+        </div>
         <div class="line">Client signature</div>
       </div>
     <?php endif; ?>

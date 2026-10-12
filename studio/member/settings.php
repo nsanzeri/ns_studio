@@ -37,6 +37,8 @@ function ns_ensure_public_artist_profile_table(PDO $pdo): void
               `directory_show_song_count` tinyint(1) NOT NULL DEFAULT 1,
               `directory_show_songlist` tinyint(1) NOT NULL DEFAULT 0,
               `artist_name` varchar(190) DEFAULT NULL,
+              `invoice_payable_to` varchar(190) DEFAULT NULL,
+              `invoice_address` text DEFAULT NULL,
               `website_url` varchar(255) DEFAULT NULL,
               `review_url` varchar(255) DEFAULT NULL,
               `booking_url` varchar(255) DEFAULT NULL,
@@ -85,6 +87,12 @@ function ns_ensure_public_artist_profile_table(PDO $pdo): void
     }
     if (!ns_public_profile_column_exists($pdo, 'artist_name')) {
         $pdo->exec("ALTER TABLE setmaxx_public_profiles ADD COLUMN artist_name varchar(190) DEFAULT NULL AFTER user_id");
+    }
+    if (!ns_public_profile_column_exists($pdo, 'invoice_payable_to')) {
+        $pdo->exec("ALTER TABLE setmaxx_public_profiles ADD COLUMN invoice_payable_to varchar(190) DEFAULT NULL AFTER artist_name");
+    }
+    if (!ns_public_profile_column_exists($pdo, 'invoice_address')) {
+        $pdo->exec("ALTER TABLE setmaxx_public_profiles ADD COLUMN invoice_address text DEFAULT NULL AFTER invoice_payable_to");
     }
     if (!ns_public_profile_column_exists($pdo, 'website_url')) {
         $pdo->exec("ALTER TABLE setmaxx_public_profiles ADD COLUMN website_url varchar(255) DEFAULT NULL AFTER artist_name");
@@ -138,6 +146,15 @@ function ns_clean_profile_text($value, int $maxLength = 190): ?string
     $text = trim(preg_replace('/\s+/', ' ', (string)$value) ?? '');
     if ($text === '') return null;
     return mb_substr($text, 0, $maxLength);
+}
+
+function ns_clean_profile_multiline($value, int $maxLength = 700): ?string
+{
+    $text = trim((string)$value);
+    if ($text === '') return null;
+    $text = preg_replace("/[ \t]+/", ' ', $text) ?? '';
+    $text = preg_replace("/\R{3,}/", "\n\n", $text) ?? '';
+    return mb_substr(trim($text), 0, $maxLength);
 }
 
 function ns_validate_artist_profile_name(?string $name): ?string
@@ -260,7 +277,7 @@ function ns_clean_profile_region($value, string $country): ?string
 function ns_public_artist_profile(PDO $pdo, int $userId): array
 {
     ns_ensure_public_artist_profile_table($pdo);
-    $stmt = $pdo->prepare("SELECT directory_visible, directory_country, directory_region, directory_state, directory_show_song_count, directory_show_songlist, directory_genres, directory_description, artist_name, website_url, youtube_url, contact_email, contact_phone, logo_path FROM setmaxx_public_profiles WHERE user_id = ? LIMIT 1");
+    $stmt = $pdo->prepare("SELECT directory_visible, directory_country, directory_region, directory_state, directory_show_song_count, directory_show_songlist, directory_genres, directory_description, artist_name, invoice_payable_to, invoice_address, website_url, youtube_url, contact_email, contact_phone, logo_path FROM setmaxx_public_profiles WHERE user_id = ? LIMIT 1");
     $stmt->execute([$userId]);
     return $stmt->fetch(PDO::FETCH_ASSOC) ?: [
         'directory_visible' => 1,
@@ -272,6 +289,8 @@ function ns_public_artist_profile(PDO $pdo, int $userId): array
         'directory_genres' => '',
         'directory_description' => '',
         'artist_name' => '',
+        'invoice_payable_to' => '',
+        'invoice_address' => '',
         'website_url' => '',
         'youtube_url' => '',
         'contact_email' => '',
@@ -364,6 +383,8 @@ if (is_post()) {
                 $directoryGenres = array_values(array_intersect($artistGenreOptions, array_map('strval', $postedGenres)));
                 $directoryGenresText = implode(',', $directoryGenres);
                 $directoryDescription = ns_clean_profile_text($_POST['directory_description'] ?? '', 700);
+                $invoicePayableTo = ns_clean_profile_text($_POST['invoice_payable_to'] ?? '', 190);
+                $invoiceAddress = ns_clean_profile_multiline($_POST['invoice_address'] ?? '', 700);
                 $logoPath = trim((string)($publicArtistProfile['logo_path'] ?? ''));
                 $imageErr = null;
 
@@ -427,10 +448,10 @@ if (is_post()) {
                 }
 
                 $pdo->prepare(
-                    "INSERT INTO setmaxx_public_profiles (user_id, directory_visible, directory_country, directory_region, directory_state, directory_show_song_count, directory_show_songlist, directory_genres, directory_description, artist_name, website_url, youtube_url, contact_email, contact_phone, logo_path)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                     ON DUPLICATE KEY UPDATE directory_visible = VALUES(directory_visible), directory_country = VALUES(directory_country), directory_region = VALUES(directory_region), directory_state = VALUES(directory_state), directory_show_song_count = VALUES(directory_show_song_count), directory_show_songlist = VALUES(directory_show_songlist), directory_genres = VALUES(directory_genres), directory_description = VALUES(directory_description), artist_name = VALUES(artist_name), website_url = VALUES(website_url), youtube_url = VALUES(youtube_url), contact_email = VALUES(contact_email), contact_phone = VALUES(contact_phone), logo_path = VALUES(logo_path)"
-                )->execute([$userId, $directoryVisible, $directoryCountry, $directoryRegion, $directoryState, $directoryShowSongCount, $directoryShowSonglist, $directoryGenresText !== '' ? $directoryGenresText : null, $directoryDescription, $artistName, $websiteUrl, $youtubeUrl, $contactEmail, $contactPhone, $logoPath !== '' ? $logoPath : null]);
+                    "INSERT INTO setmaxx_public_profiles (user_id, directory_visible, directory_country, directory_region, directory_state, directory_show_song_count, directory_show_songlist, directory_genres, directory_description, artist_name, invoice_payable_to, invoice_address, website_url, youtube_url, contact_email, contact_phone, logo_path)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     ON DUPLICATE KEY UPDATE directory_visible = VALUES(directory_visible), directory_country = VALUES(directory_country), directory_region = VALUES(directory_region), directory_state = VALUES(directory_state), directory_show_song_count = VALUES(directory_show_song_count), directory_show_songlist = VALUES(directory_show_songlist), directory_genres = VALUES(directory_genres), directory_description = VALUES(directory_description), artist_name = VALUES(artist_name), invoice_payable_to = VALUES(invoice_payable_to), invoice_address = VALUES(invoice_address), website_url = VALUES(website_url), youtube_url = VALUES(youtube_url), contact_email = VALUES(contact_email), contact_phone = VALUES(contact_phone), logo_path = VALUES(logo_path)"
+                )->execute([$userId, $directoryVisible, $directoryCountry, $directoryRegion, $directoryState, $directoryShowSongCount, $directoryShowSonglist, $directoryGenresText !== '' ? $directoryGenresText : null, $directoryDescription, $artistName, $invoicePayableTo, $invoiceAddress, $websiteUrl, $youtubeUrl, $contactEmail, $contactPhone, $logoPath !== '' ? $logoPath : null]);
 
                 $publicArtistProfile = ns_public_artist_profile($pdo, $userId);
                 if ($imageErr) {
@@ -450,6 +471,8 @@ if (is_post()) {
                     'directory_genres' => implode(',', array_values(array_intersect($artistGenreOptions, array_map('strval', isset($_POST['directory_genres']) && is_array($_POST['directory_genres']) ? $_POST['directory_genres'] : [])))),
                     'directory_description' => trim((string)($_POST['directory_description'] ?? '')),
                     'artist_name' => trim((string)($_POST['artist_name'] ?? '')),
+                    'invoice_payable_to' => trim((string)($_POST['invoice_payable_to'] ?? '')),
+                    'invoice_address' => trim((string)($_POST['invoice_address'] ?? '')),
                     'website_url' => trim((string)($_POST['website_url'] ?? '')),
                     'youtube_url' => trim((string)($_POST['youtube_url'] ?? '')),
                     'contact_email' => trim((string)($_POST['contact_email'] ?? '')),
@@ -611,6 +634,14 @@ if ($isReadySetShowsHost) {
       <div class="form-field">
         <label style="margin-top:1rem;">Band description</label>
         <textarea name="directory_description" rows="3" maxlength="700" placeholder="A sentence or two about your band."><?= e((string)($publicArtistProfile['directory_description'] ?? '')) ?></textarea>
+      </div>
+      <div class="form-field">
+        <label style="margin-top:1rem;">Invoice payable to</label>
+        <input type="text" name="invoice_payable_to" maxlength="190" placeholder="Artist name, legal name, or business name" value="<?= e((string)($publicArtistProfile['invoice_payable_to'] ?? '')) ?>">
+      </div>
+      <div class="form-field">
+        <label style="margin-top:1rem;">Invoice address</label>
+        <textarea name="invoice_address" rows="3" maxlength="700" placeholder="Performer mailing address for invoices"><?= e((string)($publicArtistProfile['invoice_address'] ?? '')) ?></textarea>
       </div>
       <label style="display:flex; gap:.6rem; align-items:flex-start; margin-top:1rem;">
         <input type="checkbox" name="directory_visible" value="1" <?= !array_key_exists('directory_visible', $publicArtistProfile) || !empty($publicArtistProfile['directory_visible']) ? 'checked' : '' ?>>

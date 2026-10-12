@@ -7,12 +7,6 @@ if (!$financeReady) {
     exit;
 }
 
-if (!finance_column_exists($pdo, 'calendars', 'is_main_gig')) {
-    http_response_code(503);
-    echo 'Main gig calendar setup is required.';
-    exit;
-}
-
 if (!$isProUser) {
     header('Location: ' . $upgradeUrl);
     exit;
@@ -22,8 +16,23 @@ $type = strtolower(trim((string)($_GET['type'] ?? 'contract')));
 if (!in_array($type, ['contract', 'invoice'], true)) {
     $type = 'contract';
 }
+$isManualInvoice = $type === 'invoice' && (string)($_GET['manual'] ?? '') === '1';
+
+if (!$isManualInvoice && !finance_column_exists($pdo, 'calendars', 'is_main_gig')) {
+    http_response_code(503);
+    echo 'Main gig calendar setup is required.';
+    exit;
+}
 
 $userName = trim((string)($user['name'] ?? $user['email'] ?? 'Performer'));
+$invoiceProfile = finance_artist_invoice_profile($pdo, $userId);
+$artistName = trim((string)($invoiceProfile['artist_name'] ?? ''));
+$payableTo = trim((string)($invoiceProfile['invoice_payable_to'] ?? ''));
+if ($payableTo === '') {
+    $payableTo = $artistName !== '' ? $artistName : $userName;
+}
+$performerAddress = trim((string)($invoiceProfile['invoice_address'] ?? ''));
+$displayEmail = trim((string)($invoiceProfile['contact_email'] ?? ($user['email'] ?? '')));
 $gigId = (int)($_GET['gig_id'] ?? 0);
 $calendarId = (int)($_GET['calendar_id'] ?? 0);
 $eventKey = trim((string)($_GET['event_key'] ?? ''));
@@ -35,13 +44,35 @@ $event = null;
 $calendarName = '';
 $eventTitle = '';
 $eventLocation = '';
+$billToBlock = '';
 $startsAt = null;
 $guaranteeCents = 0;
 $tipsCents = 0;
 $hasKnownAmount = false;
 $docSourceId = '';
 
-if ($gigId > 0) {
+if ($isManualInvoice) {
+    $calendarName = 'Manual invoice';
+    $eventTitle = 'Performance';
+    $billToCompany = finance_clean_text($_GET['bill_to_company'] ?? '', 190);
+    $billToCareOf = finance_clean_text($_GET['bill_to_care_of'] ?? '', 190);
+    $billToAddress = finance_clean_multiline($_GET['bill_to_address'] ?? '', 700);
+    $billToPhone = finance_clean_text($_GET['bill_to_phone'] ?? '', 80);
+    $billToEmail = finance_clean_text($_GET['bill_to_email'] ?? '', 190);
+    $billToLines = array_values(array_filter([
+        $billToCompany,
+        $billToCareOf ? 'Care of: ' . $billToCareOf : null,
+        $billToAddress,
+        $billToPhone,
+        $billToEmail,
+    ], static fn($line) => $line !== null && trim((string)$line) !== ''));
+    $billToBlock = $billToLines ? implode("\n", $billToLines) : 'Client billing details to be confirmed';
+    $invoiceDate = preg_match('/^\d{4}-\d{2}-\d{2}$/', (string)($_GET['date'] ?? '')) ? (string)$_GET['date'] : date('Y-m-d');
+    $startsAt = new DateTime($invoiceDate);
+    $guaranteeCents = finance_parse_money($_GET['amount'] ?? 0);
+    $hasKnownAmount = $guaranteeCents > 0;
+    $docSourceId = 'manual-' . substr(hash('sha256', implode('|', [$userId, $eventTitle, $billToBlock, $invoiceDate, $guaranteeCents])), 0, 8);
+} elseif ($gigId > 0) {
     $stmt = $pdo->prepare("
         SELECT g.*, c.name AS calendar_name
         FROM finance_gigs g
@@ -61,6 +92,7 @@ if ($gigId > 0) {
     $calendarName = (string)$gig['calendar_name'];
     $eventTitle = (string)$gig['title'];
     $eventLocation = (string)($gig['location'] ?: 'Venue / address to be confirmed');
+    $billToBlock = trim($eventTitle . "\n" . $eventLocation);
     $startsAt = new DateTime((string)$gig['starts_at']);
     $guaranteeCents = (int)$gig['guarantee_cents'];
     $tipsCents = (int)$gig['tips_cents'];
@@ -113,6 +145,7 @@ if ($gigId > 0) {
     $calendarName = (string)$calendar['name'];
     $eventTitle = (string)($event['summary'] ?? 'Untitled event');
     $eventLocation = (string)($event['location'] ?: 'Venue / address to be confirmed');
+    $billToBlock = trim($eventTitle . "\n" . $eventLocation);
     $startsAt = new DateTime((string)$event['start']);
     if ($gig) {
         $guaranteeCents = (int)$gig['guarantee_cents'];
@@ -124,7 +157,7 @@ if ($gigId > 0) {
     }
 }
 
-$amountCents = $guaranteeCents + $tipsCents;
+$amountCents = $type === 'invoice' ? $guaranteeCents : $guaranteeCents + $tipsCents;
 $docTitle = $type === 'invoice' ? 'Invoice' : 'Performance Agreement';
 $docNumber = strtoupper($type) . '-' . preg_replace('/[^A-Za-z0-9]/', '', $docSourceId) . '-' . $startsAt->format('Ymd');
 ?>
@@ -163,20 +196,23 @@ $docNumber = strtoupper($type) . '-' . preg_replace('/[^A-Za-z0-9]/', '', $docSo
         <div class="muted"><?= e($docNumber) ?></div>
       </div>
       <div style="text-align:right;">
-        <strong><?= e($userName) ?></strong><br>
-        <span class="muted"><?= e((string)($user['email'] ?? '')) ?></span>
+        <strong><?= e($payableTo) ?></strong><br>
+        <?php if ($performerAddress !== ''): ?>
+          <span class="muted"><?= nl2br(e($performerAddress)) ?></span><br>
+        <?php endif; ?>
+        <span class="muted"><?= e($displayEmail) ?></span>
       </div>
     </div>
 
     <div class="grid">
       <div class="box">
-        <strong>Show</strong><br>
+        <strong>Performance</strong><br>
         <?= e($eventTitle) ?><br>
         <span class="muted"><?= e($startsAt->format('F j, Y')) ?></span>
       </div>
       <div class="box">
-        <strong>Location</strong><br>
-        <?= e($eventLocation) ?><br>
+        <strong>Bill To</strong><br>
+        <?= nl2br(e($billToBlock)) ?><br>
         <span class="muted"><?= e($calendarName) ?></span>
       </div>
     </div>
@@ -186,13 +222,12 @@ $docNumber = strtoupper($type) . '-' . preg_replace('/[^A-Za-z0-9]/', '', $docSo
       <table>
         <thead><tr><th>Description</th><th>Amount</th></tr></thead>
         <tbody>
-          <tr><td>Performance guarantee</td><td><?= $hasKnownAmount ? finance_money($guaranteeCents) : 'To be confirmed' ?></td></tr>
-          <?php if ($tipsCents > 0): ?><tr><td>Recorded tips / additional show income</td><td><?= finance_money($tipsCents) ?></td></tr><?php endif; ?>
+          <tr><td>Performance</td><td><?= $hasKnownAmount ? finance_money($guaranteeCents) : 'To be confirmed' ?></td></tr>
           <tr><td class="total">Total Due</td><td class="total"><?= $hasKnownAmount ? finance_money($amountCents) : 'To be confirmed' ?></td></tr>
         </tbody>
       </table>
-      <h2>Payment Notes</h2>
-      <p>Payment is due according to the agreement between the performer and client. Please include the invoice number with payment.</p>
+      <h2>Payment Terms</h2>
+      <p>Due upon performance. Check payable to <?= e($payableTo) ?>.</p>
     <?php else: ?>
       <h2>Agreement</h2>
       <p>This agreement confirms the performance listed above between the performer and the hiring party. The performer will provide live entertainment for the event date and location shown.</p>

@@ -128,6 +128,34 @@ function finance_clean_text($value, int $maxLength = 255): ?string {
     return mb_substr($value, 0, $maxLength);
 }
 
+function finance_clean_multiline($value, int $maxLength = 700): ?string {
+    $value = trim((string)$value);
+    if ($value === '') return null;
+    $value = preg_replace("/[ \t]+/", ' ', $value) ?? '';
+    $value = preg_replace("/\R{3,}/", "\n\n", $value) ?? '';
+    return mb_substr(trim($value), 0, $maxLength);
+}
+
+function finance_artist_invoice_profile(PDO $pdo, int $userId): array {
+    if (!finance_table_exists($pdo, 'setmaxx_public_profiles')) {
+        return [];
+    }
+
+    $columns = [];
+    foreach (['artist_name', 'contact_email', 'invoice_payable_to', 'invoice_address'] as $column) {
+        if (finance_column_exists($pdo, 'setmaxx_public_profiles', $column)) {
+            $columns[] = $column;
+        }
+    }
+    if (!$columns) {
+        return [];
+    }
+
+    $stmt = $pdo->prepare('SELECT ' . implode(', ', $columns) . ' FROM setmaxx_public_profiles WHERE user_id = ? LIMIT 1');
+    $stmt->execute([$userId]);
+    return $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+}
+
 function finance_date_for_sql(string $atom): string {
     return (new DateTime($atom))->format('Y-m-d H:i:s');
 }

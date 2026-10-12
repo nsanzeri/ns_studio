@@ -50,6 +50,46 @@ if ($financeReady && finance_column_exists($pdo, 'calendars', 'is_main_gig')) {
     }
 }
 
+function finance_manual_invoice_card(): void { ?>
+  <section class="finance-card" style="margin-bottom:1rem;">
+    <h2 style="margin-top:0;">New invoice</h2>
+    <p class="finance-muted" style="margin-top:-.25rem;">Start an invoice without tying it to a calendar event.</p>
+    <form class="finance-grid" method="get" action="<?= e(base_url('/finance/document.php')) ?>" target="_blank" rel="noopener" style="align-items:end;">
+      <input type="hidden" name="type" value="invoice">
+      <input type="hidden" name="manual" value="1">
+      <div class="finance-field">
+        <label for="manual-bill-to-company">Bill to</label>
+        <input class="finance-input" id="manual-bill-to-company" name="bill_to_company" type="text" maxlength="190" placeholder="Company, client, or organization">
+      </div>
+      <div class="finance-field">
+        <label for="manual-date">Performance date</label>
+        <input class="finance-input" id="manual-date" name="date" type="date" value="<?= e(date('Y-m-d')) ?>">
+      </div>
+      <div class="finance-field">
+        <label for="manual-amount">Performance amount</label>
+        <input class="finance-input" id="manual-amount" name="amount" type="text" inputmode="decimal" placeholder="275.00">
+      </div>
+      <div class="finance-field">
+        <label for="manual-care-of">Care of</label>
+        <input class="finance-input" id="manual-care-of" name="bill_to_care_of" type="text" maxlength="190" placeholder="Contact person">
+      </div>
+      <div class="finance-field">
+        <label for="manual-address">Billing address</label>
+        <input class="finance-input" id="manual-address" name="bill_to_address" type="text" maxlength="700" placeholder="5102 Douglas Avenue, Racine, WI 53402">
+      </div>
+      <div class="finance-field">
+        <label for="manual-phone">Phone</label>
+        <input class="finance-input" id="manual-phone" name="bill_to_phone" type="tel" maxlength="80" placeholder="(262) 639-3941">
+      </div>
+      <div class="finance-field">
+        <label for="manual-email">Email</label>
+        <input class="finance-input" id="manual-email" name="bill_to_email" type="email" maxlength="190" placeholder="contact@example.com">
+      </div>
+      <button class="btn btn-primary" type="submit">Create invoice</button>
+    </form>
+  </section>
+<?php }
+
 finance_page_head('Contracts & Invoices | Ready Set Shows');
 ?>
 <main class="container finance-shell">
@@ -59,11 +99,12 @@ finance_page_head('Contracts & Invoices | Ready Set Shows');
     <div style="display:flex; justify-content:space-between; gap:1rem; align-items:flex-start; flex-wrap:wrap;">
       <div>
         <h1 style="margin:0 0 .35rem;">Contracts &amp; invoices</h1>
-        <p class="finance-muted" style="margin:0;">Generate simple show paperwork from events on your main gig calendar.</p>
+        <p class="finance-muted" style="margin:0;">Generate simple show paperwork from calendar events or start a standalone invoice.</p>
       </div>
       <div style="display:flex; gap:.65rem; flex-wrap:wrap;">
         <a class="btn btn-outline" href="<?= e(base_url('/finance/index.php')) ?>">Finance</a>
         <a class="btn btn-outline" href="<?= e(base_url('/tools/calendars.php')) ?>">Calendars</a>
+        <a class="btn btn-outline" href="<?= e(base_url('/member/settings.php?brand=rss')) ?>">Invoice settings</a>
       </div>
     </div>
   </section>
@@ -72,19 +113,21 @@ finance_page_head('Contracts & Invoices | Ready Set Shows');
     <?php finance_install_notice(); ?>
   <?php elseif (!finance_column_exists($pdo, 'calendars', 'is_main_gig')): ?>
     <section class="finance-card"><p class="finance-muted">Run the main gig calendar migration, then refresh this page.</p></section>
-  <?php elseif (!$mainGigCalendar): ?>
-    <section class="finance-card">
-      <h2 style="margin-top:0;">Choose a main gig calendar</h2>
-      <p class="finance-muted">Contracts and invoices use the events, dates, and addresses from whichever calendar is marked as your main gig calendar.</p>
-      <a class="btn btn-primary" href="<?= e(base_url('/tools/calendars.php')) ?>">Set main gig calendar</a>
-    </section>
   <?php elseif (!$isProUser): ?>
     <section class="finance-card">
       <h2 style="margin-top:0;">Pro paperwork tools</h2>
       <p class="finance-muted">Contract and invoice generation is part of Ready Set Shows Pro.</p>
       <a class="btn btn-primary" href="<?= e($upgradeUrl) ?>">Upgrade to Pro</a>
     </section>
+  <?php elseif (!$mainGigCalendar): ?>
+    <?php finance_manual_invoice_card(); ?>
+    <section class="finance-card">
+      <h2 style="margin-top:0;">Choose a main gig calendar</h2>
+      <p class="finance-muted">Contracts and invoices use the events, dates, and addresses from whichever calendar is marked as your main gig calendar.</p>
+      <a class="btn btn-primary" href="<?= e(base_url('/tools/calendars.php')) ?>">Set main gig calendar</a>
+    </section>
   <?php else: ?>
+    <?php finance_manual_invoice_card(); ?>
     <section class="finance-card" style="margin-bottom:1rem;">
       <form class="finance-grid" method="get" action="<?= e(base_url('/finance/documents.php')) ?>" style="align-items:end;">
         <div class="finance-field">

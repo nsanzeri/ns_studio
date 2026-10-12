@@ -33,6 +33,20 @@ if ($payableTo === '') {
 }
 $performerAddress = trim((string)($invoiceProfile['invoice_address'] ?? ''));
 $displayEmail = trim((string)($invoiceProfile['contact_email'] ?? ($user['email'] ?? '')));
+$acceptsCheck = array_key_exists('invoice_accept_check', $invoiceProfile) ? !empty($invoiceProfile['invoice_accept_check']) : true;
+$acceptsCash = !empty($invoiceProfile['invoice_accept_cash']);
+$acceptsZelle = !empty($invoiceProfile['invoice_accept_zelle']);
+$zelleDetails = trim((string)($invoiceProfile['invoice_zelle_details'] ?? ''));
+$paymentTermLines = ['Due upon performance.'];
+if ($acceptsCheck) {
+    $paymentTermLines[] = 'Check payable to ' . $payableTo . '.';
+}
+if ($acceptsCash) {
+    $paymentTermLines[] = 'Cash accepted.';
+}
+if ($acceptsZelle) {
+    $paymentTermLines[] = 'Zelle accepted' . ($zelleDetails !== '' ? ': ' . $zelleDetails : '.') . ($zelleDetails !== '' ? '.' : '');
+}
 $gigId = (int)($_GET['gig_id'] ?? 0);
 $calendarId = (int)($_GET['calendar_id'] ?? 0);
 $eventKey = trim((string)($_GET['event_key'] ?? ''));
@@ -52,7 +66,7 @@ $hasKnownAmount = false;
 $docSourceId = '';
 
 if ($isManualInvoice) {
-    $calendarName = 'Manual invoice';
+    $calendarName = '';
     $eventTitle = 'Performance';
     $billToCompany = finance_clean_text($_GET['bill_to_company'] ?? '', 190);
     $billToCareOf = finance_clean_text($_GET['bill_to_care_of'] ?? '', 190);
@@ -71,7 +85,7 @@ if ($isManualInvoice) {
     $startsAt = new DateTime($invoiceDate);
     $guaranteeCents = finance_parse_money($_GET['amount'] ?? 0);
     $hasKnownAmount = $guaranteeCents > 0;
-    $docSourceId = 'manual-' . substr(hash('sha256', implode('|', [$userId, $eventTitle, $billToBlock, $invoiceDate, $guaranteeCents])), 0, 8);
+    $docSourceId = substr(hash('sha256', implode('|', [$userId, $eventTitle, $billToBlock, $invoiceDate, $guaranteeCents])), 0, 8);
 } elseif ($gigId > 0) {
     $stmt = $pdo->prepare("
         SELECT g.*, c.name AS calendar_name
@@ -160,6 +174,7 @@ if ($isManualInvoice) {
 $amountCents = $type === 'invoice' ? $guaranteeCents : $guaranteeCents + $tipsCents;
 $docTitle = $type === 'invoice' ? 'Invoice' : 'Performance Agreement';
 $docNumber = strtoupper($type) . '-' . preg_replace('/[^A-Za-z0-9]/', '', $docSourceId) . '-' . $startsAt->format('Ymd');
+$invoiceGeneratedAt = new DateTime('today');
 ?>
 <!doctype html>
 <html lang="en">
@@ -174,8 +189,8 @@ $docNumber = strtoupper($type) . '-' . preg_replace('/[^A-Za-z0-9]/', '', $docSo
     h1 { margin:0; font-size:34px; }
     h2 { margin:28px 0 10px; font-size:18px; }
     .muted { color:#666; }
-    .grid { display:grid; grid-template-columns:1fr 1fr; gap:18px; }
-    .box { border:1px solid #ddd; padding:16px; border-radius:8px; }
+    .invoice-meta { margin-top:6px; color:#666; line-height:1.35; }
+    .bill-to { border:1px solid #ddd; padding:16px; border-radius:8px; margin-bottom:28px; max-width:480px; }
     table { width:100%; border-collapse:collapse; margin-top:14px; }
     th, td { padding:12px; border-bottom:1px solid #ddd; text-align:left; }
     th:last-child, td:last-child { text-align:right; }
@@ -193,7 +208,10 @@ $docNumber = strtoupper($type) . '-' . preg_replace('/[^A-Za-z0-9]/', '', $docSo
     <div class="head">
       <div>
         <h1><?= e($docTitle) ?></h1>
-        <div class="muted"><?= e($docNumber) ?></div>
+        <div class="invoice-meta">
+          <div><?= e($docNumber) ?></div>
+          <div><strong>Invoice Date:</strong> <?= e($invoiceGeneratedAt->format('F j, Y')) ?></div>
+        </div>
       </div>
       <div style="text-align:right;">
         <strong><?= e($payableTo) ?></strong><br>
@@ -204,30 +222,23 @@ $docNumber = strtoupper($type) . '-' . preg_replace('/[^A-Za-z0-9]/', '', $docSo
       </div>
     </div>
 
-    <div class="grid">
-      <div class="box">
-        <strong>Performance</strong><br>
-        <?= e($eventTitle) ?><br>
-        <span class="muted"><?= e($startsAt->format('F j, Y')) ?></span>
-      </div>
-      <div class="box">
-        <strong>Bill To</strong><br>
-        <?= nl2br(e($billToBlock)) ?><br>
-        <span class="muted"><?= e($calendarName) ?></span>
-      </div>
+    <div class="bill-to">
+      <strong>Bill To</strong><br>
+      <?= nl2br(e($billToBlock)) ?>
+      <?php if ($calendarName !== ''): ?><br><span class="muted"><?= e($calendarName) ?></span><?php endif; ?>
     </div>
 
     <?php if ($type === 'invoice'): ?>
-      <h2>Invoice Items</h2>
+      <h2>Services</h2>
       <table>
-        <thead><tr><th>Description</th><th>Amount</th></tr></thead>
+        <thead><tr><th>Date</th><th>Description</th><th>Amount</th></tr></thead>
         <tbody>
-          <tr><td>Performance</td><td><?= $hasKnownAmount ? finance_money($guaranteeCents) : 'To be confirmed' ?></td></tr>
-          <tr><td class="total">Total Due</td><td class="total"><?= $hasKnownAmount ? finance_money($amountCents) : 'To be confirmed' ?></td></tr>
+          <tr><td><?= e($startsAt->format('F j, Y')) ?></td><td>Performance</td><td><?= $hasKnownAmount ? finance_money($guaranteeCents) : 'To be confirmed' ?></td></tr>
+          <tr><td></td><td class="total">Total Due</td><td class="total"><?= $hasKnownAmount ? finance_money($amountCents) : 'To be confirmed' ?></td></tr>
         </tbody>
       </table>
       <h2>Payment Terms</h2>
-      <p>Due upon performance. Check payable to <?= e($payableTo) ?>.</p>
+      <p><?= e(implode(' ', $paymentTermLines)) ?></p>
     <?php else: ?>
       <h2>Agreement</h2>
       <p>This agreement confirms the performance listed above between the performer and the hiring party. The performer will provide live entertainment for the event date and location shown.</p>

@@ -39,6 +39,10 @@ function ns_ensure_public_artist_profile_table(PDO $pdo): void
               `artist_name` varchar(190) DEFAULT NULL,
               `invoice_payable_to` varchar(190) DEFAULT NULL,
               `invoice_address` text DEFAULT NULL,
+              `invoice_accept_check` tinyint(1) NOT NULL DEFAULT 1,
+              `invoice_accept_cash` tinyint(1) NOT NULL DEFAULT 0,
+              `invoice_accept_zelle` tinyint(1) NOT NULL DEFAULT 0,
+              `invoice_zelle_details` varchar(190) DEFAULT NULL,
               `website_url` varchar(255) DEFAULT NULL,
               `review_url` varchar(255) DEFAULT NULL,
               `booking_url` varchar(255) DEFAULT NULL,
@@ -93,6 +97,18 @@ function ns_ensure_public_artist_profile_table(PDO $pdo): void
     }
     if (!ns_public_profile_column_exists($pdo, 'invoice_address')) {
         $pdo->exec("ALTER TABLE setmaxx_public_profiles ADD COLUMN invoice_address text DEFAULT NULL AFTER invoice_payable_to");
+    }
+    if (!ns_public_profile_column_exists($pdo, 'invoice_accept_check')) {
+        $pdo->exec("ALTER TABLE setmaxx_public_profiles ADD COLUMN invoice_accept_check tinyint(1) NOT NULL DEFAULT 1 AFTER invoice_address");
+    }
+    if (!ns_public_profile_column_exists($pdo, 'invoice_accept_cash')) {
+        $pdo->exec("ALTER TABLE setmaxx_public_profiles ADD COLUMN invoice_accept_cash tinyint(1) NOT NULL DEFAULT 0 AFTER invoice_accept_check");
+    }
+    if (!ns_public_profile_column_exists($pdo, 'invoice_accept_zelle')) {
+        $pdo->exec("ALTER TABLE setmaxx_public_profiles ADD COLUMN invoice_accept_zelle tinyint(1) NOT NULL DEFAULT 0 AFTER invoice_accept_cash");
+    }
+    if (!ns_public_profile_column_exists($pdo, 'invoice_zelle_details')) {
+        $pdo->exec("ALTER TABLE setmaxx_public_profiles ADD COLUMN invoice_zelle_details varchar(190) DEFAULT NULL AFTER invoice_accept_zelle");
     }
     if (!ns_public_profile_column_exists($pdo, 'website_url')) {
         $pdo->exec("ALTER TABLE setmaxx_public_profiles ADD COLUMN website_url varchar(255) DEFAULT NULL AFTER artist_name");
@@ -277,7 +293,7 @@ function ns_clean_profile_region($value, string $country): ?string
 function ns_public_artist_profile(PDO $pdo, int $userId): array
 {
     ns_ensure_public_artist_profile_table($pdo);
-    $stmt = $pdo->prepare("SELECT directory_visible, directory_country, directory_region, directory_state, directory_show_song_count, directory_show_songlist, directory_genres, directory_description, artist_name, invoice_payable_to, invoice_address, website_url, youtube_url, contact_email, contact_phone, logo_path FROM setmaxx_public_profiles WHERE user_id = ? LIMIT 1");
+    $stmt = $pdo->prepare("SELECT directory_visible, directory_country, directory_region, directory_state, directory_show_song_count, directory_show_songlist, directory_genres, directory_description, artist_name, invoice_payable_to, invoice_address, invoice_accept_check, invoice_accept_cash, invoice_accept_zelle, invoice_zelle_details, website_url, youtube_url, contact_email, contact_phone, logo_path FROM setmaxx_public_profiles WHERE user_id = ? LIMIT 1");
     $stmt->execute([$userId]);
     return $stmt->fetch(PDO::FETCH_ASSOC) ?: [
         'directory_visible' => 1,
@@ -291,6 +307,10 @@ function ns_public_artist_profile(PDO $pdo, int $userId): array
         'artist_name' => '',
         'invoice_payable_to' => '',
         'invoice_address' => '',
+        'invoice_accept_check' => 1,
+        'invoice_accept_cash' => 0,
+        'invoice_accept_zelle' => 0,
+        'invoice_zelle_details' => '',
         'website_url' => '',
         'youtube_url' => '',
         'contact_email' => '',
@@ -385,6 +405,10 @@ if (is_post()) {
                 $directoryDescription = ns_clean_profile_text($_POST['directory_description'] ?? '', 700);
                 $invoicePayableTo = ns_clean_profile_text($_POST['invoice_payable_to'] ?? '', 190);
                 $invoiceAddress = ns_clean_profile_multiline($_POST['invoice_address'] ?? '', 700);
+                $invoiceAcceptCheck = !empty($_POST['invoice_accept_check']) ? 1 : 0;
+                $invoiceAcceptCash = !empty($_POST['invoice_accept_cash']) ? 1 : 0;
+                $invoiceAcceptZelle = !empty($_POST['invoice_accept_zelle']) ? 1 : 0;
+                $invoiceZelleDetails = ns_clean_profile_text($_POST['invoice_zelle_details'] ?? '', 190);
                 $logoPath = trim((string)($publicArtistProfile['logo_path'] ?? ''));
                 $imageErr = null;
 
@@ -413,6 +437,12 @@ if (is_post()) {
                 }
                 if (!$directoryRegion) {
                     throw new RuntimeException($directoryCountry === 'US' ? 'Directory state is required. Use a valid two-letter state abbreviation.' : 'Directory region is required.');
+                }
+                if (!$invoiceAcceptCheck && !$invoiceAcceptCash && !$invoiceAcceptZelle) {
+                    throw new RuntimeException('Choose at least one invoice payment method.');
+                }
+                if ($invoiceAcceptZelle && !$invoiceZelleDetails) {
+                    throw new RuntimeException('Zelle payment details are required when Zelle is enabled.');
                 }
 
                 if (!empty($_FILES['logo_file']['tmp_name']) && is_uploaded_file($_FILES['logo_file']['tmp_name'])) {
@@ -448,10 +478,10 @@ if (is_post()) {
                 }
 
                 $pdo->prepare(
-                    "INSERT INTO setmaxx_public_profiles (user_id, directory_visible, directory_country, directory_region, directory_state, directory_show_song_count, directory_show_songlist, directory_genres, directory_description, artist_name, invoice_payable_to, invoice_address, website_url, youtube_url, contact_email, contact_phone, logo_path)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                     ON DUPLICATE KEY UPDATE directory_visible = VALUES(directory_visible), directory_country = VALUES(directory_country), directory_region = VALUES(directory_region), directory_state = VALUES(directory_state), directory_show_song_count = VALUES(directory_show_song_count), directory_show_songlist = VALUES(directory_show_songlist), directory_genres = VALUES(directory_genres), directory_description = VALUES(directory_description), artist_name = VALUES(artist_name), invoice_payable_to = VALUES(invoice_payable_to), invoice_address = VALUES(invoice_address), website_url = VALUES(website_url), youtube_url = VALUES(youtube_url), contact_email = VALUES(contact_email), contact_phone = VALUES(contact_phone), logo_path = VALUES(logo_path)"
-                )->execute([$userId, $directoryVisible, $directoryCountry, $directoryRegion, $directoryState, $directoryShowSongCount, $directoryShowSonglist, $directoryGenresText !== '' ? $directoryGenresText : null, $directoryDescription, $artistName, $invoicePayableTo, $invoiceAddress, $websiteUrl, $youtubeUrl, $contactEmail, $contactPhone, $logoPath !== '' ? $logoPath : null]);
+                    "INSERT INTO setmaxx_public_profiles (user_id, directory_visible, directory_country, directory_region, directory_state, directory_show_song_count, directory_show_songlist, directory_genres, directory_description, artist_name, invoice_payable_to, invoice_address, invoice_accept_check, invoice_accept_cash, invoice_accept_zelle, invoice_zelle_details, website_url, youtube_url, contact_email, contact_phone, logo_path)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     ON DUPLICATE KEY UPDATE directory_visible = VALUES(directory_visible), directory_country = VALUES(directory_country), directory_region = VALUES(directory_region), directory_state = VALUES(directory_state), directory_show_song_count = VALUES(directory_show_song_count), directory_show_songlist = VALUES(directory_show_songlist), directory_genres = VALUES(directory_genres), directory_description = VALUES(directory_description), artist_name = VALUES(artist_name), invoice_payable_to = VALUES(invoice_payable_to), invoice_address = VALUES(invoice_address), invoice_accept_check = VALUES(invoice_accept_check), invoice_accept_cash = VALUES(invoice_accept_cash), invoice_accept_zelle = VALUES(invoice_accept_zelle), invoice_zelle_details = VALUES(invoice_zelle_details), website_url = VALUES(website_url), youtube_url = VALUES(youtube_url), contact_email = VALUES(contact_email), contact_phone = VALUES(contact_phone), logo_path = VALUES(logo_path)"
+                )->execute([$userId, $directoryVisible, $directoryCountry, $directoryRegion, $directoryState, $directoryShowSongCount, $directoryShowSonglist, $directoryGenresText !== '' ? $directoryGenresText : null, $directoryDescription, $artistName, $invoicePayableTo, $invoiceAddress, $invoiceAcceptCheck, $invoiceAcceptCash, $invoiceAcceptZelle, $invoiceZelleDetails, $websiteUrl, $youtubeUrl, $contactEmail, $contactPhone, $logoPath !== '' ? $logoPath : null]);
 
                 $publicArtistProfile = ns_public_artist_profile($pdo, $userId);
                 if ($imageErr) {
@@ -473,6 +503,10 @@ if (is_post()) {
                     'artist_name' => trim((string)($_POST['artist_name'] ?? '')),
                     'invoice_payable_to' => trim((string)($_POST['invoice_payable_to'] ?? '')),
                     'invoice_address' => trim((string)($_POST['invoice_address'] ?? '')),
+                    'invoice_accept_check' => !empty($_POST['invoice_accept_check']) ? 1 : 0,
+                    'invoice_accept_cash' => !empty($_POST['invoice_accept_cash']) ? 1 : 0,
+                    'invoice_accept_zelle' => !empty($_POST['invoice_accept_zelle']) ? 1 : 0,
+                    'invoice_zelle_details' => trim((string)($_POST['invoice_zelle_details'] ?? '')),
                     'website_url' => trim((string)($_POST['website_url'] ?? '')),
                     'youtube_url' => trim((string)($_POST['youtube_url'] ?? '')),
                     'contact_email' => trim((string)($_POST['contact_email'] ?? '')),
@@ -642,6 +676,25 @@ if ($isReadySetShowsHost) {
       <div class="form-field">
         <label style="margin-top:1rem;">Invoice address</label>
         <textarea name="invoice_address" rows="3" maxlength="700" placeholder="Performer mailing address for invoices"><?= e((string)($publicArtistProfile['invoice_address'] ?? '')) ?></textarea>
+      </div>
+      <fieldset class="form-field" style="margin-top:1rem;">
+        <legend>Invoice payment terms</legend>
+        <label style="display:flex; gap:.6rem; align-items:flex-start; margin-top:.5rem;">
+          <input type="checkbox" name="invoice_accept_check" value="1" <?= !array_key_exists('invoice_accept_check', $publicArtistProfile) || !empty($publicArtistProfile['invoice_accept_check']) ? 'checked' : '' ?>>
+          <span>Check payable to the invoice payable-to name</span>
+        </label>
+        <label style="display:flex; gap:.6rem; align-items:flex-start; margin-top:.5rem;">
+          <input type="checkbox" name="invoice_accept_cash" value="1" <?= !empty($publicArtistProfile['invoice_accept_cash']) ? 'checked' : '' ?>>
+          <span>Cash accepted</span>
+        </label>
+        <label style="display:flex; gap:.6rem; align-items:flex-start; margin-top:.5rem;">
+          <input type="checkbox" name="invoice_accept_zelle" value="1" <?= !empty($publicArtistProfile['invoice_accept_zelle']) ? 'checked' : '' ?>>
+          <span>Zelle accepted</span>
+        </label>
+      </fieldset>
+      <div class="form-field">
+        <label style="margin-top:1rem;">Zelle details</label>
+        <input type="text" name="invoice_zelle_details" maxlength="190" placeholder="Email, phone, or Zelle name" value="<?= e((string)($publicArtistProfile['invoice_zelle_details'] ?? '')) ?>">
       </div>
       <label style="display:flex; gap:.6rem; align-items:flex-start; margin-top:1rem;">
         <input type="checkbox" name="directory_visible" value="1" <?= !array_key_exists('directory_visible', $publicArtistProfile) || !empty($publicArtistProfile['directory_visible']) ? 'checked' : '' ?>>

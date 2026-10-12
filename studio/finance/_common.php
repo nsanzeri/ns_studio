@@ -142,7 +142,7 @@ function finance_artist_invoice_profile(PDO $pdo, int $userId): array {
     }
 
     $columns = [];
-    foreach (['artist_name', 'contact_email', 'invoice_payable_to', 'invoice_address'] as $column) {
+    foreach (['artist_name', 'contact_email', 'invoice_payable_to', 'invoice_address', 'invoice_accept_check', 'invoice_accept_cash', 'invoice_accept_zelle', 'invoice_zelle_details'] as $column) {
         if (finance_column_exists($pdo, 'setmaxx_public_profiles', $column)) {
             $columns[] = $column;
         }

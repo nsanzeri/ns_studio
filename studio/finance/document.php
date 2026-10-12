@@ -209,8 +209,9 @@ $documentDateLabel = $type === 'invoice' ? 'Invoice Date' : 'Contract Date';
     .actions { margin:18px auto; width:min(860px, calc(100vw - 32px)); display:flex; justify-content:flex-end; }
     button { border:0; border-radius:999px; background:#111; color:#fff; padding:12px 18px; font-weight:700; cursor:pointer; }
     .signature { margin-top:34px; display:grid; grid-template-columns:1fr 1fr; gap:30px; }
-    .line { border-top:1px solid #111; padding-top:8px; margin-top:50px; }
-    .script-signature { font-family:"Brush Script MT", "Segoe Script", "Lucida Handwriting", cursive; font-size:30px; line-height:1; margin:20px 0 -36px; }
+    .signature-slot { display:grid; grid-template-rows:42px auto; align-items:end; }
+    .line { border-top:1px solid #111; padding-top:8px; }
+    .script-signature { font-family:"Brush Script MT", "Segoe Script", "Lucida Handwriting", cursive; font-size:30px; line-height:1; margin:0 0 4px; }
     @media print { body { background:#fff; } .page { width:auto; margin:0; box-shadow:none; padding:24px; } .actions { display:none; } }
   </style>
 </head>
@@ -268,11 +269,14 @@ $documentDateLabel = $type === 'invoice' ? 'Invoice Date' : 'Contract Date';
         <li>Any remaining balance should be paid no later than the event date unless both parties agree otherwise.</li>
       </ol>
       <div class="signature">
-        <div>
+        <div class="signature-slot">
           <div class="script-signature"><?= e($payableTo) ?></div>
           <div class="line">Performer signature</div>
         </div>
-        <div class="line">Client signature</div>
+        <div class="signature-slot">
+          <div></div>
+          <div class="line">Client signature</div>
+        </div>
       </div>
     <?php endif; ?>
   </main>

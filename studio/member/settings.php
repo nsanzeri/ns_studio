@@ -369,6 +369,7 @@ $subscription = ns_active_stripe_subscription_for_user($pdo, $userId);
 $hasActiveStripeSubscription = (bool)$subscription;
 $manageSubscriptionUrl = base_url('api/create_customer_portal_session.php');
 $publicArtistProfile = ns_public_artist_profile($pdo, $userId);
+$ok = flash_get('settings_success');
 
 if (is_post()) {
     if (!csrf_verify($_POST['_csrf'] ?? null)) {
@@ -383,6 +384,55 @@ if (is_post()) {
             $user = Auth::currentUser($pdo);
             $accountType = Auth::normalizeAccountType((string)($user['account_type'] ?? 'artist'));
             $ok = 'Account type saved.';
+        }
+
+        if ($action === 'invoice_settings') {
+            try {
+                ns_ensure_public_artist_profile_table($pdo);
+                $invoicePayableTo = ns_clean_profile_text($_POST['invoice_payable_to'] ?? '', 190);
+                $invoiceAddress = ns_clean_profile_multiline($_POST['invoice_address'] ?? '', 700);
+                $invoiceAcceptCheck = !empty($_POST['invoice_accept_check']) ? 1 : 0;
+                $invoiceAcceptCash = !empty($_POST['invoice_accept_cash']) ? 1 : 0;
+                $invoiceAcceptZelle = !empty($_POST['invoice_accept_zelle']) ? 1 : 0;
+                $invoiceZelleDetails = ns_clean_profile_text($_POST['invoice_zelle_details'] ?? '', 190);
+
+                if (!$invoiceAcceptCheck && !$invoiceAcceptCash && !$invoiceAcceptZelle) {
+                    throw new RuntimeException('Choose at least one invoice payment method.');
+                }
+                if ($invoiceAcceptZelle && !$invoiceZelleDetails) {
+                    throw new RuntimeException('Zelle payment details are required when Zelle is enabled.');
+                }
+
+                $invoiceValues = [$invoicePayableTo, $invoiceAddress, $invoiceAcceptCheck, $invoiceAcceptCash, $invoiceAcceptZelle, $invoiceZelleDetails];
+                $profileExistsStmt = $pdo->prepare("SELECT 1 FROM setmaxx_public_profiles WHERE user_id = ? LIMIT 1");
+                $profileExistsStmt->execute([$userId]);
+                if ($profileExistsStmt->fetchColumn()) {
+                    $pdo->prepare(
+                        "UPDATE setmaxx_public_profiles
+                         SET invoice_payable_to = ?, invoice_address = ?, invoice_accept_check = ?, invoice_accept_cash = ?, invoice_accept_zelle = ?, invoice_zelle_details = ?
+                         WHERE user_id = ?"
+                    )->execute(array_merge($invoiceValues, [$userId]));
+                } else {
+                    $pdo->prepare(
+                        "INSERT INTO setmaxx_public_profiles (user_id, invoice_payable_to, invoice_address, invoice_accept_check, invoice_accept_cash, invoice_accept_zelle, invoice_zelle_details)
+                         VALUES (?, ?, ?, ?, ?, ?, ?)"
+                    )->execute(array_merge([$userId], $invoiceValues));
+                }
+
+                $publicArtistProfile = ns_public_artist_profile($pdo, $userId);
+                flash_set('settings_success', 'Invoice settings saved.');
+                redirect(base_url('member/settings.php?brand=rss'));
+            } catch (Throwable $e) {
+                $err = $e->getMessage();
+                $publicArtistProfile = array_merge($publicArtistProfile, [
+                    'invoice_payable_to' => trim((string)($_POST['invoice_payable_to'] ?? '')),
+                    'invoice_address' => trim((string)($_POST['invoice_address'] ?? '')),
+                    'invoice_accept_check' => !empty($_POST['invoice_accept_check']) ? 1 : 0,
+                    'invoice_accept_cash' => !empty($_POST['invoice_accept_cash']) ? 1 : 0,
+                    'invoice_accept_zelle' => !empty($_POST['invoice_accept_zelle']) ? 1 : 0,
+                    'invoice_zelle_details' => trim((string)($_POST['invoice_zelle_details'] ?? '')),
+                ]);
+            }
         }
 
         if ($action === 'public_artist_profile') {
@@ -403,12 +453,12 @@ if (is_post()) {
                 $directoryGenres = array_values(array_intersect($artistGenreOptions, array_map('strval', $postedGenres)));
                 $directoryGenresText = implode(',', $directoryGenres);
                 $directoryDescription = ns_clean_profile_text($_POST['directory_description'] ?? '', 700);
-                $invoicePayableTo = ns_clean_profile_text($_POST['invoice_payable_to'] ?? '', 190);
-                $invoiceAddress = ns_clean_profile_multiline($_POST['invoice_address'] ?? '', 700);
-                $invoiceAcceptCheck = !empty($_POST['invoice_accept_check']) ? 1 : 0;
-                $invoiceAcceptCash = !empty($_POST['invoice_accept_cash']) ? 1 : 0;
-                $invoiceAcceptZelle = !empty($_POST['invoice_accept_zelle']) ? 1 : 0;
-                $invoiceZelleDetails = ns_clean_profile_text($_POST['invoice_zelle_details'] ?? '', 190);
+                $invoicePayableTo = ns_clean_profile_text($publicArtistProfile['invoice_payable_to'] ?? '', 190);
+                $invoiceAddress = ns_clean_profile_multiline($publicArtistProfile['invoice_address'] ?? '', 700);
+                $invoiceAcceptCheck = !array_key_exists('invoice_accept_check', $publicArtistProfile) || !empty($publicArtistProfile['invoice_accept_check']) ? 1 : 0;
+                $invoiceAcceptCash = !empty($publicArtistProfile['invoice_accept_cash']) ? 1 : 0;
+                $invoiceAcceptZelle = !empty($publicArtistProfile['invoice_accept_zelle']) ? 1 : 0;
+                $invoiceZelleDetails = ns_clean_profile_text($publicArtistProfile['invoice_zelle_details'] ?? '', 190);
                 $logoPath = trim((string)($publicArtistProfile['logo_path'] ?? ''));
                 $imageErr = null;
 
@@ -438,13 +488,6 @@ if (is_post()) {
                 if (!$directoryRegion) {
                     throw new RuntimeException($directoryCountry === 'US' ? 'Directory state is required. Use a valid two-letter state abbreviation.' : 'Directory region is required.');
                 }
-                if (!$invoiceAcceptCheck && !$invoiceAcceptCash && !$invoiceAcceptZelle) {
-                    throw new RuntimeException('Choose at least one invoice payment method.');
-                }
-                if ($invoiceAcceptZelle && !$invoiceZelleDetails) {
-                    throw new RuntimeException('Zelle payment details are required when Zelle is enabled.');
-                }
-
                 if (!empty($_FILES['logo_file']['tmp_name']) && is_uploaded_file($_FILES['logo_file']['tmp_name'])) {
                     $tmpPath = (string)$_FILES['logo_file']['tmp_name'];
                     $size = (int)($_FILES['logo_file']['size'] ?? 0);
@@ -700,8 +743,41 @@ if ($isReadySetShowsHost) {
         <label style="margin-top:1rem;">Band description</label>
         <textarea name="directory_description" rows="3" maxlength="700" placeholder="A sentence or two about your band."><?= e((string)($publicArtistProfile['directory_description'] ?? '')) ?></textarea>
       </div>
+      <label style="display:flex; gap:.6rem; align-items:flex-start; margin-top:1rem;">
+        <input type="checkbox" name="directory_visible" value="1" <?= !array_key_exists('directory_visible', $publicArtistProfile) || !empty($publicArtistProfile['directory_visible']) ? 'checked' : '' ?>>
+        <span>Show me in the public artist directory</span>
+      </label>
+      <label style="display:flex; gap:.6rem; align-items:flex-start; margin-top:.75rem;">
+        <input type="checkbox" name="directory_show_song_count" value="1" <?= !array_key_exists('directory_show_song_count', $publicArtistProfile) || !empty($publicArtistProfile['directory_show_song_count']) ? 'checked' : '' ?>>
+        <span>Show active song count</span>
+      </label>
+      <label style="display:flex; gap:.6rem; align-items:flex-start; margin-top:.75rem;">
+        <input type="checkbox" name="directory_show_songlist" value="1" <?= !empty($publicArtistProfile['directory_show_songlist']) ? 'checked' : '' ?>>
+        <span>Show my active songlist in the directory</span>
+      </label>
       <div class="form-field">
-        <label style="margin-top:1rem;">Invoice payable to</label>
+        <label style="margin-top:1rem;">Profile image</label>
+        <input type="file" name="logo_file" accept="image/png,image/jpeg,image/webp,image/gif">
+        <p class="muted small" style="margin:.35rem 0 0;">JPG, PNG, WEBP, or GIF under 2 MB.</p>
+      </div>
+      <?php if (!empty($publicArtistProfile['logo_path'])): ?>
+        <div style="display:flex; gap:1rem; align-items:center; flex-wrap:wrap; margin-top:1rem;">
+          <img src="<?= e(base_url((string)$publicArtistProfile['logo_path'])) ?>" alt="" style="width:72px; height:72px; object-fit:cover; border-radius:8px;">
+          <label class="muted" style="display:flex; gap:.45rem; align-items:center;"><input type="checkbox" name="remove_logo" value="1"> Remove image</label>
+        </div>
+      <?php endif; ?>
+      <button class="btn btn-primary" style="margin-top:1.25rem;">Save public profile</button>
+    </form>
+  </section>
+
+  <section class="card" style="padding:1.5rem; margin:1.5rem 0;">
+    <h3 class="form-title">Invoice Settings</h3>
+    <p class="muted">Set the performer details and payment terms that appear on generated invoices.</p>
+    <form class="form" method="post">
+      <input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>">
+      <input type="hidden" name="action" value="invoice_settings">
+      <div class="form-field">
+        <label>Invoice payable to</label>
         <input type="text" name="invoice_payable_to" maxlength="190" placeholder="Artist name, legal name, or business name" value="<?= e((string)($publicArtistProfile['invoice_payable_to'] ?? '')) ?>">
       </div>
       <div class="form-field">
@@ -727,30 +803,7 @@ if ($isReadySetShowsHost) {
         <label style="margin-top:1rem;">Zelle details</label>
         <input type="text" name="invoice_zelle_details" maxlength="190" placeholder="Email, phone, or Zelle name" value="<?= e((string)($publicArtistProfile['invoice_zelle_details'] ?? '')) ?>">
       </div>
-      <label style="display:flex; gap:.6rem; align-items:flex-start; margin-top:1rem;">
-        <input type="checkbox" name="directory_visible" value="1" <?= !array_key_exists('directory_visible', $publicArtistProfile) || !empty($publicArtistProfile['directory_visible']) ? 'checked' : '' ?>>
-        <span>Show me in the public artist directory</span>
-      </label>
-      <label style="display:flex; gap:.6rem; align-items:flex-start; margin-top:.75rem;">
-        <input type="checkbox" name="directory_show_song_count" value="1" <?= !array_key_exists('directory_show_song_count', $publicArtistProfile) || !empty($publicArtistProfile['directory_show_song_count']) ? 'checked' : '' ?>>
-        <span>Show active song count</span>
-      </label>
-      <label style="display:flex; gap:.6rem; align-items:flex-start; margin-top:.75rem;">
-        <input type="checkbox" name="directory_show_songlist" value="1" <?= !empty($publicArtistProfile['directory_show_songlist']) ? 'checked' : '' ?>>
-        <span>Show my active songlist in the directory</span>
-      </label>
-      <div class="form-field">
-        <label style="margin-top:1rem;">Profile image</label>
-        <input type="file" name="logo_file" accept="image/png,image/jpeg,image/webp,image/gif">
-        <p class="muted small" style="margin:.35rem 0 0;">JPG, PNG, WEBP, or GIF under 2 MB.</p>
-      </div>
-      <?php if (!empty($publicArtistProfile['logo_path'])): ?>
-        <div style="display:flex; gap:1rem; align-items:center; flex-wrap:wrap; margin-top:1rem;">
-          <img src="<?= e(base_url((string)$publicArtistProfile['logo_path'])) ?>" alt="" style="width:72px; height:72px; object-fit:cover; border-radius:8px;">
-          <label class="muted" style="display:flex; gap:.45rem; align-items:center;"><input type="checkbox" name="remove_logo" value="1"> Remove image</label>
-        </div>
-      <?php endif; ?>
-      <button class="btn btn-primary" style="margin-top:1.25rem;">Save public profile</button>
+      <button class="btn btn-primary" style="margin-top:1.25rem;">Save invoice settings</button>
     </form>
   </section>
 

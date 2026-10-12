@@ -477,11 +477,42 @@ if (is_post()) {
                     $logoPath = '';
                 }
 
-                $pdo->prepare(
-                    "INSERT INTO setmaxx_public_profiles (user_id, directory_visible, directory_country, directory_region, directory_state, directory_show_song_count, directory_show_songlist, directory_genres, directory_description, artist_name, invoice_payable_to, invoice_address, invoice_accept_check, invoice_accept_cash, invoice_accept_zelle, invoice_zelle_details, website_url, youtube_url, contact_email, contact_phone, logo_path)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                     ON DUPLICATE KEY UPDATE directory_visible = VALUES(directory_visible), directory_country = VALUES(directory_country), directory_region = VALUES(directory_region), directory_state = VALUES(directory_state), directory_show_song_count = VALUES(directory_show_song_count), directory_show_songlist = VALUES(directory_show_songlist), directory_genres = VALUES(directory_genres), directory_description = VALUES(directory_description), artist_name = VALUES(artist_name), invoice_payable_to = VALUES(invoice_payable_to), invoice_address = VALUES(invoice_address), invoice_accept_check = VALUES(invoice_accept_check), invoice_accept_cash = VALUES(invoice_accept_cash), invoice_accept_zelle = VALUES(invoice_accept_zelle), invoice_zelle_details = VALUES(invoice_zelle_details), website_url = VALUES(website_url), youtube_url = VALUES(youtube_url), contact_email = VALUES(contact_email), contact_phone = VALUES(contact_phone), logo_path = VALUES(logo_path)"
-                )->execute([$userId, $directoryVisible, $directoryCountry, $directoryRegion, $directoryState, $directoryShowSongCount, $directoryShowSonglist, $directoryGenresText !== '' ? $directoryGenresText : null, $directoryDescription, $artistName, $invoicePayableTo, $invoiceAddress, $invoiceAcceptCheck, $invoiceAcceptCash, $invoiceAcceptZelle, $invoiceZelleDetails, $websiteUrl, $youtubeUrl, $contactEmail, $contactPhone, $logoPath !== '' ? $logoPath : null]);
+                $profileValues = [
+                    $directoryVisible,
+                    $directoryCountry,
+                    $directoryRegion,
+                    $directoryState,
+                    $directoryShowSongCount,
+                    $directoryShowSonglist,
+                    $directoryGenresText !== '' ? $directoryGenresText : null,
+                    $directoryDescription,
+                    $artistName,
+                    $invoicePayableTo,
+                    $invoiceAddress,
+                    $invoiceAcceptCheck,
+                    $invoiceAcceptCash,
+                    $invoiceAcceptZelle,
+                    $invoiceZelleDetails,
+                    $websiteUrl,
+                    $youtubeUrl,
+                    $contactEmail,
+                    $contactPhone,
+                    $logoPath !== '' ? $logoPath : null,
+                ];
+                $profileExistsStmt = $pdo->prepare("SELECT 1 FROM setmaxx_public_profiles WHERE user_id = ? LIMIT 1");
+                $profileExistsStmt->execute([$userId]);
+                if ($profileExistsStmt->fetchColumn()) {
+                    $pdo->prepare(
+                        "UPDATE setmaxx_public_profiles
+                         SET directory_visible = ?, directory_country = ?, directory_region = ?, directory_state = ?, directory_show_song_count = ?, directory_show_songlist = ?, directory_genres = ?, directory_description = ?, artist_name = ?, invoice_payable_to = ?, invoice_address = ?, invoice_accept_check = ?, invoice_accept_cash = ?, invoice_accept_zelle = ?, invoice_zelle_details = ?, website_url = ?, youtube_url = ?, contact_email = ?, contact_phone = ?, logo_path = ?
+                         WHERE user_id = ?"
+                    )->execute(array_merge($profileValues, [$userId]));
+                } else {
+                    $pdo->prepare(
+                        "INSERT INTO setmaxx_public_profiles (user_id, directory_visible, directory_country, directory_region, directory_state, directory_show_song_count, directory_show_songlist, directory_genres, directory_description, artist_name, invoice_payable_to, invoice_address, invoice_accept_check, invoice_accept_cash, invoice_accept_zelle, invoice_zelle_details, website_url, youtube_url, contact_email, contact_phone, logo_path)
+                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+                    )->execute(array_merge([$userId], $profileValues));
+                }
 
                 $publicArtistProfile = ns_public_artist_profile($pdo, $userId);
                 if ($imageErr) {

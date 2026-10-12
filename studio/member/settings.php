@@ -23,6 +23,42 @@ function ns_public_profile_column_exists(PDO $pdo, string $columnName): bool
     return (bool)$stmt->fetchColumn();
 }
 
+function ns_ensure_invoice_settings_table(PDO $pdo): void
+{
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS `finance_invoice_settings` (
+          `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+          `user_id` int(10) unsigned NOT NULL,
+          `invoice_payable_to` varchar(190) DEFAULT NULL,
+          `invoice_address` text DEFAULT NULL,
+          `invoice_accept_check` tinyint(1) NOT NULL DEFAULT 1,
+          `invoice_accept_cash` tinyint(1) NOT NULL DEFAULT 0,
+          `invoice_accept_zelle` tinyint(1) NOT NULL DEFAULT 0,
+          `invoice_zelle_details` varchar(190) DEFAULT NULL,
+          `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+          `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+          PRIMARY KEY (`id`),
+          UNIQUE KEY `uq_finance_invoice_settings_user` (`user_id`),
+          CONSTRAINT `fk_finance_invoice_settings_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
+    ");
+}
+
+function ns_invoice_settings(PDO $pdo, int $userId): array
+{
+    ns_ensure_invoice_settings_table($pdo);
+    $stmt = $pdo->prepare("SELECT invoice_payable_to, invoice_address, invoice_accept_check, invoice_accept_cash, invoice_accept_zelle, invoice_zelle_details FROM finance_invoice_settings WHERE user_id = ? LIMIT 1");
+    $stmt->execute([$userId]);
+    return $stmt->fetch(PDO::FETCH_ASSOC) ?: [
+        'invoice_payable_to' => '',
+        'invoice_address' => '',
+        'invoice_accept_check' => 1,
+        'invoice_accept_cash' => 0,
+        'invoice_accept_zelle' => 0,
+        'invoice_zelle_details' => '',
+    ];
+}
+
 function ns_ensure_public_artist_profile_table(PDO $pdo): void
 {
     if (!ns_public_profile_table_exists($pdo)) {
@@ -295,7 +331,7 @@ function ns_public_artist_profile(PDO $pdo, int $userId): array
     ns_ensure_public_artist_profile_table($pdo);
     $stmt = $pdo->prepare("SELECT directory_visible, directory_country, directory_region, directory_state, directory_show_song_count, directory_show_songlist, directory_genres, directory_description, artist_name, invoice_payable_to, invoice_address, invoice_accept_check, invoice_accept_cash, invoice_accept_zelle, invoice_zelle_details, website_url, youtube_url, contact_email, contact_phone, logo_path FROM setmaxx_public_profiles WHERE user_id = ? LIMIT 1");
     $stmt->execute([$userId]);
-    return $stmt->fetch(PDO::FETCH_ASSOC) ?: [
+    $profile = $stmt->fetch(PDO::FETCH_ASSOC) ?: [
         'directory_visible' => 1,
         'directory_country' => 'US',
         'directory_region' => '',
@@ -317,6 +353,7 @@ function ns_public_artist_profile(PDO $pdo, int $userId): array
         'contact_phone' => '',
         'logo_path' => '',
     ];
+    return array_merge($profile, ns_invoice_settings($pdo, $userId));
 }
 
 function ns_active_stripe_subscription_for_user(PDO $pdo, int $userId): ?array
@@ -388,7 +425,7 @@ if (is_post()) {
 
         if ($action === 'invoice_settings') {
             try {
-                ns_ensure_public_artist_profile_table($pdo);
+                ns_ensure_invoice_settings_table($pdo);
                 $invoicePayableTo = ns_clean_profile_text($_POST['invoice_payable_to'] ?? '', 190);
                 $invoiceAddress = ns_clean_profile_multiline($_POST['invoice_address'] ?? '', 700);
                 $invoiceAcceptCheck = !empty($_POST['invoice_accept_check']) ? 1 : 0;
@@ -404,20 +441,11 @@ if (is_post()) {
                 }
 
                 $invoiceValues = [$invoicePayableTo, $invoiceAddress, $invoiceAcceptCheck, $invoiceAcceptCash, $invoiceAcceptZelle, $invoiceZelleDetails];
-                $profileExistsStmt = $pdo->prepare("SELECT 1 FROM setmaxx_public_profiles WHERE user_id = ? LIMIT 1");
-                $profileExistsStmt->execute([$userId]);
-                if ($profileExistsStmt->fetchColumn()) {
-                    $pdo->prepare(
-                        "UPDATE setmaxx_public_profiles
-                         SET invoice_payable_to = ?, invoice_address = ?, invoice_accept_check = ?, invoice_accept_cash = ?, invoice_accept_zelle = ?, invoice_zelle_details = ?
-                         WHERE user_id = ?"
-                    )->execute(array_merge($invoiceValues, [$userId]));
-                } else {
-                    $pdo->prepare(
-                        "INSERT INTO setmaxx_public_profiles (user_id, invoice_payable_to, invoice_address, invoice_accept_check, invoice_accept_cash, invoice_accept_zelle, invoice_zelle_details)
-                         VALUES (?, ?, ?, ?, ?, ?, ?)"
-                    )->execute(array_merge([$userId], $invoiceValues));
-                }
+                $pdo->prepare(
+                    "INSERT INTO finance_invoice_settings (user_id, invoice_payable_to, invoice_address, invoice_accept_check, invoice_accept_cash, invoice_accept_zelle, invoice_zelle_details)
+                     VALUES (?, ?, ?, ?, ?, ?, ?)
+                     ON DUPLICATE KEY UPDATE invoice_payable_to = VALUES(invoice_payable_to), invoice_address = VALUES(invoice_address), invoice_accept_check = VALUES(invoice_accept_check), invoice_accept_cash = VALUES(invoice_accept_cash), invoice_accept_zelle = VALUES(invoice_accept_zelle), invoice_zelle_details = VALUES(invoice_zelle_details)"
+                )->execute(array_merge([$userId], $invoiceValues));
 
                 $publicArtistProfile = ns_public_artist_profile($pdo, $userId);
                 flash_set('settings_success', 'Invoice settings saved.');

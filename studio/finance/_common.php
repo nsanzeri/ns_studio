@@ -137,8 +137,15 @@ function finance_clean_multiline($value, int $maxLength = 700): ?string {
 }
 
 function finance_artist_invoice_profile(PDO $pdo, int $userId): array {
+    $settings = [];
+    if (finance_table_exists($pdo, 'finance_invoice_settings')) {
+        $stmt = $pdo->prepare("SELECT invoice_payable_to, invoice_address, invoice_accept_check, invoice_accept_cash, invoice_accept_zelle, invoice_zelle_details FROM finance_invoice_settings WHERE user_id = ? LIMIT 1");
+        $stmt->execute([$userId]);
+        $settings = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+    }
+
     if (!finance_table_exists($pdo, 'setmaxx_public_profiles')) {
-        return [];
+        return $settings;
     }
 
     $columns = [];
@@ -148,12 +155,13 @@ function finance_artist_invoice_profile(PDO $pdo, int $userId): array {
         }
     }
     if (!$columns) {
-        return [];
+        return $settings;
     }
 
     $stmt = $pdo->prepare('SELECT ' . implode(', ', $columns) . ' FROM setmaxx_public_profiles WHERE user_id = ? LIMIT 1');
     $stmt->execute([$userId]);
-    return $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+    $profile = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+    return array_merge($profile, $settings);
 }
 
 function finance_date_for_sql(string $atom): string {

@@ -1364,8 +1364,8 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   position: absolute;
   right: 0;
   bottom: calc(100% + 0.55rem);
-  width: min(260px, calc(100vw - 2rem));
-  padding: 0.55rem;
+  width: min(320px, calc(100vw - 2rem));
+  padding: 0.65rem;
   border-radius: 12px;
   border: 1px solid rgba(255,255,255,0.14);
   background: rgba(9,10,18,0.98);
@@ -1374,7 +1374,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 
 .rss-feedback-title {
   margin: 0 0 0.35rem;
-  padding: 0.45rem 0.55rem;
+  padding: 0.35rem 0.3rem 0.2rem;
   color: rgba(255,255,255,0.62);
   font-size: 0.76rem;
   font-weight: 700;
@@ -1382,26 +1382,128 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   text-transform: uppercase;
 }
 
-.rss-feedback-panel a {
-  display: flex;
-  align-items: center;
-  gap: 0.65rem;
-  padding: 0.68rem 0.62rem;
+.rss-feedback-status {
+  margin: 0 0 0.55rem;
+  padding: 0.55rem 0.65rem;
   border-radius: 9px;
+  background: rgba(101,213,138,0.12);
   color: rgba(255,255,255,0.88);
-  font-size: 0.88rem;
-  text-decoration: none;
+  font-size: 0.84rem;
 }
 
-.rss-feedback-panel a:hover {
+.rss-feedback-status-error {
+  background: rgba(255,122,89,0.14);
+}
+
+.rss-feedback-form {
+  display: grid;
+  gap: 0.58rem;
+}
+
+.rss-feedback-hp {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+.rss-feedback-options {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.35rem;
+}
+
+.rss-feedback-options label {
+  min-width: 0;
+}
+
+.rss-feedback-options input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.rss-feedback-options span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  min-height: 36px;
+  padding: 0.45rem 0.3rem;
+  border-radius: 9px;
+  border: 1px solid rgba(255,255,255,0.12);
+  color: rgba(255,255,255,0.72);
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.rss-feedback-options input:checked + span,
+.rss-feedback-options span:hover {
   color: var(--accent, #e7c75a);
   background: rgba(255,255,255,0.06);
+  border-color: rgba(231,199,90,0.42);
 }
 
 .rss-feedback-panel i {
   width: 18px;
   text-align: center;
   color: var(--accent, #e7c75a);
+}
+
+.rss-feedback-field {
+  display: grid;
+  gap: 0.28rem;
+}
+
+.rss-feedback-field span {
+  color: rgba(255,255,255,0.62);
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.rss-feedback-field textarea,
+.rss-feedback-field input {
+  width: 100%;
+  border: 1px solid rgba(255,255,255,0.14);
+  border-radius: 9px;
+  background: rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.92);
+  font: inherit;
+  font-size: 0.86rem;
+  padding: 0.62rem 0.68rem;
+}
+
+.rss-feedback-field textarea {
+  resize: vertical;
+  min-height: 92px;
+}
+
+.rss-feedback-field textarea:focus,
+.rss-feedback-field input:focus {
+  outline: 1px solid var(--accent, #e7c75a);
+  border-color: rgba(231,199,90,0.5);
+}
+
+.rss-feedback-submit {
+  min-height: 38px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--accent, #e7c75a);
+  color: #111;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.rss-feedback-submit:hover {
+  filter: brightness(1.06);
 }
 
 .btn {

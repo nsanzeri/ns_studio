@@ -153,6 +153,16 @@ if (!function_exists('log_tool_usage')) {
         if ($userEmail === '') {
             $userEmail = null;
         }
+        if ($userEmail === null && $userId !== null) {
+            try {
+                $emailStmt = $pdo->prepare('SELECT email FROM users WHERE id = ? LIMIT 1');
+                $emailStmt->execute([$userId]);
+                $resolvedEmail = strtolower(trim((string)($emailStmt->fetchColumn() ?: '')));
+                $userEmail = $resolvedEmail !== '' ? $resolvedEmail : null;
+            } catch (Throwable $e) {
+                $userEmail = null;
+            }
+        }
 
         $ipBinary = array_key_exists('ip', $data)
             ? tool_usage_inet_pton((string)$data['ip'])

@@ -21,6 +21,7 @@ $sessionMinimumDollars = 10;
 $priceStepDollars = 1;
 $venmoHandle = '';
 $venmoAvailable = false;
+$cardPaymentsAvailable = false;
 $requestBadgeDollars = [5, 10, 20];
 $freeRequestLimit = 2;
 $requesterIdentifier = '';
@@ -126,7 +127,6 @@ function setmaxx_public_log_usage(PDO $pdo, int $performerUserId): void {
 
     log_tool_usage($pdo, [
         'user_id' => $performerUserId,
-        'user_email' => null,
         'feature_key' => 'setmaxx_public_requests',
         'action_key' => setmaxx_public_usage_action_key(),
         'status' => 'success',
@@ -455,6 +455,24 @@ function setmaxx_public_user_uses_direct_platform_tips(int $userId): bool {
     return in_array($userId, setmaxx_public_direct_platform_tip_user_ids(), true);
 }
 
+function setmaxx_public_card_payments_available(PDO $pdo, int $userId): bool {
+    if ($userId <= 0) return false;
+    if (setmaxx_public_user_uses_direct_platform_tips($userId)) return true;
+    if (!setmaxx_public_table_exists($pdo, 'setmaxx_connect_accounts')) return false;
+
+    try {
+        $stmt = $pdo->prepare("SELECT charges_enabled, payouts_enabled, details_submitted FROM setmaxx_connect_accounts WHERE user_id = ? LIMIT 1");
+        $stmt->execute([$userId]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
+        return $row
+            && !empty($row['charges_enabled'])
+            && !empty($row['payouts_enabled'])
+            && !empty($row['details_submitted']);
+    } catch (Throwable $e) {
+        return false;
+    }
+}
+
 function setmaxx_public_user_has_pro_access(PDO $pdo, int $userId): bool {
     if ($userId <= 0) return false;
 
@@ -594,7 +612,8 @@ if ($tablesReady && $publicUserId > 0) {
         max(1, min(100, (int)($publicProfile['request_badge_3_dollars'] ?? 20))),
     ];
     $venmoHandle = ltrim(trim((string)($publicProfile['venmo_handle'] ?? '')), '@');
-    $venmoAvailable = $session && $venmoHandle !== '';
+    $venmoAvailable = $venmoHandle !== '';
+    $cardPaymentsAvailable = setmaxx_public_card_payments_available($pdo, $publicUserId);
 
     try {
         $freeCountStmt = $pdo->prepare(
@@ -716,7 +735,9 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
             if ($tipDollars < $tipMinimumDollars || $tipDollars > 100) {
                 $errors[] = 'Choose a tip amount from $' . $tipMinimumDollars . ' to $100.';
             } elseif ($paymentMethod === 'venmo' && !$venmoAvailable) {
-                $errors[] = 'Venmo is not available for this session.';
+                $errors[] = 'Venmo is not available for this artist.';
+            } elseif ($paymentMethod !== 'venmo' && !$cardPaymentsAvailable) {
+                $errors[] = 'Card tips are not ready for this artist yet.';
             } else {
                 try {
                     setmaxx_public_ensure_general_tips_table($pdo);
@@ -835,7 +856,7 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
             $errors[] = 'Free requests are used up for this device tonight. Choose a tip amount to send another request.';
         } elseif ($requestAmountDollars > 0 && $paymentMethod === 'venmo') {
             if (!$venmoAvailable) {
-                $errors[] = 'Venmo is not available for this session.';
+                $errors[] = 'Venmo is not available for this artist.';
             } else {
                 try {
                     setmaxx_public_ensure_venmo_columns($pdo);
@@ -864,6 +885,8 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
                     $errors[] = 'The request could not be sent right now.';
                 }
             }
+        } elseif ($requestAmountDollars > 0 && !$cardPaymentsAvailable) {
+            $errors[] = 'Card payments are not ready for this artist yet.';
         } elseif ($requestAmountDollars > 0) {
             try {
                 require_once __DIR__ . '/../_private/config/stripe.php';
@@ -1198,8 +1221,9 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
               <input class="request-input" name="tipper_name" placeholder="Your name">
               <input class="request-input" name="tip_note" placeholder="Optional note">
               <div class="payment-buttons">
-                <button class="btn btn-primary request-submit" type="submit" name="payment_method" value="stripe">Tip with card</button>
-                <?php if ($venmoAvailable): ?><button class="btn btn-outline request-submit" type="submit" name="payment_method" value="venmo">Tip with Venmo</button><?php endif; ?>
+                <?php if ($cardPaymentsAvailable): ?><button class="btn btn-primary request-submit" type="submit" name="payment_method" value="stripe">Tip with card</button><?php endif; ?>
+                <?php if ($venmoAvailable): ?><button class="btn <?= $cardPaymentsAvailable ? 'btn-outline' : 'btn-primary' ?> request-submit" type="submit" name="payment_method" value="venmo">Tip with Venmo</button><?php endif; ?>
+                <?php if (!$cardPaymentsAvailable && !$venmoAvailable): ?><button class="btn btn-outline request-submit" type="button" disabled>Tips unavailable</button><?php endif; ?>
               </div>
             </form>
           </div>
@@ -1310,8 +1334,9 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
             <input class="request-input" name="tipper_name" placeholder="Your name">
             <input class="request-input" name="tip_note" placeholder="Optional note">
             <div class="payment-buttons">
-              <button class="btn btn-primary request-submit" type="submit" name="payment_method" value="stripe">Tip with card</button>
-              <?php if ($venmoAvailable): ?><button class="btn btn-outline request-submit" type="submit" name="payment_method" value="venmo">Tip with Venmo</button><?php endif; ?>
+              <?php if ($cardPaymentsAvailable): ?><button class="btn btn-primary request-submit" type="submit" name="payment_method" value="stripe">Tip with card</button><?php endif; ?>
+              <?php if ($venmoAvailable): ?><button class="btn <?= $cardPaymentsAvailable ? 'btn-outline' : 'btn-primary' ?> request-submit" type="submit" name="payment_method" value="venmo">Tip with Venmo</button><?php endif; ?>
+              <?php if (!$cardPaymentsAvailable && !$venmoAvailable): ?><button class="btn btn-outline request-submit" type="button" disabled>Tips unavailable</button><?php endif; ?>
             </div>
           </form>
         </div>
@@ -1421,8 +1446,9 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
                   <input class="request-input" name="requester_name" placeholder="First name is enough.">
                   <input class="request-input" name="request_note" placeholder="Optional note">
                   <div class="payment-buttons request-payment-buttons" <?= $defaultAmount === 0 ? 'hidden' : '' ?>>
-                    <button class="btn btn-primary request-submit" type="submit" name="payment_method" value="stripe">Request with card</button>
-                    <?php if ($venmoAvailable): ?><button class="btn btn-outline request-submit" type="submit" name="payment_method" value="venmo">Request with Venmo</button><?php endif; ?>
+                    <?php if ($cardPaymentsAvailable): ?><button class="btn btn-primary request-submit" type="submit" name="payment_method" value="stripe">Request with card</button><?php endif; ?>
+                    <?php if ($venmoAvailable): ?><button class="btn <?= $cardPaymentsAvailable ? 'btn-outline' : 'btn-primary' ?> request-submit" type="submit" name="payment_method" value="venmo">Request with Venmo</button><?php endif; ?>
+                    <?php if (!$cardPaymentsAvailable && !$venmoAvailable): ?><button class="btn btn-outline request-submit" type="button" disabled>Paid requests unavailable</button><?php endif; ?>
                   </div>
                   <div class="payment-buttons request-free-actions" <?= $defaultAmount === 0 ? '' : 'hidden' ?>>
                     <button class="btn btn-primary request-submit" type="submit" name="payment_method" value="free">Send request</button>

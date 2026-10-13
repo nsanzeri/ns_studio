@@ -239,9 +239,11 @@ if ($toolUsageEnabled) {
     }
 
     $toolRows = q($pdo, "
-        SELECT tu.id, tu.created_at, tu.user_id, tu.user_email, tu.feature_key, tu.action_key,
+        SELECT tu.id, tu.created_at, tu.user_id, COALESCE(NULLIF(tu.user_email,''), u.email) AS user_email,
+               tu.feature_key, tu.action_key,
                tu.calendar_count, tu.result_count, tu.status, tu.note, HEX(tu.ip) AS ip_hex
         FROM tool_usage_log tu
+        LEFT JOIN users u ON u.id = tu.user_id
         WHERE $wt
         ORDER BY tu.id DESC
         LIMIT $limit
@@ -253,19 +255,21 @@ if ($toolUsageEnabled) {
                SUM(CASE WHEN tu.status='success' THEN 1 ELSE 0 END) AS success_count,
                SUM(CASE WHEN tu.status='blocked' THEN 1 ELSE 0 END) AS blocked_count,
                SUM(CASE WHEN tu.status='error' THEN 1 ELSE 0 END) AS error_count,
-               COUNT(DISTINCT COALESCE(NULLIF(tu.user_email,''), CONCAT('user#', tu.user_id), 'anonymous')) AS unique_users
+               COUNT(DISTINCT COALESCE(NULLIF(tu.user_email,''), u.email, CONCAT('user#', tu.user_id), 'anonymous')) AS unique_users
         FROM tool_usage_log tu
+        LEFT JOIN users u ON u.id = tu.user_id
         WHERE $wt
         GROUP BY tu.feature_key
         ORDER BY uses DESC, tu.feature_key ASC
     ", $pt);
 
     $toolUserSummary = q($pdo, "
-        SELECT COALESCE(NULLIF(tu.user_email,''), CONCAT('user#', tu.user_id), 'anonymous') AS who,
+        SELECT COALESCE(NULLIF(tu.user_email,''), u.email, CONCAT('user#', tu.user_id), 'anonymous') AS who,
                COUNT(*) AS uses,
                COUNT(DISTINCT tu.feature_key) AS features_used,
                MAX(tu.created_at) AS last_seen
         FROM tool_usage_log tu
+        LEFT JOIN users u ON u.id = tu.user_id
         WHERE $wt
         GROUP BY who
         ORDER BY uses DESC, who ASC

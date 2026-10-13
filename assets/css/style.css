@@ -1319,6 +1319,91 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   transform: translateY(0);
 }
 
+.rss-feedback-widget {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 70;
+  font-family: "Poppins", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.rss-feedback-toggle {
+  list-style: none;
+  min-height: 42px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.58rem 0.82rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.16);
+  background: rgba(9,10,18,0.88);
+  color: rgba(255,255,255,0.86);
+  box-shadow: 0 14px 38px rgba(0,0,0,0.34);
+  cursor: pointer;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  backdrop-filter: blur(14px);
+  transition: color 0.16s ease, border-color 0.16s ease, background 0.16s ease, transform 0.16s ease;
+}
+
+.rss-feedback-toggle::-webkit-details-marker {
+  display: none;
+}
+
+.rss-feedback-toggle:hover,
+.rss-feedback-widget[open] .rss-feedback-toggle {
+  color: var(--accent, #e7c75a);
+  border-color: rgba(231,199,90,0.5);
+  background: rgba(14,15,24,0.96);
+  transform: translateY(-1px);
+}
+
+.rss-feedback-panel {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 0.55rem);
+  width: min(260px, calc(100vw - 2rem));
+  padding: 0.55rem;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.14);
+  background: rgba(9,10,18,0.98);
+  box-shadow: 0 20px 54px rgba(0,0,0,0.48);
+}
+
+.rss-feedback-title {
+  margin: 0 0 0.35rem;
+  padding: 0.45rem 0.55rem;
+  color: rgba(255,255,255,0.62);
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.rss-feedback-panel a {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.68rem 0.62rem;
+  border-radius: 9px;
+  color: rgba(255,255,255,0.88);
+  font-size: 0.88rem;
+  text-decoration: none;
+}
+
+.rss-feedback-panel a:hover {
+  color: var(--accent, #e7c75a);
+  background: rgba(255,255,255,0.06);
+}
+
+.rss-feedback-panel i {
+  width: 18px;
+  text-align: center;
+  color: var(--accent, #e7c75a);
+}
+
 .btn {
   display: inline-flex;
   align-items: center;
@@ -1626,12 +1711,27 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 
   .floating-venmo {
     right: 16px;
-    bottom: 16px;
+    bottom: 72px;
   }
 
   .back-to-top {
     left: 16px;
     bottom: 16px;
+  }
+
+  .rss-feedback-widget {
+    right: 14px;
+    bottom: 14px;
+  }
+
+  .rss-feedback-toggle {
+    width: 42px;
+    justify-content: center;
+    padding-inline: 0;
+  }
+
+  .rss-feedback-toggle span {
+    display: none;
   }
   
   

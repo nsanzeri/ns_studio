@@ -40,6 +40,8 @@ $mainSiteUrl = $isReadySetShowsHost ? $rssHomeUrl : $homeUrl;
     <i class="fas fa-arrow-up"></i>
 </a>
 
+<?php include __DIR__ . '/feedback_widget.php'; ?>
+
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     const yearEl = document.getElementById('year');

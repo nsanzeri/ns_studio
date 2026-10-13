@@ -26,6 +26,8 @@ $mainSiteUrl = $siteBase . '/index.php' . ($isLocal ? '?rss_preview=1' : '');
     <i class="fas fa-arrow-up"></i>
 </a>
 
+<?php include __DIR__ . '/feedback_widget.php'; ?>
+
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     const yearEl = document.getElementById('year');

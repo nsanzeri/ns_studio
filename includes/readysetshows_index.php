@@ -864,5 +864,6 @@ $screens = [
             Ready Set Shows &copy; <?= date('Y') ?>. Calendar, SetMaxx, Finance, and Publishing tools for working musicians.
         </div>
     </footer>
+    <?php include __DIR__ . '/feedback_widget.php'; ?>
 </body>
 </html>

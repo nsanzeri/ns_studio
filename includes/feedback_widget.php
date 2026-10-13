@@ -14,8 +14,39 @@ if (!$rssHideFeedbackWidget && !$isPublicTippingScreen):
     $feedbackAction = $siteBase . '/feedback-submit.php';
     $feedbackSent = (string)($_GET['feedback'] ?? '') === 'sent';
     $feedbackError = isset($_GET['feedback_error']);
+    $feedbackHasStatus = $feedbackSent || $feedbackError;
 ?>
-<details class="rss-feedback-widget">
+<style>
+    .rss-feedback-widget {
+        position: fixed !important;
+        right: 18px !important;
+        bottom: 18px !important;
+        left: auto !important;
+        z-index: 70 !important;
+    }
+
+    .rss-feedback-toggle {
+        list-style: none;
+    }
+
+    .rss-feedback-toggle::-webkit-details-marker {
+        display: none;
+    }
+
+    .rss-feedback-panel {
+        position: absolute;
+        right: 0;
+        bottom: calc(100% + 0.55rem);
+    }
+
+    @media (max-width: 640px) {
+        .rss-feedback-widget {
+            right: 14px !important;
+            bottom: 14px !important;
+        }
+    }
+</style>
+<details class="rss-feedback-widget"<?= $feedbackHasStatus ? ' open' : '' ?>>
     <summary class="rss-feedback-toggle" aria-label="Open feedback options">
         <i class="fa-regular fa-comment-dots" aria-hidden="true"></i>
         <span>Feedback</span>

@@ -7,12 +7,16 @@ $range = (string)($_GET['range'] ?? 'year');
 if ($range !== 'all') $range = 'year';
 $previousYear = $year - 1;
 $compareYear = (int)($_GET['compare_year'] ?? $previousYear);
+$ytdYear = (int)date('Y');
+$ytdStart = date('Y-01-01');
+$ytdEnd = (new DateTimeImmutable('tomorrow'))->format('Y-m-d');
 
 $summary = [
     'last_week' => ['gigs' => 0, 'gross_cents' => 0, 'tips_cents' => 0, 'net_cents' => 0],
     'week' => ['gigs' => 0, 'gross_cents' => 0, 'tips_cents' => 0, 'net_cents' => 0],
     'month' => ['gigs' => 0, 'gross_cents' => 0, 'tips_cents' => 0, 'net_cents' => 0],
     'year' => ['gigs' => 0, 'gross_cents' => 0, 'tips_cents' => 0, 'net_cents' => 0],
+    'ytd' => ['gigs' => 0, 'gross_cents' => 0, 'tips_cents' => 0, 'net_cents' => 0],
 ];
 $monthlyRows = [];
 $previousMonthlyRows = [];
@@ -86,10 +90,15 @@ if ($financeReady) {
         'week' => ["g.starts_at >= DATE_SUB(CURDATE(), INTERVAL WEEKDAY(CURDATE()) DAY) AND g.starts_at < DATE_ADD(DATE_SUB(CURDATE(), INTERVAL WEEKDAY(CURDATE()) DAY), INTERVAL 7 DAY)"],
         'month' => ["YEAR(g.starts_at) = YEAR(CURDATE()) AND MONTH(g.starts_at) = MONTH(CURDATE())"],
         'year' => ["YEAR(g.starts_at) = ?"],
+        'ytd' => ["g.starts_at >= ? AND g.starts_at < ?"],
     ];
     foreach ($ranges as $key => $parts) {
         $stmt = $pdo->prepare($summarySql . ' AND ' . $parts[0]);
-        $params = $key === 'year' ? [$userId, $year] : [$userId];
+        $params = match ($key) {
+            'year' => [$userId, $year],
+            'ytd' => [$userId, $ytdStart, $ytdEnd],
+            default => [$userId],
+        };
         $stmt->execute($params);
         $summary[$key] = array_map('intval', $stmt->fetch(PDO::FETCH_ASSOC) ?: $summary[$key]);
     }
@@ -264,6 +273,8 @@ if ($range === 'year') {
     $chartRows = $filledChartRows;
 }
 
+$chartDetails = [];
+$runningByYear = [];
 foreach ($chartRows as $row) {
     $month = (int)$row['month_num'];
     $rowYear = (int)$row['year_num'];
@@ -271,6 +282,13 @@ foreach ($chartRows as $row) {
         ? date('M Y', mktime(0, 0, 0, $month, 1, $rowYear))
         : date('M', mktime(0, 0, 0, $month, 1));
     $chartValues[] = (int)$row['gross_cents'];
+    $runningByYear[$rowYear] = ($runningByYear[$rowYear] ?? 0) + (int)$row['gross_cents'];
+    $chartDetails[] = [
+        'label'=>date('F Y', mktime(0,0,0,$month,1,$rowYear)),
+        'year'=>$rowYear,
+        'gross_cents'=>(int)$row['gross_cents'],
+        'ytd_cents'=>$runningByYear[$rowYear],
+    ];
 }
 
 $chartMax = max($chartValues ?: [0]);
@@ -387,7 +405,7 @@ finance_page_head('Finance | Ready Set Shows');
         <?php if (!$chartValues || $chartMax <= 0): ?>
           <div class="finance-chart-empty">No income rows for this range yet.</div>
         <?php else: ?>
-          <svg class="finance-income-chart" viewBox="0 0 <?= (int)$chartWidth ?> <?= (int)$chartHeight ?>" role="img" aria-label="Total income chart">
+          <svg class="finance-income-chart" viewBox="0 0 <?= (int)$chartWidth ?> <?= (int)$chartHeight ?>" role="slider" tabindex="0" aria-label="Monthly gross income" aria-valuemin="1" aria-valuemax="<?=count($chartDetails)?>" aria-valuenow="1">
             <defs>
               <linearGradient id="financeIncomeFill" x1="0" x2="0" y1="0" y2="1">
                 <stop offset="0%" stop-color="#55c8ff" stop-opacity=".34"></stop>
@@ -397,7 +415,14 @@ finance_page_head('Finance | Ready Set Shows');
             <line x1="<?= (int)$chartPadX ?>" y1="<?= (int)($chartHeight - $chartPadY) ?>" x2="<?= (int)($chartWidth - $chartPadX) ?>" y2="<?= (int)($chartHeight - $chartPadY) ?>" class="finance-chart-axis"></line>
             <polygon points="<?= e($chartAreaPoints) ?>" class="finance-chart-area"></polygon>
             <polyline points="<?= e($chartPoints) ?>" class="finance-chart-line"></polyline>
+            <g class="finance-chart-selection" visibility="hidden" pointer-events="none">
+              <line y1="<?= (int)$chartPadY ?>" y2="<?= (int)($chartHeight-$chartPadY) ?>"></line>
+              <circle r="5"></circle>
+            </g>
           </svg>
+          <div class="finance-chart-tooltip" role="status" hidden></div>
+          <script type="application/json" id="finance-chart-data"><?=json_encode($chartDetails,JSON_HEX_TAG|JSON_HEX_AMP|JSON_HEX_APOS|JSON_HEX_QUOT)?></script>
+          <script src="income-chart.js?v=<?=filemtime(__DIR__.'/income-chart.js')?>" defer></script>
           <div class="finance-chart-labels">
             <?php
               $labelIndexes = $chartLabels ? array_values(array_unique([0, (int)floor((count($chartLabels) - 1) / 2), count($chartLabels) - 1])) : [];
@@ -432,16 +457,25 @@ finance_page_head('Finance | Ready Set Shows');
       </div>
     </section>
 
-    <section class="finance-grid" style="margin-bottom:1rem;">
+    <section class="finance-grid finance-income-cards" style="margin-bottom:1rem;">
       <?php foreach (['week' => 'This week', 'last_week' => 'Last week', 'month' => 'This month', 'year' => (string)$year] as $key => $label): ?>
         <div class="finance-card finance-stat">
           <span class="finance-pill"><?= e($label) ?></span>
-          <div class="finance-muted">Net income</div>
-          <strong><?= finance_money((int)$summary[$key]['net_cents']) ?></strong>
+          <div class="finance-muted">Gross income</div>
+          <strong><?= finance_money((int)$summary[$key]['gross_cents']) ?></strong>
           <div class="finance-muted"><?= (int)$summary[$key]['gigs'] ?> gigs &middot; <?= finance_money((int)$summary[$key]['gross_cents'] - (int)$summary[$key]['tips_cents']) ?> guarantee &middot; <?= finance_money((int)$summary[$key]['tips_cents']) ?> tips</div>
-          <div class="finance-muted"><?= finance_money((int)$summary[$key]['gross_cents']) ?> gross &minus; <?= finance_money((int)$summary[$key]['gross_cents'] - (int)$summary[$key]['net_cents']) ?> payouts</div>
         </div>
       <?php endforeach; ?>
+      <div class="finance-card finance-stat">
+        <span class="finance-pill"><?= (int)$year ?> net income</span>
+        <strong><?= finance_money((int)$summary['year']['net_cents']) ?></strong>
+        <div class="finance-muted"><?= finance_money((int)$summary['year']['gross_cents']) ?> gross &minus; <?= finance_money((int)$summary['year']['gross_cents'] - (int)$summary['year']['net_cents']) ?> payouts</div>
+      </div>
+      <div class="finance-card finance-stat">
+        <span class="finance-pill">Gross YTD &middot; <?= $ytdYear ?></span>
+        <strong><?= finance_money((int)$summary['ytd']['gross_cents']) ?></strong>
+        <div class="finance-muted"><?= (int)$summary['ytd']['gigs'] ?> gigs &middot; Jan 1 through <?= e(date('M j, Y')) ?></div>
+      </div>
     </section>
 
     <section class="finance-two">

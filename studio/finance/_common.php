@@ -416,6 +416,7 @@ function finance_page_head(string $title): void { ?>
     .finance-shell { padding: 2rem 0 4rem; }
     .finance-card { min-width:0; background: rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08); border-radius:24px; padding:1.35rem; box-shadow:0 16px 34px rgba(0,0,0,.18); }
     .finance-grid { display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:1rem; }
+    .finance-income-cards { grid-template-columns:repeat(3, minmax(0, 1fr)); }
     .finance-two { display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
     .finance-stack { display:grid; gap:1rem; }
     .finance-field { display:grid; gap:.45rem; }
@@ -476,6 +477,15 @@ function finance_page_head(string $title): void { ?>
     .finance-chart-axis { stroke:rgba(255,255,255,.16); stroke-width:1; }
     .finance-chart-area { fill:url(#financeIncomeFill); }
     .finance-chart-line { fill:none; stroke:#55c8ff; stroke-width:4; stroke-linecap:round; stroke-linejoin:round; }
+    .finance-chart-wrap { position:relative; }
+    .finance-income-chart { touch-action:pan-y; }
+    .finance-income-chart:focus-visible { outline:2px solid #55c8ff; outline-offset:3px; }
+    .finance-chart-selection line { stroke:#a4dfff; stroke-width:1; stroke-dasharray:4 4; }
+    .finance-chart-selection circle { fill:#55c8ff; stroke:#fff; stroke-width:2; }
+    .finance-chart-tooltip { position:absolute; z-index:2; pointer-events:none; width:215px; max-width:calc(100% - 24px); box-sizing:border-box; padding:.65rem .8rem; background:#17171e; color:#fff; border:1px solid #555; border-radius:8px; box-shadow:0 4px 14px #0006; font-size:.78rem; }
+    .finance-chart-tooltip strong { display:block; margin-bottom:.3rem; }
+    .finance-chart-tooltip span { display:block; }
+    .finance-chart-tooltip[hidden] { display:none; }
     .finance-chart-labels { display:flex; justify-content:space-between; gap:.75rem; color:rgba(255,255,255,.6); font-size:.78rem; margin-top:.35rem; }
     .finance-chart-empty { min-height:160px; display:grid; place-items:center; color:rgba(255,255,255,.68); }
     .finance-overview-stats { display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:.75rem; margin-top:1rem; }

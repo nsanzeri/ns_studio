@@ -118,7 +118,7 @@ encore_page_head('Encore | Ready Set Shows');
     <dialog id="encore-history-dialog" class="encore-dialog" aria-labelledby="encore-history-title"><div class="encore-dialog-inner"><button type="button" class="encore-dialog-close" data-close aria-label="Close">&times;</button><h2 id="encore-history-title">History</h2><div id="encore-history-content"></div></div></dialog>
     <?php foreach($contacts as $contact): ?><template id="encore-history-<?=(int)$contact['id']?>"><?php foreach($historyByContact[(string)$contact['id']] ?? [] as $item) encore_activity_row($item,$channels); ?><?php if(empty($historyByContact[(string)$contact['id']])): ?><p class="encore-empty">No interactions logged yet.</p><?php endif; ?></template><?php endforeach; ?>
     <script type="application/json" id="encore-data"><?=json_encode(['contacts'=>$contacts,'failedAction'=>$error ? ($_POST['action'] ?? '') : '', 'submitted'=>$error ? $_POST : new stdClass()], JSON_HEX_TAG|JSON_HEX_AMP|JSON_HEX_APOS|JSON_HEX_QUOT|JSON_INVALID_UTF8_SUBSTITUTE)?></script>
-    <script src="encore.js?v=<?=filemtime(__DIR__.'/encore.js')?>" defer></script>
+    <script id="encore-script" data-usage-url="<?=e(base_url('/api/log_tool_usage.php'))?>" src="encore.js?v=<?=filemtime(__DIR__.'/encore.js')?>" defer></script>
   <?php endif; ?>
 </main>
 <?php encore_page_foot(); ?>

@@ -16,13 +16,39 @@ $error = '';
 $channels = ['email'=>'Email','text'=>'Text','phone'=>'Phone','instagram'=>'Instagram','facebook'=>'Facebook','website'=>'Website form','in_person'=>'In person','other'=>'Other'];
 $interactionKinds = ['touch'=>'Touch','ask'=>'Ask'];
 $stageLabels = ['researching'=>'Researching','contacted'=>'Contacted','follow_up'=>'Follow-Up Due','conversation'=>'In Conversation','date_offered'=>'Date Offered','booked'=>'Booked','revisit'=>'Revisit Later','not_a_fit'=>'Not a Fit'];
+$usageFeatures = [
+    'add_contact'=>'encore_contacts', 'edit_contact'=>'encore_contacts',
+    'delete_contact'=>'encore_contacts', 'update_stage'=>'encore_contacts',
+    'update_relationship_status'=>'encore_contacts',
+    'add_task'=>'encore_followups', 'complete_task'=>'encore_followups',
+    'log_interaction'=>'encore_interactions',
+];
+$action = (string)($_POST['action'] ?? '');
+$usageStatus = 'error';
+if (!is_post()) {
+    log_tool_usage($pdo, [
+        'feature_key'=>'encore_dashboard', 'action_key'=>'view',
+        'status'=>!$isProUser ? 'blocked' : ($ready ? 'success' : 'error'),
+    ]);
+}
 
 if ($ready && is_post()) {
     if (!csrf_verify($_POST['_csrf'] ?? null)) { $error = 'Your session expired. Refresh the page and try again.'; }
     else {
         try {
             $action = (string)($_POST['action'] ?? '');
-            if (!$isProUser) throw new RuntimeException('Encore is a Pro feature. Upgrade to save contacts, follow-ups, and history.');
+            if (!$isProUser) {
+                $usageStatus = 'blocked';
+                throw new RuntimeException('Encore is a Pro feature. Upgrade to save contacts, follow-ups, and history.');
+            }
+            if (!isset($usageFeatures[$action])) throw new RuntimeException('Unknown Encore action.');
+            if ($action !== 'add_contact') {
+                $table = $action === 'complete_task' ? 'encore_tasks' : 'encore_contacts';
+                $id = (int)($_POST[$action === 'complete_task' ? 'task_id' : 'contact_id'] ?? 0);
+                $owned = $pdo->prepare("SELECT id FROM $table WHERE id=? AND user_id=?");
+                $owned->execute([$id,$userId]);
+                if (!$owned->fetchColumn()) throw new RuntimeException('This record is no longer available.');
+            }
             if ($action === 'update_stage') {
                 $stage = encore_text($_POST['stage'] ?? '', 30);
                 if (!array_key_exists($stage, $stageLabels)) throw new RuntimeException('Choose a valid pipeline stage.');
@@ -62,9 +88,26 @@ if ($ready && is_post()) {
                 if ($nextDate && preg_match('/^\d{4}-\d{2}-\d{2}$/',$nextDate)) { $pdo->prepare("UPDATE encore_tasks SET status='dismissed' WHERE contact_id=? AND user_id=? AND status='open'")->execute([$contactId,$userId]); $pdo->prepare('INSERT INTO encore_tasks (contact_id,user_id,title,due_at) VALUES (?,?,?,?)')->execute([$contactId,$userId,encore_text($_POST['next_step']??'Follow up',190),$nextDate]); }
                 $pdo->prepare("UPDATE encore_contacts SET stage=IF(stage='researching','contacted',stage) WHERE id=? AND user_id=?")->execute([$contactId,$userId]); flash_set('encore_notice','Interaction added to the timeline.');
             }
+            log_tool_usage($pdo, [
+                'feature_key'=>$usageFeatures[$action], 'action_key'=>$action,
+                'status'=>'success',
+            ]);
+            if ($action === 'log_interaction' && !empty($nextDate)) {
+                log_tool_usage($pdo, [
+                    'feature_key'=>'encore_followups', 'action_key'=>'schedule_from_interaction',
+                    'status'=>'success',
+                ]);
+            }
             encore_home();
         } catch (Throwable $e) { $error=$e->getMessage(); }
     }
+}
+if (is_post() && isset($usageFeatures[$action])) {
+    log_tool_usage($pdo, [
+        'feature_key'=>$usageFeatures[$action], 'action_key'=>$action,
+        'status'=>$usageStatus,
+        'note'=>!$ready ? 'Encore tables unavailable' : 'Action did not complete',
+    ]);
 }
 
 $contacts=$tasks=$interactions=[]; $historyByContact=[];

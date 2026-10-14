@@ -35,10 +35,16 @@ const css = common.match(/<style>([\s\S]*?)<\/style>/)[1];
  try {
   const page = await browser.newPage({viewport:{width:1280,height:900}});
   const errors=[];
+  const usageEvents=[];
+  await page.route('**/api/log_tool_usage.php', async route=>{
+    usageEvents.push(route.request().postDataJSON());
+    await route.fulfill({json:{ok:true}});
+  });
   page.on('pageerror',error=>errors.push(error.message));
   await page.setContent(html);
   await page.addStyleTag({path:path.resolve(root,'../../assets/css/style.css')});
   await page.addStyleTag({content:css});
+  await page.locator('#encore-script').evaluate(script=>{script.dataset.usageUrl='http://localhost:8080/ns_studio/studio/api/log_tool_usage.php';});
   await page.addScriptTag({path:path.join(root,'encore.js')});
   assert.equal(await page.locator('.encore-table th').count(),4);
   assert.equal(await page.locator('[data-edit]').count(),2);
@@ -99,6 +105,10 @@ const css = common.match(/<style>([\s\S]*?)<\/style>/)[1];
     await page.keyboard.press('Escape');
   }
   assert.deepEqual(errors,[]);
+  assert.ok(usageEvents.some(event=>event.action_key==='open_edit'));
+  assert.ok(usageEvents.some(event=>event.action_key==='view_contact_history'));
+  assert.ok(usageEvents.some(event=>event.action_key==='view_interaction_detail'));
+  assert.ok(usageEvents.every(event=>Object.keys(event).sort().join(',')==='action_key,feature_key,status'));
   console.log('PASS: Add/Edit fields and submit payload, row identity after search/sort, Log date picker, full history, escaped content, grouped tasks, desktop/mobile dialog fit; no browser errors.');
  } finally { await browser.close(); }
 })().catch(error=>{console.error(error);process.exitCode=1;});

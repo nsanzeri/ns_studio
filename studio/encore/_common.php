@@ -22,12 +22,6 @@ $isProUser = rss_current_user_is_pro($pdo);
 $messages = [];
 $errors = [];
 
-log_tool_usage($pdo, [
-    'feature_key' => 'encore_dashboard',
-    'action_key' => 'view',
-    'status' => 'success',
-]);
-
 function encore_page_head(string $title): void { ?>
 <!doctype html>
 <html lang="en">

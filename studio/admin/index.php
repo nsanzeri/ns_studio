@@ -136,6 +136,10 @@ $knownToolFeatures = [
     'finance_contracts',
     'finance_invoices',
     'encore_dashboard',
+    'encore_contacts',
+    'encore_followups',
+    'encore_interactions',
+    'encore_history',
 ];
 
 $downloadSecret = envv('DOWNLOAD_SECRET', null);

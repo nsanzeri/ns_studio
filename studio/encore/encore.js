@@ -8,6 +8,16 @@
   const logForm = document.getElementById('encore-log-form');
   const historyDialog = document.getElementById('encore-history-dialog');
   const fields = ['name','kind','contact_name','email','phone','city','estimated_value','fit_notes'];
+  function track(feature, action) {
+    const url = document.getElementById('encore-script')?.dataset.usageUrl;
+    if (!url) return;
+    // Usage metadata only; never send CRM names, notes, or message contents.
+    fetch(url, {
+      method:'POST', credentials:'same-origin', keepalive:true,
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({feature_key:feature,action_key:action,status:'success'})
+    }).catch(() => {});
+  }
   function fill(form, values, names) {
     names.forEach(name => {
       const control = form.elements.namedItem(name);
@@ -32,12 +42,13 @@
     const button = event.target.closest('button');
     if (!button) return;
     if (button.hasAttribute('data-close')) button.closest('dialog').close();
-    if (button.hasAttribute('data-add')) openContact('');
-    if (button.hasAttribute('data-edit')) openContact(button.dataset.edit);
+    if (button.hasAttribute('data-add')) { openContact(''); track('encore_contacts','open_add'); }
+    if (button.hasAttribute('data-edit')) { openContact(button.dataset.edit); track('encore_contacts','open_edit'); }
     if (button.hasAttribute('data-log')) {
       logForm.reset();
       logForm.elements.namedItem('contact_id').value = button.dataset.log;
       logDialog.showModal();
+      track('encore_interactions','open_log');
     }
     if (button.hasAttribute('data-history')) {
       const id = button.dataset.history;
@@ -45,12 +56,14 @@
       document.getElementById('encore-history-title').textContent = 'History: ' + contacts.get(id).name;
       document.getElementById('encore-history-content').replaceChildren(template.content.cloneNode(true));
       historyDialog.showModal();
+      track('encore_history','view_contact_history');
     }
     if (button.hasAttribute('data-detail')) {
       const detail = button.closest('.encore-activity').querySelector('.encore-activity-detail');
       detail.hidden = !detail.hidden;
       button.textContent = detail.hidden ? 'View' : 'Hide';
       button.setAttribute('aria-expanded', String(!detail.hidden));
+      if (!detail.hidden) track('encore_history','view_interaction_detail');
     }
   });
   document.querySelectorAll('[data-delete]').forEach(form => {

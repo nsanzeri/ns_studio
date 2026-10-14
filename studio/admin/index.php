@@ -135,7 +135,7 @@ $knownToolFeatures = [
     'finance_spreadsheet_import',
     'finance_contracts',
     'finance_invoices',
-    'publishing_tools',
+    'encore_dashboard',
 ];
 
 $downloadSecret = envv('DOWNLOAD_SECRET', null);

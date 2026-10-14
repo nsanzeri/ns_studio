@@ -119,7 +119,8 @@ $comparisonFeatures = [
 	['module' => 'Finance', 'label' => 'Spreadsheet import', 'free' => false, 'pro' => true],
 	['module' => 'Finance', 'label' => 'Generate printable performance contracts from main gig calendar shows', 'free' => false, 'pro' => true],
 	['module' => 'Finance', 'label' => 'Generate printable invoices from main gig calendar shows', 'free' => false, 'pro' => true],
-	['module' => 'Publishing', 'label' => 'Blurbs, social captions, newsletters, and date-list copy', 'free' => true, 'pro' => true],
+	['module' => 'Encore', 'label' => 'Venue, client, outreach, and follow-up tracking', 'free' => false, 'pro' => true],
+	['module' => 'Encore', 'label' => 'Communication history across email, text, phone, Instagram, Facebook, and in-person conversations', 'free' => false, 'pro' => true],
 ];
 
 function rss_pricing_feature_mark(bool $included): string {
@@ -141,7 +142,7 @@ if (isset($_GET['upgraded'])) {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title><?= $isReadySetShowsHost ? 'Pricing | Ready Set Shows' : 'Ready Set Shows Pricing | Nick Sanzeri Studio' ?></title>
-  <meta name="description" content="Free, trial, and Pro access for Ready Set Shows calendar, setlist, request, finance, and publishing tools.">
+  <meta name="description" content="Free, trial, and Pro access for Ready Set Shows calendar, setlist, request, finance, and Encore tools.">
   <link rel="stylesheet" href="<?= e(base_url('../assets/css/style.css')) ?>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -251,7 +252,7 @@ if (isset($_GET['upgraded'])) {
         <div class="demo-points">
           <span>Reply quickly and accurately when a buyer asks for dates</span>
           <span>Turn every gig into requests, tips, emails, reviews, and future show data</span>
-          <span>Promote more consistently without staring at a blank screen</span>
+          <span>Keep venue outreach and follow-ups from falling through the cracks</span>
         </div>
       </div>
     </section>
@@ -278,9 +279,9 @@ if (isset($_GET['upgraded'])) {
         <p>Track income, import past gigs, reconcile payouts between everyone involved, and see how your music business is actually doing.</p>
       </article>
       <article class="suite-tile">
-        <p class="eyebrow">Publishing</p>
-        <h3>Never go quiet</h3>
-        <p>Never skimp on promotion. Generate posts, captions, newsletters, and date-list copy for all your upcoming shows in a few clicks.</p>
+        <p class="eyebrow">Encore</p>
+        <h3>Keep doors open</h3>
+        <p>Pro keeps venues, planners, clients, outreach status, follow-ups, pipeline stages, and communication history in one place.</p>
       </article>
     </section>
 
@@ -292,7 +293,7 @@ if (isset($_GET['upgraded'])) {
     <section class="pricing-section-heading">
       <p class="eyebrow">Pricing</p>
       <h2>Free tools to get organized and discovered. Pro tools to make the gig pay.</h2>
-      <p class="muted">Start with the directory, calendar, catalog, finance, and publishing tools. Upgrade when you want the live audience-facing features that collect money, leads, reviews, and momentum.</p>
+      <p class="muted">Start with the directory, calendar, catalog, finance, and Encore tools. Upgrade when you want the live audience-facing features that collect money, leads, reviews, and momentum.</p>
     </section>
 
     <section class="pricing-grid" aria-label="Free and Pro feature comparison">

@@ -202,12 +202,12 @@ if ($isReadySetShowsHost) {
         </a>
         <div class="shop-copy">
           <h2><a href="<?= e($readySetShowsUrl) ?>">Ready Set Shows</a></h2>
-          <p>Ready Set Shows handles the busy work so you can get back to making music. Calendar, SetMaxx, Finance, Publishing, and booking requests live in one working-musician toolkit.</p>
+          <p>Ready Set Shows handles the busy work so you can get back to making music. Calendar, SetMaxx, Finance, Encore, and booking requests live in one working-musician toolkit.</p>
           <div class="shop-meta">
             <span><i class="fa-solid fa-check"></i> Calendar</span>
             <span><i class="fa-solid fa-check"></i> SetMaxx</span>
             <span><i class="fa-solid fa-check"></i> Finance</span>
-            <span><i class="fa-solid fa-check"></i> Publishing</span>
+            <span><i class="fa-solid fa-check"></i> Encore</span>
           </div>
         </div>
         <div class="shop-actions">

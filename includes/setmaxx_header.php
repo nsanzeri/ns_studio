@@ -39,7 +39,7 @@ $suiteModules = $headerAccountType === 'customer'
         ['label' => 'Calendar', 'href' => $studioBase . '/tools/index.php', 'active' => str_contains($currentPath, '/tools/'), 'soon' => false],
         ['label' => 'SetMaxx', 'href' => $studioBase . '/setmaxx/index.php', 'active' => str_contains($currentPath, '/setmaxx/'), 'soon' => false],
         ['label' => 'Finance', 'href' => $studioBase . '/finance/index.php', 'active' => str_contains($currentPath, '/finance/'), 'soon' => false],
-        ['label' => 'Publishing', 'href' => $studioBase . '/publishing/index.php', 'active' => str_contains($currentPath, '/publishing/'), 'soon' => false],
+        ['label' => 'Encore', 'href' => $studioBase . '/encore/index.php', 'active' => str_contains($currentPath, '/encore/'), 'soon' => false],
         ['label' => 'Directory', 'href' => $siteBase . '/directory.php', 'active' => $currentPage === 'directory.php', 'soon' => false],
         ['label' => 'Leads', 'href' => $siteBase . '/artist-bookings.php', 'active' => $currentPage === 'artist-bookings.php', 'soon' => false, 'badge' => $headerPendingBookingCount],
     ];
@@ -57,7 +57,7 @@ $suiteModules = $headerAccountType === 'customer'
             </span>
             <span class="brand-text">
                 <span class="brand-name">Ready Set Shows</span>
-                <span class="brand-tagline">Calendar &middot; SetMaxx &middot; Finance &middot; Publishing</span>
+                <span class="brand-tagline">Calendar &middot; SetMaxx &middot; Finance &middot; Encore</span>
             </span>
         </a>
 

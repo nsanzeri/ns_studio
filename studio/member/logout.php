@@ -29,6 +29,7 @@ if ($sameHostReferrer) {
 		'/tools/',
 		'/setmaxx/',
 		'/finance/',
+		'/encore/',
 		'/publishing/',
 	];
 	$isProtectedReferrer = false;

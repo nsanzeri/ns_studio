@@ -33,7 +33,7 @@ $screens = [
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ready Set Shows | Calendar, SetMaxx, Finance, and Publishing Tools for Working Musicians</title>
+    <title>Ready Set Shows | Calendar, SetMaxx, Finance, and Encore Tools for Working Musicians</title>
     <meta name="description" content="Ready Set Shows helps working musicians book faster, earn more per gig, track income, promote upcoming shows, and spend less time on admin.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -698,7 +698,7 @@ $screens = [
                     </div>
                     <div class="rss-hero-note">
                         <span><i class="fa-solid fa-check"></i> We know how hard it is to be a working musician.</span>
-                        <span><i class="fa-solid fa-check"></i> Calendar, SetMaxx, Finance, Publishing, and booking requests.</span>
+                        <span><i class="fa-solid fa-check"></i> Calendar, SetMaxx, Finance, Encore, and booking requests.</span>
                     </div>
                 </div>
             </div>
@@ -729,9 +729,9 @@ $screens = [
                         <p>Track every gig, import past income, reconcile payouts, and finally see how your music business is actually doing.</p>
                     </article>
                     <article class="rss-module-card">
-                        <span class="rss-module-icon"><i class="fa-solid fa-bullhorn"></i></span>
-                        <h3>Publishing</h3>
-                        <p>Never skimp on promotion. Generate posts, captions, newsletters, and date-list copy for your upcoming shows in a few clicks.</p>
+                        <span class="rss-module-icon"><i class="fa-solid fa-handshake"></i></span>
+                        <h3>Encore</h3>
+                        <p>Track venues, planners, private clients, outreach, and follow-ups so booking conversations keep moving.</p>
                     </article>
                 </div>
             </div>
@@ -791,13 +791,13 @@ $screens = [
 
                     <article class="rss-showcase-row">
                         <div class="rss-showcase-copy">
-                            <span class="rss-eyebrow">Publishing</span>
-                            <h3>Promote every show without starting from zero.</h3>
-                            <p>Use your real gig data to generate social posts, blurbs, newsletters, and date-list copy so the shows you worked to book actually get promoted.</p>
+                            <span class="rss-eyebrow">Encore</span>
+                            <h3>Turn one gig conversation into the next booked date.</h3>
+                            <p>Keep a musician-friendly CRM for venues, planners, private clients, follow-up reminders, and rebooking opportunities.</p>
                             <div class="rss-checks">
-                                <span><i class="fa-solid fa-check"></i> Captions and event blurbs from selected gigs</span>
-                                <span><i class="fa-solid fa-check"></i> Newsletter and date-list copy</span>
-                                <span><i class="fa-solid fa-check"></i> Less admin, more consistency</span>
+                                <span><i class="fa-solid fa-check"></i> Venue and client directory</span>
+                                <span><i class="fa-solid fa-check"></i> Outreach pipeline and follow-up reminders</span>
+                                <span><i class="fa-solid fa-check"></i> Rebooking notes for relationships that matter</span>
                             </div>
                         </div>
                         <div class="rss-screen"><img src="<?= htmlspecialchars($screens['setlists'], ENT_QUOTES, 'UTF-8') ?>" alt="Ready Set Shows setlist generator"></div>
@@ -811,7 +811,7 @@ $screens = [
                 <div class="rss-section-head" style="margin-bottom:0;">
                     <span class="rss-eyebrow">Free where it should be</span>
                     <h2>The musician&apos;s assistant we always wished we had.</h2>
-                    <p>Start with the tools that keep you organized. Calendar availability, song catalogs, editable setlist generation, Finance tracking, and Publishing tools help before you ever charge the crowd. Pro unlocks saved setlists, live request pages, payments, Bandsintown export, and spreadsheet import workflows that directly support paid operations.</p>
+                    <p>Start with the tools that keep you organized. Calendar availability, song catalogs, editable setlist generation, Finance tracking, and Encore follow-ups help before you ever charge the crowd. Pro unlocks saved setlists, live request pages, payments, Bandsintown export, and spreadsheet import workflows that directly support paid operations.</p>
                 </div>
                 <div class="rss-quote">
                     <strong>More signal. Less admin.</strong>
@@ -829,7 +829,7 @@ $screens = [
                 <div class="rss-faq-grid">
                     <article class="rss-faq-item">
                         <h3>Is it only SetMaxx?</h3>
-                        <p>No. SetMaxx is the live request engine, but Ready Set Shows also includes Calendar, Finance, and Publishing tools.</p>
+                        <p>No. SetMaxx is the live request engine, but Ready Set Shows also includes Calendar, Finance, and Encore tools.</p>
                     </article>
                     <article class="rss-faq-item">
                         <h3>Can I start free?</h3>
@@ -861,7 +861,7 @@ $screens = [
 
     <footer class="rss-footer">
         <div class="container">
-            Ready Set Shows &copy; <?= date('Y') ?>. Calendar, SetMaxx, Finance, and Publishing tools for working musicians.
+            Ready Set Shows &copy; <?= date('Y') ?>. Calendar, SetMaxx, Finance, and Encore tools for working musicians.
         </div>
     </footer>
     <?php include __DIR__ . '/feedback_widget.php'; ?>

@@ -133,7 +133,7 @@ if ($isReadySetShowsHost) {
             <?= e($toolsBadge['description']) ?>
           </div>
           <p class="muted" style="margin:.45rem 0 0; max-width:680px;">
-              Calendar, SetMaxx, Finance, Publishing, booking leads, and the working-musician tools in one place.
+              Calendar, SetMaxx, Finance, Encore, booking leads, and the working-musician tools in one place.
           </p>
         </div>
 

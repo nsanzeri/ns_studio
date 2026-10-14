@@ -379,7 +379,7 @@ finance_page_head('Finance | Ready Set Shows');
       </div>
 
       <div class="finance-overview-total">
-        <span>Total income</span>
+        <span>Gross income (before payouts)</span>
         <strong><?= finance_money((int)$overview['gross_cents']) ?></strong>
       </div>
 
@@ -436,8 +436,10 @@ finance_page_head('Finance | Ready Set Shows');
       <?php foreach (['week' => 'This week', 'last_week' => 'Last week', 'month' => 'This month', 'year' => (string)$year] as $key => $label): ?>
         <div class="finance-card finance-stat">
           <span class="finance-pill"><?= e($label) ?></span>
+          <div class="finance-muted">Net income</div>
           <strong><?= finance_money((int)$summary[$key]['net_cents']) ?></strong>
           <div class="finance-muted"><?= (int)$summary[$key]['gigs'] ?> gigs &middot; <?= finance_money((int)$summary[$key]['gross_cents'] - (int)$summary[$key]['tips_cents']) ?> guarantee &middot; <?= finance_money((int)$summary[$key]['tips_cents']) ?> tips</div>
+          <div class="finance-muted"><?= finance_money((int)$summary[$key]['gross_cents']) ?> gross &minus; <?= finance_money((int)$summary[$key]['gross_cents'] - (int)$summary[$key]['net_cents']) ?> payouts</div>
         </div>
       <?php endforeach; ?>
     </section>

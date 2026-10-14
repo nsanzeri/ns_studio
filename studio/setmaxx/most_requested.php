@@ -96,9 +96,20 @@ setmaxx_page_head('Set Maxx | Most Requested');
   .setmaxx-song-artist { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .setmaxx-rank-money { color:#efe7ff; font-weight:700; white-space:nowrap; }
   .setmaxx-rank-table-wrap { overflow:auto; border:1px solid rgba(255,255,255,.08); border-radius:16px; }
-  .setmaxx-rank-table { width:100%; min-width:760px; border-collapse:collapse; }
+  .setmaxx-all-time-ranking { max-width:900px; box-sizing:border-box; margin-inline:auto; }
+  .setmaxx-rank-table { width:100%; min-width:640px; table-layout:fixed; border-collapse:collapse; }
+  .setmaxx-rank-table th:nth-child(1) { width:3rem; }
+  .setmaxx-rank-table th:nth-child(3) { width:5rem; }
+  .setmaxx-rank-table th:nth-child(4) { width:3rem; }
+  .setmaxx-rank-table th:nth-child(5) { width:4.5rem; }
+  .setmaxx-rank-table th:nth-child(6) { width:7rem; }
+  .setmaxx-rank-table .setmaxx-song-title,
+  .setmaxx-rank-table .setmaxx-song-artist { display:block; }
+  .setmaxx-rank-table .setmaxx-song-artist { color:rgba(255,255,255,.65); font-size:.85rem; margin-top:.15rem; }
   .setmaxx-rank-table th,
-  .setmaxx-rank-table td { padding:.75rem .8rem; border-bottom:1px solid rgba(255,255,255,.07); text-align:left; vertical-align:middle; }
+  .setmaxx-rank-table td { padding:.65rem .6rem; border-bottom:1px solid rgba(255,255,255,.07); text-align:left; vertical-align:middle; }
+  .setmaxx-rank-table td.setmaxx-number-cell,
+  .setmaxx-rank-table th.setmaxx-number-cell { text-align:right; }
   .setmaxx-rank-table th { color:rgba(255,255,255,.74); font-size:.8rem; font-weight:600; background:rgba(255,255,255,.045); }
   .setmaxx-rank-table tr:last-child td { border-bottom:0; }
   .setmaxx-number-cell { text-align:right; white-space:nowrap; }
@@ -167,7 +178,7 @@ setmaxx_page_head('Set Maxx | Most Requested');
       <?php endforeach; ?>
     </section>
 
-    <section class="setmaxx-card">
+    <section class="setmaxx-card setmaxx-all-time-ranking">
       <h2 style="margin-top:0;">All-time ranking</h2>
       <div class="setmaxx-rank-table-wrap">
         <table class="setmaxx-rank-table">
@@ -175,7 +186,6 @@ setmaxx_page_head('Set Maxx | Most Requested');
             <tr>
               <th>Rank</th>
               <th>Song</th>
-              <th>Artist</th>
               <th class="setmaxx-number-cell">Requests</th>
               <th class="setmaxx-number-cell">Paid</th>
               <th class="setmaxx-number-cell">Tracked</th>
@@ -184,12 +194,14 @@ setmaxx_page_head('Set Maxx | Most Requested');
           </thead>
           <tbody>
             <?php if (!$rankedSongs): ?>
-              <tr><td colspan="7" class="setmaxx-meta">No requests yet. Once fans start using your public request pages, your top songs will show here.</td></tr>
+              <tr><td colspan="6" class="setmaxx-meta">No requests yet. Once fans start using your public request pages, your top songs will show here.</td></tr>
             <?php else: foreach ($rankedSongs as $index => $song): ?>
               <tr>
                 <td><?= $index + 1 ?></td>
-                <td><strong><?= e((string)$song['title']) ?></strong></td>
-                <td><?= e((string)($song['artist'] ?: 'Artist not set')) ?></td>
+                <td>
+                  <strong class="setmaxx-song-title" title="<?= e((string)$song['title']) ?>"><?= e((string)$song['title']) ?></strong>
+                  <span class="setmaxx-song-artist" title="<?= e((string)($song['artist'] ?: 'Artist not set')) ?>"><?= e((string)($song['artist'] ?: 'Artist not set')) ?></span>
+                </td>
                 <td class="setmaxx-number-cell"><?= (int)$song['request_count'] ?></td>
                 <td class="setmaxx-number-cell"><?= (int)$song['paid_request_count'] ?></td>
                 <td class="setmaxx-number-cell"><?= e(setmaxx_money((int)$song['tracked_cents'])) ?></td>

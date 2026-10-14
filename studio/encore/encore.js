@@ -7,6 +7,25 @@
   const logDialog = document.getElementById('encore-log-dialog');
   const logForm = document.getElementById('encore-log-form');
   const historyDialog = document.getElementById('encore-history-dialog');
+  const entryDialog = document.getElementById('encore-entry-dialog');
+  const entryForm = document.getElementById('encore-entry-form');
+  function openEntry(item, isTask) {
+    entryForm.reset();
+    entryForm.querySelectorAll('[role="alert"]').forEach(alert => alert.remove());
+    entryForm.elements.namedItem('action').value = isTask ? 'edit_task' : 'edit_interaction';
+    entryForm.elements.namedItem('task_id').value = isTask ? item.id : '';
+    entryForm.elements.namedItem('interaction_id').value = isTask ? '' : item.id;
+    document.getElementById('encore-entry-title').textContent = isTask ? 'Edit Follow-Up' : 'Edit Interaction';
+    document.getElementById('encore-entry-contact').textContent = item.contact_name || '';
+    entryForm.querySelectorAll('[data-task-field], [data-history-field]').forEach(label => {
+      const active = label.hasAttribute('data-task-field') === isTask;
+      label.hidden = !active;
+      label.querySelector('input,select,textarea').disabled = !active;
+    });
+    fill(entryForm, {...item,occurred_at:(item.occurred_at || '').replace(' ','T')},
+      isTask ? ['title','due_at'] : ['occurred_at','channel','direction','subject','summary']);
+    entryDialog.showModal();
+  }
   const fields = ['name','kind','contact_name','email','phone','city','estimated_value','fit_notes'];
   function track(feature, action) {
     const url = document.getElementById('encore-script')?.dataset.usageUrl;
@@ -42,6 +61,14 @@
     const button = event.target.closest('button');
     if (!button) return;
     if (button.hasAttribute('data-close')) button.closest('dialog').close();
+    if (button.hasAttribute('data-edit-task')) {
+      openEntry(JSON.parse(button.dataset.editTask),true);
+      track('encore_followups','open_edit');
+    }
+    if (button.hasAttribute('data-edit-interaction')) {
+      openEntry(JSON.parse(button.dataset.editInteraction),false);
+      track('encore_interactions','open_edit');
+    }
     if (button.hasAttribute('data-add')) { openContact(''); track('encore_contacts','open_add'); }
     if (button.hasAttribute('data-edit')) { openContact(button.dataset.edit); track('encore_contacts','open_edit'); }
     if (button.hasAttribute('data-log')) {
@@ -94,15 +121,18 @@
       table.tBodies[0].append(...rows);
     });
   });
-  if (['add_contact','edit_contact'].includes(data.failedAction)) {
+  if (['edit_task','edit_interaction'].includes(data.failedAction)) {
+    const isTask = data.failedAction === 'edit_task';
+    openEntry({...data.submitted,id:data.submitted[isTask ? 'task_id' : 'interaction_id']},isTask);
+  } else if (['add_contact','edit_contact'].includes(data.failedAction)) {
     openContact(data.failedAction === 'edit_contact' ? data.submitted.contact_id : '');
     fill(contactForm, data.submitted, fields);
   } else if (data.failedAction === 'log_interaction') {
     fill(logForm, data.submitted, ['contact_id','channel','direction','subject','summary','next_date']);
     logDialog.showModal();
   }
-  if (data.failedAction && (contactDialog.open || logDialog.open)) {
+  if (data.failedAction && (contactDialog.open || logDialog.open || entryDialog.open)) {
     const error = document.querySelector('[role="alert"]').cloneNode(true);
-    (contactDialog.open ? contactForm : logForm).prepend(error);
+    (entryDialog.open ? entryForm : contactDialog.open ? contactForm : logForm).prepend(error);
   }
 })();

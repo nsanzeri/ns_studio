@@ -22,6 +22,7 @@ $usageFeatures = [
     'update_relationship_status'=>'encore_contacts',
     'add_task'=>'encore_followups', 'complete_task'=>'encore_followups',
     'log_interaction'=>'encore_interactions',
+    'edit_task'=>'encore_followups', 'edit_interaction'=>'encore_interactions',
 ];
 $action = (string)($_POST['action'] ?? '');
 $usageStatus = 'error';
@@ -43,13 +44,31 @@ if ($ready && is_post()) {
             }
             if (!isset($usageFeatures[$action])) throw new RuntimeException('Unknown Encore action.');
             if ($action !== 'add_contact') {
-                $table = $action === 'complete_task' ? 'encore_tasks' : 'encore_contacts';
-                $id = (int)($_POST[$action === 'complete_task' ? 'task_id' : 'contact_id'] ?? 0);
+                $isTask = in_array($action, ['complete_task','edit_task'], true);
+                $table = $isTask ? 'encore_tasks' : ($action === 'edit_interaction' ? 'encore_interactions' : 'encore_contacts');
+                $id = (int)($_POST[$isTask ? 'task_id' : ($action === 'edit_interaction' ? 'interaction_id' : 'contact_id')] ?? 0);
                 $owned = $pdo->prepare("SELECT id FROM $table WHERE id=? AND user_id=?");
                 $owned->execute([$id,$userId]);
                 if (!$owned->fetchColumn()) throw new RuntimeException('This record is no longer available.');
             }
-            if ($action === 'update_stage') {
+            if ($action === 'edit_task') {
+                $title = encore_text($_POST['title'] ?? '',190);
+                $due = encore_text($_POST['due_at'] ?? '',10);
+                $date = DateTimeImmutable::createFromFormat('!Y-m-d',$due);
+                if ($title === '' || !$date || $date->format('Y-m-d') !== $due) throw new RuntimeException('Enter a task and a valid due date.');
+                $pdo->prepare('UPDATE encore_tasks SET title=?,due_at=? WHERE id=? AND user_id=?')->execute([$title,$due,$id,$userId]);
+                flash_set('encore_notice','Follow-up updated.');
+            } elseif ($action === 'edit_interaction') {
+                $summary = encore_text($_POST['summary'] ?? '',3000);
+                $channel = encore_text($_POST['channel'] ?? '',20);
+                $direction = encore_text($_POST['direction'] ?? '',20);
+                $occurred = str_replace('T',' ',encore_text($_POST['occurred_at'] ?? '',19));
+                if (strlen($occurred) === 16) $occurred .= ':00';
+                $date = DateTimeImmutable::createFromFormat('!Y-m-d H:i:s',$occurred);
+                if ($summary === '' || !isset($channels[$channel]) || !in_array($direction,['inbound','outbound','internal'],true) || !$date || $date->format('Y-m-d H:i:s') !== $occurred) throw new RuntimeException('Enter a summary, channel, direction, and valid interaction date.');
+                $pdo->prepare('UPDATE encore_interactions SET occurred_at=?,channel=?,direction=?,subject=?,summary=? WHERE id=? AND user_id=?')->execute([$occurred,$channel,$direction,encore_text($_POST['subject'] ?? '',190) ?: null,$summary,$id,$userId]);
+                flash_set('encore_notice','Interaction updated.');
+            } elseif ($action === 'update_stage') {
                 $stage = encore_text($_POST['stage'] ?? '', 30);
                 if (!array_key_exists($stage, $stageLabels)) throw new RuntimeException('Choose a valid pipeline stage.');
                 $pdo->prepare('UPDATE encore_contacts SET stage=? WHERE id=? AND user_id=?')->execute([$stage, (int)($_POST['contact_id'] ?? 0), $userId]);

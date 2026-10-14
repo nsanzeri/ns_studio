@@ -12,7 +12,10 @@ function encore_activity_row(array $item, array $channels, bool $venue = false):
     <time datetime="<?=e($item['occurred_at'])?>"><?=e(date('M j, Y', strtotime($item['occurred_at'])))?></time>
     <span class="encore-channel"><?=e($channels[$item['channel']] ?? $item['channel'])?></span>
     <strong class="encore-ellipsis" title="<?=e($item['subject'] ?: $item['summary'])?>"><?php if($venue): ?><?=e($item['contact_name'])?> &middot; <?php endif; ?><?=e($item['subject'] ?: $item['summary'])?></strong>
-    <button type="button" class="btn btn-outline encore-small" data-detail aria-expanded="false">View</button>
+    <div class="encore-row-actions">
+      <button type="button" class="btn btn-outline encore-small" data-detail aria-expanded="false">View</button>
+      <button type="button" class="btn btn-outline encore-small" data-edit-interaction="<?=e(json_encode($item,JSON_INVALID_UTF8_SUBSTITUTE))?>">Edit</button>
+    </div>
     <div class="encore-activity-detail" hidden>
       <?php if($item['subject']): ?><strong><?=e($item['subject'])?></strong><?php endif; ?>
       <p><?=nl2br(e($item['summary']))?></p>
@@ -49,6 +52,7 @@ encore_page_head('Encore | Ready Set Shows');
             <strong class="encore-ellipsis" title="<?=e($task['contact_name'])?>"><?=e($task['contact_name'])?></strong>
             <span class="encore-ellipsis encore-muted" title="<?=e($task['title'])?>"><?=e($task['title'])?></span>
             <div class="encore-row-actions">
+              <button type="button" class="btn btn-outline encore-small" data-edit-task="<?=e(json_encode($task,JSON_INVALID_UTF8_SUBSTITUTE))?>">Edit</button>
               <button type="button" class="btn btn-outline encore-small" data-log="<?=(int)$task['contact_id']?>">Log</button>
               <form method="post" action="<?=e(base_url('/encore/index.php'))?>#followups"><?php encore_csrf_field(); ?><input type="hidden" name="action" value="complete_task"><input type="hidden" name="task_id" value="<?=(int)$task['id']?>"><button class="btn btn-outline encore-small" type="submit" title="Mark complete" aria-label="Mark <?=e($task['title'])?> for <?=e($task['contact_name'])?> complete"><i class="fa-solid fa-check" aria-hidden="true"></i></button></form>
             </div>
@@ -112,6 +116,23 @@ encore_page_head('Encore | Ready Set Shows');
           <label>Summary<textarea name="summary" rows="3" required maxlength="3000"></textarea></label>
           <label>Next contact date<input name="next_date" type="date"></label>
           <button class="btn btn-primary" type="submit">Add to History</button>
+        </form>
+      </div>
+    </dialog>
+    <dialog id="encore-entry-dialog" class="encore-dialog" aria-labelledby="encore-entry-title">
+      <div class="encore-dialog-inner">
+        <button type="button" class="encore-dialog-close" data-close aria-label="Close">&times;</button>
+        <h2 id="encore-entry-title">Edit Entry</h2><p id="encore-entry-contact" class="encore-muted"></p>
+        <form method="post" action="<?=e(base_url('/encore/index.php'))?>#followups" id="encore-entry-form" class="encore-form-grid">
+          <?php encore_csrf_field(); ?><input type="hidden" name="action"><input type="hidden" name="task_id"><input type="hidden" name="interaction_id">
+          <label data-task-field>Task<input name="title" maxlength="190" required></label>
+          <label data-task-field>Due date<input name="due_at" type="date" required></label>
+          <label data-history-field>Interaction date<input name="occurred_at" type="datetime-local" step="1" required></label>
+          <label data-history-field>Channel<select name="channel"><?php foreach($channels as $key=>$label): ?><option value="<?=e($key)?>"><?=e($label)?></option><?php endforeach; ?></select></label>
+          <label data-history-field>Direction<select name="direction"><option value="outbound">I reached out</option><option value="inbound">They reached out</option><option value="internal">Note to self</option></select></label>
+          <label data-history-field>Subject<input name="subject" maxlength="190"></label>
+          <label data-history-field>Summary<textarea name="summary" rows="4" maxlength="3000" required></textarea></label>
+          <button class="btn btn-primary" type="submit">Save Changes</button>
         </form>
       </div>
     </dialog>

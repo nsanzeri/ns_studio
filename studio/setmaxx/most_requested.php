@@ -12,6 +12,14 @@ $topWindows = [
     'all_time' => ['label' => 'All time', 'help' => 'Your full request history', 'rows' => []],
 ];
 $rankedSongs = [];
+$leftWindows = [
+    'this_week' => ['label'=>'This week', 'help'=>'Monday through Sunday'],
+    'last_week' => ['label'=>'Last week', 'help'=>'Previous Monday through Sunday'],
+    'ytd' => ['label'=>'YTD', 'help'=>'January 1 through today'],
+];
+$selectedWindow = (string)($_GET['window'] ?? 'this_week');
+if (!isset($leftWindows[$selectedWindow])) $selectedWindow = 'this_week';
+$topWindows['this_week'] = $leftWindows[$selectedWindow] + ['rows'=>[]];
 
 function setmaxx_most_requested_paid_condition(bool $hasPaymentMethod, bool $hasPaymentIntent): string {
     if ($hasPaymentMethod && $hasPaymentIntent) {
@@ -71,8 +79,15 @@ if ($tablesReady && $isProUser) {
         $weekCondition = "AND r.created_at >= DATE_SUB(CURDATE(), INTERVAL WEEKDAY(CURDATE()) DAY)
           AND r.created_at < DATE_ADD(DATE_SUB(CURDATE(), INTERVAL WEEKDAY(CURDATE()) DAY), INTERVAL 7 DAY)";
         $last30Condition = "AND r.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)";
+        $leftConditions = [
+            'this_week'=>$weekCondition,
+            'last_week'=>"AND r.created_at >= DATE_SUB(DATE_SUB(CURDATE(), INTERVAL WEEKDAY(CURDATE()) DAY), INTERVAL 7 DAY)
+                AND r.created_at < DATE_SUB(CURDATE(), INTERVAL WEEKDAY(CURDATE()) DAY)",
+            'ytd'=>"AND r.created_at >= MAKEDATE(YEAR(CURDATE()), 1)
+                AND r.created_at < DATE_ADD(CURDATE(), INTERVAL 1 DAY)",
+        ];
 
-        $topWindows['this_week']['rows'] = setmaxx_most_requested_rows($pdo, $userId, $weekCondition, $paidCondition, 5);
+        $topWindows['this_week']['rows'] = setmaxx_most_requested_rows($pdo, $userId, $leftConditions[$selectedWindow], $paidCondition, 5);
         $topWindows['last_30']['rows'] = setmaxx_most_requested_rows($pdo, $userId, $last30Condition, $paidCondition, 5);
         $topWindows['all_time']['rows'] = setmaxx_most_requested_rows($pdo, $userId, '', $paidCondition, 5);
         $rankedSongs = setmaxx_most_requested_rows($pdo, $userId, '', $paidCondition, 50);
@@ -89,6 +104,9 @@ setmaxx_page_head('Set Maxx | Most Requested');
   .setmaxx-stat-value { color:#fff; font-size:1.7rem; font-weight:700; line-height:1.1; }
   .setmaxx-chart-grid { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:1rem; margin-bottom:1.25rem; }
   .setmaxx-chart-card h2 { margin:.1rem 0 .25rem; font-size:1.15rem; }
+  .setmaxx-window-tabs { display:flex; flex-wrap:wrap; gap:.3rem; margin:0 0 .8rem; }
+  .setmaxx-window-tabs a { padding:.3rem .5rem; border:1px solid rgba(255,255,255,.15); border-radius:6px; color:rgba(255,255,255,.75); font-size:.75rem; text-decoration:none; }
+  .setmaxx-window-tabs a[aria-current="true"] { background:rgba(212,175,55,.18); border-color:#b69734; color:#ffe28a; }
   .setmaxx-mini-rank-list { display:grid; gap:.55rem; margin-top:1rem; }
   .setmaxx-mini-rank-row { display:grid; grid-template-columns:2rem minmax(0, 1fr) auto; gap:.6rem; align-items:center; padding:.65rem .75rem; border-radius:14px; background:rgba(255,255,255,.035); border:1px solid rgba(255,255,255,.06); }
   .setmaxx-rank-number { color:rgba(255,255,255,.6); font-weight:700; text-align:center; }
@@ -156,8 +174,15 @@ setmaxx_page_head('Set Maxx | Most Requested');
     </section>
 
     <section class="setmaxx-chart-grid" aria-label="Most requested song snapshots">
-      <?php foreach ($topWindows as $window): ?>
-        <div class="setmaxx-card setmaxx-chart-card">
+      <?php foreach ($topWindows as $windowKey => $window): ?>
+        <div class="setmaxx-card setmaxx-chart-card" <?= $windowKey === 'this_week' ? 'id="request-window"' : '' ?>>
+          <?php if($windowKey === 'this_week'): ?>
+            <nav class="setmaxx-window-tabs" aria-label="Request ranking period">
+              <?php foreach($leftWindows as $key=>$option): ?>
+                <a href="?window=<?=e($key)?>#request-window" <?= $selectedWindow === $key ? 'aria-current="true"' : '' ?>><?=e($option['label'])?></a>
+              <?php endforeach; ?>
+            </nav>
+          <?php endif; ?>
           <h2><?= e($window['label']) ?></h2>
           <div class="setmaxx-meta"><?= e($window['help']) ?></div>
           <div class="setmaxx-mini-rank-list">

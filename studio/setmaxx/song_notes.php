@@ -2,6 +2,22 @@
 require_once __DIR__ . '/_common.php';
 
 $songId = max(0, (int)($_GET['id'] ?? 0));
+$lyricsMode = ($_GET['mode'] ?? '') === 'lyrics';
+$library = [];
+if ($tablesReady && $lyricsMode) {
+    $libraryStmt = $pdo->prepare(
+        "SELECT id, title, artist, performance_notes FROM setmaxx_songs
+         WHERE user_id = ? AND performance_notes IS NOT NULL
+         ORDER BY title ASC, artist ASC, id ASC"
+    );
+    $libraryStmt->execute([$userId]);
+    foreach ($libraryStmt->fetchAll(PDO::FETCH_ASSOC) as $entry) {
+        if (trim((string)$entry['performance_notes']) === '') continue;
+        unset($entry['performance_notes']);
+        $library[] = $entry;
+    }
+    if ($songId === 0 && !is_post()) $songId = (int)($library[0]['id'] ?? 0);
+}
 $song = null;
 $message = '';
 $error = '';
@@ -28,6 +44,9 @@ if ($song && is_post()) {
 
         $stmt->execute([$songId, $userId]);
         $song = $stmt->fetch(PDO::FETCH_ASSOC) ?: $song;
+        if ($lyricsMode && $notes === '') {
+            $library = array_values(array_filter($library, fn($entry) => (int)$entry['id'] !== $songId));
+        }
     }
 }
 
@@ -38,13 +57,17 @@ $title = $song ? (string)$song['title'] : 'Song notes';
 $artist = $song ? (string)($song['artist'] ?: 'Artist not set') : '';
 $notes = $song ? trim((string)($song['performance_notes'] ?? '')) : '';
 $updatedAt = $song && !empty($song['updated_at']) ? date('M j, Y g:i A', strtotime((string)$song['updated_at'])) : '';
+$lyricsIndex = array_search($songId, array_map('intval', array_column($library, 'id')), true);
+$previousId = $lyricsIndex !== false && $lyricsIndex > 0 ? (int)$library[$lyricsIndex - 1]['id'] : 0;
+$nextId = $lyricsIndex !== false ? (int)($library[$lyricsIndex + 1]['id'] ?? 0) : (int)($library[0]['id'] ?? 0);
+$modeSuffix = $lyricsMode ? '&mode=lyrics' : '';
 ?>
 <!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title><?= e($title) ?> | Performance Notes</title>
+  <title><?= e($title) ?> | <?= $lyricsMode ? 'Lyrics Mode' : 'Performance Notes' ?></title>
   <style>
     :root {
       color-scheme:dark;
@@ -173,6 +196,15 @@ $updatedAt = $song && !empty($song['updated_at']) ? date('M j, Y g:i A', strtoti
       margin-top:1rem;
     }
     .hide-while-editing.is-editing { display:none; }
+    .lyrics-navigation { margin:1rem 0; }
+    .lyrics-controls { display:flex; align-items:center; gap:.75rem; flex-wrap:wrap; }
+    .stage-link:disabled { opacity:.45; cursor:default; }
+    .lyrics-search { width:100%; margin:.75rem 0; padding:.75rem; background:#111; color:#fff; border:1px solid #666; border-radius:8px; font:inherit; }
+    .lyrics-list { max-height:35vh; overflow:auto; display:grid; gap:.4rem; }
+    .lyrics-list a { justify-content:flex-start; text-align:left; }
+    .lyrics-list a[aria-current="page"] { border-color:#e8d99a; }
+    .lyrics-list [hidden] { display:none; }
+    #notesDisplay { touch-action:pan-y pinch-zoom; }
     @media (orientation:landscape) {
       :root {
         --notes-view-size:clamp(1.35rem, 3.9vw, 3.05rem);
@@ -194,7 +226,7 @@ $updatedAt = $song && !empty($song['updated_at']) ? date('M j, Y g:i A', strtoti
     <div class="stage-top">
       <div>
         <div class="meta">
-          <span>Performance Notes</span>
+          <span><?= $lyricsMode ? 'Lyrics Mode' : 'Performance Notes' ?></span>
           <?php if ($song && trim((string)($song['song_key'] ?? '')) !== ''): ?><span>Key <?= e((string)$song['song_key']) ?></span><?php endif; ?>
           <?php if ($song && (int)($song['tempo_bpm'] ?? 0) > 0): ?><span><?= (int)$song['tempo_bpm'] ?> BPM</span><?php endif; ?>
         </div>
@@ -207,13 +239,41 @@ $updatedAt = $song && !empty($song['updated_at']) ? date('M j, Y g:i A', strtoti
           <button class="stage-link font-button" type="button" id="increaseFontBtn" aria-label="Increase note font size">A+</button>
         <?php endif; ?>
         <?php if ($song): ?><button class="stage-link" type="button" id="editNotesBtn">Edit</button><?php endif; ?>
+        <?php if (!$lyricsMode): ?><a class="stage-link" href="<?= e(base_url('/setmaxx/song_notes.php?mode=lyrics' . ($notes !== '' ? '&id=' . $songId : ''))) ?>">Lyrics</a><?php endif; ?>
         <a class="stage-link" href="<?= e(base_url('/setmaxx/songs.php')) ?>">Songs</a>
       </div>
     </div>
 
+    <?php if ($lyricsMode): ?>
+      <nav class="lyrics-navigation hide-while-editing" id="lyricsNavigation" aria-label="Lyrics navigation">
+        <div class="lyrics-controls">
+          <?php foreach (['previous' => $previousId, 'next' => $nextId] as $direction => $targetId): ?>
+            <?php if ($targetId): ?>
+              <a class="stage-link" id="lyrics-<?= $direction ?>" href="<?= e(base_url('/setmaxx/song_notes.php?id=' . $targetId . '&mode=lyrics')) ?>"><?= ucfirst($direction) ?></a>
+            <?php else: ?>
+              <button class="stage-link" type="button" disabled><?= ucfirst($direction) ?></button>
+            <?php endif; ?>
+          <?php endforeach; ?>
+          <span><?= $lyricsIndex !== false ? ($lyricsIndex + 1) . ' / ' : '' ?><?= count($library) ?> songs with notes</span>
+        </div>
+        <p>Swipe left or right on the notes. Songs are ordered A–Z.</p>
+        <details>
+          <summary class="stage-link">Find a song</summary>
+          <label for="lyricsSearch">Search title or artist</label>
+          <input class="lyrics-search" id="lyricsSearch" type="search" placeholder="Search songs…" autocomplete="off">
+          <div class="lyrics-list" id="lyricsList">
+            <?php foreach ($library as $entry): ?>
+              <a class="stage-link" href="<?= e(base_url('/setmaxx/song_notes.php?id=' . (int)$entry['id'] . '&mode=lyrics')) ?>" <?= (int)$entry['id'] === $songId ? 'aria-current="page"' : '' ?>><?= e($entry['title'] . (!empty($entry['artist']) ? ' — ' . $entry['artist'] : '')) ?></a>
+            <?php endforeach; ?>
+          </div>
+          <p id="lyricsSearchEmpty" role="status" hidden>No matching songs.</p>
+        </details>
+      </nav>
+    <?php endif; ?>
+
     <div class="hide-while-editing" id="notesDisplay">
       <?php if (!$song): ?>
-        <div class="notes empty">That song could not be found.</div>
+        <div class="notes empty"><?= $lyricsMode && !$library ? 'No songs with notes yet. Add performance notes in Songs to get started.' : 'That song could not be found.' ?></div>
       <?php elseif ($notes === ''): ?>
         <div class="notes empty">No performance notes saved yet.</div>
       <?php else: ?>
@@ -222,7 +282,7 @@ $updatedAt = $song && !empty($song['updated_at']) ? date('M j, Y g:i A', strtoti
     </div>
 
     <?php if ($song): ?>
-      <form class="edit-form" id="notesEditForm" method="post" action="<?= e(base_url('/setmaxx/song_notes.php?id=' . $songId)) ?>">
+      <form class="edit-form" id="notesEditForm" method="post" action="<?= e(base_url('/setmaxx/song_notes.php?id=' . $songId . $modeSuffix)) ?>">
         <input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>">
         <textarea class="notes-editor" name="performance_notes" aria-label="Performance notes"><?= e($notes) ?></textarea>
         <div class="edit-actions">
@@ -245,6 +305,39 @@ $updatedAt = $song && !empty($song['updated_at']) ? date('M j, Y g:i A', strtoti
       const increaseFontButton = document.getElementById('increaseFontBtn');
       const display = document.getElementById('notesDisplay');
       const form = document.getElementById('notesEditForm');
+      const lyricsNavigation = document.getElementById('lyricsNavigation');
+      const lyricsSearch = document.getElementById('lyricsSearch');
+      if (lyricsSearch) {
+        const links = Array.from(document.querySelectorAll('#lyricsList a'));
+        lyricsSearch.addEventListener('input', function() {
+          const query = lyricsSearch.value.trim().toLocaleLowerCase();
+          links.forEach(function(link) {
+            link.hidden = !link.textContent.toLocaleLowerCase().includes(query);
+          });
+          document.getElementById('lyricsSearchEmpty').hidden = links.some(link => !link.hidden);
+        });
+      }
+      if (lyricsNavigation && display) {
+        let touchStart = null;
+        display.addEventListener('touchstart', function(event) {
+          touchStart = event.touches.length === 1 ? {
+            x: event.touches[0].clientX,
+            y: event.touches[0].clientY
+          } : null;
+        }, { passive: true });
+        display.addEventListener('touchcancel', function() { touchStart = null; }, { passive: true });
+        display.addEventListener('touchend', function(event) {
+          const start = touchStart;
+          touchStart = null;
+          if (!start || event.touches.length || !event.changedTouches.length || (form && form.classList.contains('is-open'))) return;
+          const horizontal = event.changedTouches[0].clientX - start.x;
+          const vertical = event.changedTouches[0].clientY - start.y;
+          if (Math.abs(horizontal) < 70 || Math.abs(horizontal) < Math.abs(vertical) * 1.5) return;
+          if (window.getSelection().toString()) return;
+          const target = document.getElementById(horizontal < 0 ? 'lyrics-next' : 'lyrics-previous');
+          if (target) window.location.assign(target.href);
+        }, { passive: true });
+      }
       const fontStorageKey = 'setmaxxPerformanceNotesScale';
       const minScale = 0.72;
       const maxScale = 1.65;
@@ -274,7 +367,8 @@ $updatedAt = $song && !empty($song['updated_at']) ? date('M j, Y g:i A', strtoti
         if (increaseFontButton) increaseFontButton.disabled = nextScale >= maxScale;
       }
 
-      applyFontScale(savedScale());
+      let currentScale = savedScale();
+      applyFontScale(currentScale);
 
       if (notesWereSaved && 'serviceWorker' in navigator && window.caches) {
         window.addEventListener('load', function() {
@@ -295,19 +389,22 @@ $updatedAt = $song && !empty($song['updated_at']) ? date('M j, Y g:i A', strtoti
 
       if (decreaseFontButton) {
         decreaseFontButton.addEventListener('click', function() {
-          applyFontScale(savedScale() - scaleStep);
+          currentScale = Math.max(minScale, currentScale - scaleStep);
+          applyFontScale(currentScale);
         });
       }
 
       if (increaseFontButton) {
         increaseFontButton.addEventListener('click', function() {
-          applyFontScale(savedScale() + scaleStep);
+          currentScale = Math.min(maxScale, currentScale + scaleStep);
+          applyFontScale(currentScale);
         });
       }
 
       function setEditing(editing) {
         form.classList.toggle('is-open', editing);
         display.classList.toggle('is-editing', editing);
+        if (lyricsNavigation) lyricsNavigation.classList.toggle('is-editing', editing);
         editButton.hidden = editing;
         if (editing) {
           const editor = form.querySelector('textarea');
@@ -317,6 +414,15 @@ $updatedAt = $song && !empty($song['updated_at']) ? date('M j, Y g:i A', strtoti
 
       editButton.addEventListener('click', function() { setEditing(true); });
       if (cancelButton) cancelButton.addEventListener('click', function() { setEditing(false); });
+      const editor = form.querySelector('textarea');
+      let submitting = false;
+      form.addEventListener('submit', function() { submitting = true; });
+      window.addEventListener('beforeunload', function(event) {
+        if (!submitting && form.classList.contains('is-open') && editor.value !== editor.defaultValue) {
+          event.preventDefault();
+          event.returnValue = '';
+        }
+      });
     })();
   </script>
 </body>

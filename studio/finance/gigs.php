@@ -234,10 +234,42 @@ if ($financeReady && is_post()) {
             }
 
             if ($action === 'save_gigs') {
-                $rows = $_POST['gigs'] ?? [];
+                // A year's ledger can exceed host/PHP input-variable limits. The
+                // browser packs the editable fields into one JSON form value.
+                if (isset($_POST['ledger_payload'])) {
+                    $payload = json_decode((string)$_POST['ledger_payload'], true, 512, JSON_THROW_ON_ERROR);
+                    if (!is_array($payload) || !isset($payload['gigs'], $payload['payouts']) || !is_array($payload['payouts'])) {
+                        throw new RuntimeException('The ledger could not be read. Refresh the page and try again.');
+                    }
+                    $rows = $payload['gigs'];
+                    $payoutRows = $payload['payouts'];
+                } else {
+                    // Without JavaScript, refuse truncated forms before any writes.
+                    if (($_POST['ledger_complete'] ?? '') !== '1') {
+                        throw new RuntimeException('The ledger submission was incomplete. Enable JavaScript, refresh the page, and try again.');
+                    }
+                    $rows = $_POST['gigs'] ?? [];
+                    $payoutRows = $_POST['payouts'] ?? [];
+                }
                 if (!is_array($rows)) throw new RuntimeException('No gig rows were submitted.');
-                $payoutRows = $_POST['payouts'] ?? [];
-                if (!is_array($payoutRows)) $payoutRows = [];
+                if (!is_array($payoutRows)) throw new RuntimeException('The payouts could not be read.');
+                foreach ($rows as $row) {
+                    foreach (['title', 'starts_at', 'guarantee', 'cash_tips', 'platform_tips', 'miles', 'notes'] as $field) {
+                        if (!is_array($row) || !isset($row[$field]) || !is_scalar($row[$field])) {
+                            throw new RuntimeException('A gig row was incomplete. Refresh the page and try again.');
+                        }
+                    }
+                }
+                foreach ($payoutRows as $gigPayoutRows) {
+                    if (!is_array($gigPayoutRows)) throw new RuntimeException('The payouts could not be read.');
+                    foreach ($gigPayoutRows as $payoutRow) {
+                        foreach (['member_name', 'amount', 'payout_type', 'notes'] as $field) {
+                            if (!is_array($payoutRow) || !isset($payoutRow[$field]) || !is_scalar($payoutRow[$field])) {
+                                throw new RuntimeException('A payout row was incomplete. Refresh the page and try again.');
+                            }
+                        }
+                    }
+                }
                 $ownGig = $pdo->prepare("SELECT id FROM finance_gigs WHERE id = ? AND user_id = ? LIMIT 1");
                 $update = $pdo->prepare("
                     UPDATE finance_gigs
@@ -618,9 +650,12 @@ finance_page_head('Finance | Gig Ledger');
       </form>
     </section>
 
-    <form method="post" class="finance-card" style="margin-top:1rem;" action="">
+    <form method="post" id="financeGigLedger" class="finance-card" style="margin-top:1rem;" action="">
       <input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>">
       <input type="hidden" name="action" value="save_gigs">
+      <input type="hidden" name="calendar_id" value="<?= (int)$calendarId ?>">
+      <input type="hidden" name="start" value="<?= e($startDate) ?>">
+      <input type="hidden" name="end" value="<?= e($endDate) ?>">
       <div style="display:flex; justify-content:space-between; gap:1rem; align-items:flex-start; flex-wrap:wrap;">
         <div>
           <h2 style="margin:0;">Editable gig rows</h2>
@@ -692,6 +727,7 @@ finance_page_head('Finance | Gig Ledger');
           </table>
         </div>
       <?php endif; ?>
+      <input type="hidden" name="ledger_complete" value="1">
     </form>
     <template id="financePayoutRowTemplate">
       <div class="finance-payout-row">
@@ -706,6 +742,35 @@ finance_page_head('Finance | Gig Ledger');
       </div>
     </template>
     <script>
+      // Keep native submission/redirects, but avoid thousands of POST variables.
+      document.getElementById('financeGigLedger').addEventListener('formdata', function (event) {
+        var data = event.formData;
+        var actions = data.getAll('action');
+        var action = actions[actions.length - 1] || 'save_gigs';
+        var payload = { gigs: {}, payouts: {} };
+        var packedNames = [];
+        data.forEach(function (value, name) {
+          var gig = name.match(/^gigs\[(\d+)\]\[(\w+)\]$/);
+          var payout = name.match(/^payouts\[(\d+)\]\[(\d+)\]\[(\w+)\]$/);
+          if (gig) {
+            if (!payload.gigs[gig[1]]) payload.gigs[gig[1]] = {};
+            payload.gigs[gig[1]][gig[2]] = value;
+            packedNames.push(name);
+          } else if (payout) {
+            if (!payload.payouts[payout[1]]) payload.payouts[payout[1]] = {};
+            if (!payload.payouts[payout[1]][payout[2]]) payload.payouts[payout[1]][payout[2]] = {};
+            payload.payouts[payout[1]][payout[2]][payout[3]] = value;
+            packedNames.push(name);
+          }
+        });
+        packedNames.forEach(function (name) { data.delete(name); });
+        data.set('action', action);
+        if (action === 'save_gigs') {
+          data.delete('selected_gig_ids[]');
+          data.set('ledger_payload', JSON.stringify(payload));
+        }
+      });
+
       document.addEventListener('click', function (event) {
         var selectAll = event.target.closest('[data-finance-select-all]');
         if (selectAll) {

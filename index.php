@@ -58,7 +58,7 @@ $liveRequestsUrl = $currentScheme . '://' . $currentHost . $currentDir . '/' . $
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;700&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="assets/css/style.css">
+    <link rel="stylesheet" href="assets/css/style.css?v=<?= substr(hash_file('sha256', __DIR__ . '/assets/css/style.css'), 0, 12) ?>">
     <link rel="icon" type="image/png" sizes="32x32" href="assets/favicons/favicon-32.png">
 	<link rel="icon" type="image/png" sizes="16x16" href="assets/favicons/favicon-16.png">
 	<link rel="apple-touch-icon" sizes="180x180" href="assets/favicons/favicon-180.png">
@@ -120,6 +120,20 @@ include __DIR__ . '/includes/header.php';
                         <a href="booking.php" class="btn btn-primary">Book Nick for Your Event</a>
                         <a href="media.php" class="btn btn-outline">Watch &amp; Listen</a>
                     </div>
+                    <section class="hero-newsletter" aria-labelledby="hero-newsletter-title">
+                        <h2 id="hero-newsletter-title">Never miss a show.</h2>
+                        <p>Get gig announcements, new music, and the occasional behind-the-scenes story — no spam.</p>
+                        <form action="https://nicksanzeri.us2.list-manage.com/subscribe/post?u=758e0b12aa6b2c9e1c489b5f1&amp;id=fa36f06ccb&amp;f_id=002cfae3f0" method="post" target="_blank" rel="noopener">
+                            <label for="hero-newsletter-email">Email address <span aria-hidden="true">*</span></label>
+                            <div class="hero-newsletter-fields">
+                                <input type="email" name="EMAIL" id="hero-newsletter-email" autocomplete="email" placeholder="you@example.com" required>
+                                <button type="submit" name="subscribe" class="btn btn-primary">Subscribe</button>
+                            </div>
+                            <div class="hero-newsletter-trap" aria-hidden="true">
+                                <input type="text" name="b_758e0b12aa6b2c9e1c489b5f1_fa36f06ccb" tabindex="-1" autocomplete="off" value="">
+                            </div>
+                        </form>
+                    </section>
                     <div class="hero-meta">
                         <span>Trusted at 1,600+ events across Chicagoland and beyond.</span>
                         <span>Clubs · Weddings · Corporate · Private Events</span>

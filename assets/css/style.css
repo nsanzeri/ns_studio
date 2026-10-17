@@ -544,6 +544,63 @@ a:hover {
   margin-top: 1.7rem;
 }
 
+.hero-newsletter {
+  margin-top: 1.4rem;
+  padding: 1.1rem 1.25rem;
+  background: rgba(15, 15, 24, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 16px;
+}
+
+.hero-newsletter h2 {
+  margin: 0 0 0.35rem;
+  font-size: 1.25rem;
+}
+
+.hero-newsletter p {
+  margin: 0 0 0.85rem;
+  font-size: 0.9rem;
+}
+
+.hero-newsletter label {
+  display: block;
+  margin-bottom: 0.35rem;
+  font-size: 0.86rem;
+}
+
+.hero-newsletter-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+
+.hero-newsletter-fields input {
+  flex: 1 1 200px;
+  min-width: 0;
+  width: 100%;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 12px;
+  background: #050509;
+  color: var(--fg);
+  font: inherit;
+  font-size: 1rem;
+}
+
+.hero-newsletter-fields input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.hero-newsletter-fields .btn {
+  flex: 1 0 auto;
+}
+
+.hero-newsletter-trap {
+  position: absolute;
+  left: -5000px;
+}
+
 .hero-meta {
   margin-top: 1.4rem;
   display: flex;

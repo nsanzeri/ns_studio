@@ -499,7 +499,7 @@ ADDICTED TO LOVE - ROBERT PALMER</pre>
         <li><strong>Opener, vocal, key, tempo, and instrumental</strong> are stage-planning fields.</li>
         <li><strong>Year, source genre, broad genre, and length</strong> help organize the catalog and build better sets.</li>
         <li><strong>Notes</strong> can hold lyrics, chord changes, arrangement cues, capo reminders, or anything you need on stage.</li>
-        <li><strong>Cache notes</strong> saves those private note pages on this device so you can open them at a gig after they have been cached.</li>
+        <li><strong>Cache notes</strong> saves private notes and the Lyrics browser on this device. Run it online before a gig, then bookmark Lyrics and test in airplane mode. Use the same browser and save again after changing notes. The song catalog and editing still require internet.</li>
       </ul>
     </div>
   </dialog>
@@ -583,6 +583,7 @@ ADDICTED TO LOVE - ROBERT PALMER</pre>
   .setmaxx-option-list label { display:flex; align-items:center; gap:.55rem; }
   .setmaxx-option-list input[type="checkbox"] { width:18px; height:18px; accent-color:#8c6bff; }
 </style>
+<?php require __DIR__ . '/_offline_notes.php'; ?>
 <script>
 (function() {
   function setupDialog(buttonId, dialogId, closeId) {
@@ -636,8 +637,6 @@ ADDICTED TO LOVE - ROBERT PALMER</pre>
   const sortButtons = Array.from(document.querySelectorAll('.setmaxx-sort-button'));
   const csrfToken = <?= json_encode(csrf_token()) ?>;
   const usageEndpoint = <?= json_encode(base_url('/api/log_tool_usage.php')) ?>;
-  const notesSwUrl = <?= json_encode(base_url('/sw.js')) ?>;
-  const performanceNotesCacheName = 'setmaxx-performance-notes-v1';
   let currentLetter = 'all';
   let currentSort = 'title';
   if (!button || !table) return;
@@ -686,41 +685,12 @@ ADDICTED TO LOVE - ROBERT PALMER</pre>
   }
 
   async function cachePerformanceNotes() {
-    if (!('serviceWorker' in navigator) || !window.caches) {
-      throw new Error('Offline caching is not available in this browser.');
-    }
-
     const urls = Array.from(table.querySelectorAll('[data-performance-notes-url]'))
       .map(function(link) { return link.href; })
       .filter(Boolean);
-
-    if (!urls.length) throw new Error('No performance notes were found to cache.');
-
-    await navigator.serviceWorker.register(notesSwUrl);
-    const cache = await caches.open(performanceNotesCacheName);
-    let cached = 0;
-    let failed = 0;
-
-    for (const url of urls) {
-      try {
-        const response = await fetch(url, {
-          credentials: 'same-origin',
-          cache: 'reload'
-        });
-
-        if (!response.ok) {
-          failed++;
-          continue;
-        }
-
-        await cache.put(url, response.clone());
-        cached++;
-      } catch (error) {
-        failed++;
-      }
-    }
-
-    return { cached: cached, failed: failed };
+    return window.saveSetmaxxNotesOffline(urls, function(done, total) {
+      setCacheStatus('Saving notes and Lyrics for offline: ' + done + ' / ' + total + ' pages…');
+    });
   }
 
   table.querySelectorAll('.setmaxx-song-row').forEach(function(row) {
@@ -1053,7 +1023,7 @@ ADDICTED TO LOVE - ROBERT PALMER</pre>
         const result = await cachePerformanceNotes();
         const cached = result && typeof result.cached === 'number' ? result.cached : 0;
         const failed = result && typeof result.failed === 'number' ? result.failed : 0;
-        setCacheStatus(failed > 0 ? cached + ' saved, ' + failed + ' missed.' : cached + ' note pages saved.');
+        setCacheStatus(failed > 0 ? cached + ' saved, ' + failed + ' missed. Reconnect and try again.' : 'Notes and Lyrics saved. Bookmark Lyrics and test in airplane mode before your show.');
         logUsage('setmaxx_song_catalog', 'cache_performance_notes', cached);
       } catch (error) {
         setCacheStatus(error && error.message ? error.message : 'Could not cache notes.');

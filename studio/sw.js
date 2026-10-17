@@ -8,6 +8,17 @@ self.addEventListener('activate', function(event) {
 
 const SETMAXX_NOTES_CACHE = 'setmaxx-performance-notes-v1';
 
+function setmaxxNotesCacheKey(rawUrl) {
+  const url = new URL(rawUrl);
+  url.hash = '';
+  url.searchParams.sort();
+  return url.toString();
+}
+
+function isCacheableSetmaxxNotes(response) {
+  return response && response.ok && !response.redirected && response.headers.has('X-Setmaxx-Notes-User');
+}
+
 function isSetmaxxNotesRequest(request) {
   if (request.method !== 'GET') return false;
   const url = new URL(request.url);
@@ -39,12 +50,12 @@ self.addEventListener('message', function(event) {
           cache: 'reload'
         });
 
-        if (!response.ok) {
+        if (!isCacheableSetmaxxNotes(response)) {
           failed++;
           continue;
         }
 
-        await cache.put(url.toString(), response.clone());
+        await cache.put(setmaxxNotesCacheKey(url.toString()), response.clone());
         cached++;
       } catch (error) {
         failed++;
@@ -67,17 +78,27 @@ self.addEventListener('fetch', function(event) {
 
   event.respondWith((async function() {
     const cache = await caches.open(SETMAXX_NOTES_CACHE);
-
+    const cacheKey = setmaxxNotesCacheKey(event.request.url);
+    if (self.navigator && self.navigator.onLine === false && event.request.cache !== 'reload') {
+      const offlinePage = await cache.match(cacheKey) || await cache.match(event.request);
+      if (offlinePage) return offlinePage;
+    }
+    const controller = new AbortController();
+    const timer = setTimeout(function() { controller.abort(); }, 5000);
     try {
-      const response = await fetch(event.request);
-      if (response && response.ok) {
-        await cache.put(event.request, response.clone());
+      const response = await fetch(event.request, { signal: controller.signal });
+      if (isCacheableSetmaxxNotes(response)) {
+        await cache.put(cacheKey, response.clone());
       }
+      if (response.status >= 500) throw new Error('Notes server unavailable');
       return response;
     } catch (error) {
-      const cached = await cache.match(event.request);
+      if (event.request.cache === 'reload') throw error;
+      const cached = await cache.match(cacheKey) || await cache.match(event.request);
       if (cached) return cached;
       throw error;
+    } finally {
+      clearTimeout(timer);
     }
   })());
 });

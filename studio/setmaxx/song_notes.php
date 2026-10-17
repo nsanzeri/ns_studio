@@ -52,6 +52,7 @@ if ($song && is_post()) {
 
 header('Cache-Control: private, max-age=604800');
 header('X-Robots-Tag: noindex, nofollow');
+header('X-Setmaxx-Notes-User: ' . $userId);
 
 $title = $song ? (string)$song['title'] : 'Song notes';
 $artist = $song ? (string)($song['artist'] ?: 'Artist not set') : '';
@@ -246,6 +247,8 @@ $modeSuffix = $lyricsMode ? '&mode=lyrics' : '';
 
     <?php if ($lyricsMode): ?>
       <nav class="lyrics-navigation hide-while-editing" id="lyricsNavigation" aria-label="Lyrics navigation">
+        <button class="stage-link" type="button" id="saveLyricsOffline">Save for offline</button>
+        <p id="lyricsOfflineStatus" role="status">Before your show, save here while online. Bookmark this Lyrics page and use the same browser and device offline. Save again after changing notes. Editing requires internet.</p>
         <div class="lyrics-controls">
           <?php foreach (['previous' => $previousId, 'next' => $nextId] as $direction => $targetId): ?>
             <?php if ($targetId): ?>
@@ -294,6 +297,7 @@ $modeSuffix = $lyricsMode ? '&mode=lyrics' : '';
 
     <?php if ($updatedAt !== ''): ?><div class="saved">Saved <?= e($updatedAt) ?></div><?php endif; ?>
   </main>
+  <?php require __DIR__ . '/_offline_notes.php'; ?>
   <script>
     (function() {
       const notesWereSaved = <?= $message !== '' ? 'true' : 'false' ?>;
@@ -307,6 +311,28 @@ $modeSuffix = $lyricsMode ? '&mode=lyrics' : '';
       const form = document.getElementById('notesEditForm');
       const lyricsNavigation = document.getElementById('lyricsNavigation');
       const lyricsSearch = document.getElementById('lyricsSearch');
+      const offlineButton = document.getElementById('saveLyricsOffline');
+      const offlineStatus = document.getElementById('lyricsOfflineStatus');
+      if ('serviceWorker' in navigator) navigator.serviceWorker.register(notesSwUrl).catch(function() {});
+      if (offlineButton) {
+        offlineButton.addEventListener('click', async function() {
+          offlineButton.disabled = true;
+          offlineStatus.textContent = 'Saving notes and Lyrics browser. Keep this page open…';
+          try {
+            const urls = Array.from(document.querySelectorAll('#lyricsList a')).map(link => link.href);
+            const result = await window.saveSetmaxxNotesOffline(urls, function(done, total) {
+              offlineStatus.textContent = 'Saving for offline: ' + done + ' / ' + total + ' pages…';
+            });
+            offlineStatus.textContent = result.failed
+              ? result.cached + ' pages saved, ' + result.failed + ' missed. Reconnect and save again before your show.'
+              : 'Lyrics and notes saved on this device. Bookmark this page, then test it in airplane mode before your show.';
+          } catch (error) {
+            offlineStatus.textContent = error.message || 'Could not save for offline.';
+          } finally {
+            offlineButton.disabled = false;
+          }
+        });
+      }
       if (lyricsSearch) {
         const links = Array.from(document.querySelectorAll('#lyricsList a'));
         lyricsSearch.addEventListener('input', function() {
@@ -416,7 +442,14 @@ $modeSuffix = $lyricsMode ? '&mode=lyrics' : '';
       if (cancelButton) cancelButton.addEventListener('click', function() { setEditing(false); });
       const editor = form.querySelector('textarea');
       let submitting = false;
-      form.addEventListener('submit', function() { submitting = true; });
+      form.addEventListener('submit', function(event) {
+        if (!navigator.onLine) {
+          event.preventDefault();
+          window.alert('You are offline. Reconnect before saving your edits. Your changes are still in the editor.');
+          return;
+        }
+        submitting = true;
+      });
       window.addEventListener('beforeunload', function(event) {
         if (!submitting && form.classList.contains('is-open') && editor.value !== editor.defaultValue) {
           event.preventDefault();

@@ -83,6 +83,14 @@ function encore_page_head(string $title): void { ?>
     .encore-empty { margin:.35rem 0; font-size:.85rem; color:rgba(255,255,255,.6); }
     .encore-activity, .encore-task-row { display:grid; grid-template-columns:100px 95px minmax(0,1fr) auto; align-items:center; gap:.7rem; padding:.55rem 0; border-bottom:1px solid rgba(255,255,255,.08); font-size:.85rem; }
     .encore-task-row { grid-template-columns:100px minmax(0,1fr) minmax(0,1fr) auto; }
+    .encore-task-context { display:flex; align-items:center; gap:.6rem; min-width:0; }
+    .encore-message-link { border:0; background:none; padding:0; color:#ffe28a; font:inherit; font-size:.75rem; white-space:nowrap; text-decoration:underline; cursor:pointer; }
+    .encore-no-message { font-size:.75rem; }
+    @media(max-width:850px) {
+      .encore-task-row { grid-template-columns:100px minmax(0,1fr); }
+      .encore-task-context { grid-column:2; }
+      .encore-task-row > .encore-row-actions { grid-column:2; flex-wrap:wrap; }
+    }
     .encore-activity:last-child, .encore-task-row:last-child { border-bottom:0; }
     .encore-activity time, .encore-task-row time { font-size:.75rem; color:#ffe28a; white-space:nowrap; }
     .encore-channel { font-size:.75rem; color:rgba(255,255,255,.65); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -101,7 +109,7 @@ function encore_page_head(string $title): void { ?>
     @media(max-width:600px) {
       .encore-contact-fields { grid-template-columns:1fr; }
       .encore-activity { grid-template-columns:78px 50px minmax(0,1fr) auto; gap:.35rem; }
-      .encore-task-row { grid-template-columns:78px minmax(0,1fr) auto; gap:.35rem; }
+      .encore-task-row { grid-template-columns:78px minmax(0,1fr); gap:.35rem; }
       .encore-task-row > .encore-muted { display:none; }
       .encore-activity time, .encore-task-row time { font-size:.65rem; }
       .encore-dialog-inner { padding:.8rem; }

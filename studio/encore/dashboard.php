@@ -50,10 +50,16 @@ encore_page_head('Encore | Ready Set Shows');
           <article class="encore-task-row">
             <time datetime="<?=e($task['due_at'])?>"><?=e(date('M j, Y',strtotime($task['due_at'])))?></time>
             <strong class="encore-ellipsis" title="<?=e($task['contact_name'])?>"><?=e($task['contact_name'])?></strong>
-            <span class="encore-ellipsis encore-muted" title="<?=e($task['title'])?>"><?=e($task['title'])?></span>
+            <div class="encore-task-context">
+              <span class="encore-ellipsis encore-muted" title="<?=e($task['title'])?>"><?=e($task['title'])?></span>
+              <?php if(!empty($historyByContact[(string)$task['contact_id']])): ?>
+                <button type="button" class="encore-message-link" data-history="<?=(int)$task['contact_id']?>" data-latest>Last message</button>
+              <?php else: ?><span class="encore-muted encore-no-message">No messages yet</span><?php endif; ?>
+            </div>
             <div class="encore-row-actions">
               <button type="button" class="btn btn-outline encore-small" data-edit-task="<?=e(json_encode($task,JSON_INVALID_UTF8_SUBSTITUTE))?>">Edit</button>
               <button type="button" class="btn btn-outline encore-small" data-log="<?=(int)$task['contact_id']?>">Log</button>
+              <button type="button" class="btn btn-outline encore-small" data-history="<?=(int)$task['contact_id']?>">History</button>
               <form method="post" action="<?=e(base_url('/encore/index.php'))?>#followups"><?php encore_csrf_field(); ?><input type="hidden" name="action" value="complete_task"><input type="hidden" name="task_id" value="<?=(int)$task['id']?>"><button class="btn btn-outline encore-small" type="submit" title="Mark complete" aria-label="Mark <?=e($task['title'])?> for <?=e($task['contact_name'])?> complete"><i class="fa-solid fa-check" aria-hidden="true"></i></button></form>
             </div>
           </article>

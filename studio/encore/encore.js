@@ -82,7 +82,18 @@
       const template = document.getElementById('encore-history-' + id);
       document.getElementById('encore-history-title').textContent = 'History: ' + contacts.get(id).name;
       document.getElementById('encore-history-content').replaceChildren(template.content.cloneNode(true));
+      if (button.hasAttribute('data-latest')) {
+        const first = document.querySelector('#encore-history-content .encore-activity');
+        if (first) {
+          first.querySelector('.encore-activity-detail').hidden = false;
+          const view = first.querySelector('[data-detail]');
+          view.textContent = 'Hide';
+          view.setAttribute('aria-expanded','true');
+        }
+        track('encore_history','view_latest_interaction');
+      }
       historyDialog.showModal();
+      historyDialog.scrollTop = 0;
       track('encore_history','view_contact_history');
     }
     if (button.hasAttribute('data-detail')) {

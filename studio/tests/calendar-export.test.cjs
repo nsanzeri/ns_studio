@@ -12,15 +12,12 @@ const script = source.match(/<script>([\s\S]*?)<\/script>/)[1]
   .replace(/<\?= e\(base_url\('[^']+'\)\) \?>/, '/events');
 
 const elements = {};
-for (const id of ['artistName', 'startDate', 'endDate', 'songkickArtistId', 'songkickFields',
-  'songkickNote', 'previewTitle', 'previewTable', 'errorBox', 'thead', 'tbody']) {
+for (const id of ['artistName', 'startDate', 'endDate', 'previewTitle', 'previewTable', 'errorBox', 'thead', 'tbody']) {
   elements[id] = { value: '', style: {}, classList: { toggle() {} } };
 }
 Object.assign(elements.artistName, { value: 'Test Artist' });
 Object.assign(elements.startDate, { value: '2026-11-01' });
 Object.assign(elements.endDate, { value: '2026-11-30' });
-Object.assign(elements.songkickArtistId, { value: '123456' });
-let format = 'bandsintown';
 let events = [];
 let pending;
 const context = vm.createContext({
@@ -28,7 +25,6 @@ const context = vm.createContext({
   document: {
     getElementById: id => elements[id],
     querySelector: selector => {
-      if (selector.includes('export_format')) return { value: format };
       if (selector.includes('calendar_id')) return { value: '1' };
       if (selector.endsWith('thead')) return elements.thead;
       if (selector.endsWith('tbody')) return elements.tbody;
@@ -61,24 +57,23 @@ const event = {
   assert.ok(read('FINAL_CSV').includes('"First line\nSecond & <third>"'));
   assert.ok(elements.tbody.innerHTML.includes('Second &amp; &lt;third&gt;'));
 
-  format = 'songkick';
   context.resetExport();
   assert.equal(read('FINAL_CSV'), '');
-  assert.equal(elements.songkickArtistId.required, true);
-  await context.generateBIT();
-  assert.equal(read('LAST_BIT_RESULT_COUNT'), 1);
-  assert.equal(read('FINAL_FILENAME'), 'songkick_123456_export.csv');
-  const csv = read('FINAL_CSV');
-  assert.equal(csv, 'Venue*,City*,Country or State*,Address,Date*,Time*\nMusic Hall,Chicago,IL,123 Main St,2026-11-10,19:30');
   assert.equal(context.csvEscape('123 Main St, Suite 4'), '"123 Main St, Suite 4"');
   assert.equal(context.csvEscape('123 Main St, Suite "A"'), '"123 Main St, Suite ""A"""');
   assert.equal(context.csvEscape('one\rtwo'), '"one\rtwo"');
+  for (const countrySuffix of [', US', '']) {
+    events = [{ ...event, location: 'Music Hall, 123 Main St, Suite 4, Chicago, IL 60601' + countrySuffix }];
+    await context.generateBIT();
+    assert.ok(read('FINAL_CSV').includes('Test Artist,Music Hall,United States,"123 Main St, Suite 4",Chicago,IL,60601,,2026-11-10,19:30'));
+  }
+  assert.equal(context.formatTime(new Date('2026-11-10T00:00:00-06:00')), '00:00');
 
-  elements.songkickArtistId.value = '';
+  elements.startDate.value = '2026-12-01';
   await context.generateBIT();
   assert.equal(read('FINAL_CSV'), '');
-  assert.match(elements.errorBox.textContent, /Artist ID/);
-  elements.songkickArtistId.value = '123456';
+  assert.match(elements.errorBox.textContent, /end date/);
+  elements.startDate.value = '2026-11-01';
   events = [];
   await context.generateBIT();
   assert.equal(read('FINAL_CSV'), '');
@@ -87,12 +82,9 @@ const event = {
   let resolve;
   pending = new Promise(done => { resolve = done; });
   const run = context.generateBIT();
-  format = 'bandsintown';
   context.resetExport();
   resolve({ ok: true, json: async () => ({ success: true, events: [event] }) });
   await run;
   assert.equal(read('FINAL_CSV'), '');
-  assert.equal(elements.previewTitle.textContent, 'Bands In Town CSV');
-  assert.equal(elements.songkickArtistId.disabled, true);
-  console.log('Passed: both export formats, filtering, CSV escaping, validation, empty results, and format changes during generation.');
+  console.log('Passed: Bands In Town export, filtering, address parsing, CSV escaping, date validation, empty results, and stale request handling.');
 })().catch(error => { console.error(error); process.exitCode = 1; });

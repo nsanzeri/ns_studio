@@ -626,7 +626,7 @@ if (!$selectedCalendarId && $hasCalendars) {
           <p class="preview-note">
             This preview and export will exclude dates with the word "private" in the title or events without address information.
           </p>
-          <p id="songkickNote" class="preview-note" hidden>Songkick also requires a venue and city. Review venue names against Songkick before uploading. Optional ticket, lineup, duration, and publishing fields are left blank. <a href="https://support.songkick.com/hc/en-us/articles/360012427214" target="_blank" rel="noopener">Songkick upload instructions</a></p>
+          <p id="songkickNote" class="preview-note" hidden>Songkick exports the required fields plus the street address: venue, city, country or state, address, date, and time. Review venue names and addresses before uploading. <a href="https://support.songkick.com/hc/en-us/articles/360012427214" target="_blank" rel="noopener">Songkick upload instructions</a></p>
 
           <div class="preview-wrap">
             <table class="preview-table is-empty" id="previewTable">
@@ -1038,10 +1038,7 @@ async function generateBIT(event) {
     events.sort((a, b) => new Date(a.start) - new Date(b.start));
 
     const headers = format === "songkick" ? [
-      "Venue*", "City*", "Country or State*", "Address", "Date*", "Time*",
-      "Duration", "Ticket Link", "Ticket Type", "Ticket Link 2", "Ticket Type 2",
-      "On-Sale Date", "On-Sale Time", "Lineup", "Event Name", "Description",
-      "Publish Date", "Publish Time", "Publish Timezone"
+      "Venue*", "City*", "Country or State*", "Address", "Date*", "Time*"
     ] : [
       "Artist Name",
       "Venue*",
@@ -1093,8 +1090,7 @@ async function generateBIT(event) {
       const row = format === "songkick" ? [
         parts.venue, parts.city,
         parts.country === "United States" ? (parts.region || parts.country) : parts.country,
-        parts.addr, formatDate(startObj), formatTime(startObj),
-        "", "", "", "", "", "", "", "", summary, description, "", "", ""
+        parts.addr, formatDate(startObj), formatTime(startObj)
       ] : [
         artist,
         parts.venue,

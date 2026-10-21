@@ -57,6 +57,9 @@ const event = {
   assert.equal(read('FINAL_FILENAME'), 'bandsintown_export.csv');
   assert.ok(read('FINAL_CSV').startsWith('Artist Name,Venue*,Country*,Address,City*,Region*'));
   assert.ok(read('FINAL_CSV').includes('Test Artist,Music Hall,United States,123 Main St,Chicago,IL,60601,,2026-11-10,19:30'));
+  assert.ok(read('FINAL_CSV').includes('"Live ""music"", tonight"'));
+  assert.ok(read('FINAL_CSV').includes('"First line\nSecond & <third>"'));
+  assert.ok(elements.tbody.innerHTML.includes('Second &amp; &lt;third&gt;'));
 
   format = 'songkick';
   context.resetExport();
@@ -66,11 +69,9 @@ const event = {
   assert.equal(read('LAST_BIT_RESULT_COUNT'), 1);
   assert.equal(read('FINAL_FILENAME'), 'songkick_123456_export.csv');
   const csv = read('FINAL_CSV');
-  assert.equal(csv.split('\n')[0], 'Venue*,City*,Country or State*,Address,Date*,Time*,Duration,Ticket Link,Ticket Type,Ticket Link 2,Ticket Type 2,On-Sale Date,On-Sale Time,Lineup,Event Name,Description,Publish Date,Publish Time,Publish Timezone');
-  assert.ok(csv.includes('Music Hall,Chicago,IL,123 Main St,2026-11-10,19:30'));
-  assert.ok(csv.includes('"Live ""music"", tonight"'));
-  assert.ok(csv.includes('"First line\nSecond & <third>"'));
-  assert.ok(elements.tbody.innerHTML.includes('Second &amp; &lt;third&gt;'));
+  assert.equal(csv, 'Venue*,City*,Country or State*,Address,Date*,Time*\nMusic Hall,Chicago,IL,123 Main St,2026-11-10,19:30');
+  assert.equal(context.csvEscape('123 Main St, Suite 4'), '"123 Main St, Suite 4"');
+  assert.equal(context.csvEscape('123 Main St, Suite "A"'), '"123 Main St, Suite ""A"""');
   assert.equal(context.csvEscape('one\rtwo'), '"one\rtwo"');
 
   elements.songkickArtistId.value = '';

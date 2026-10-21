@@ -115,6 +115,7 @@ $knownToolFeatures = [
     'availability_check',
     'pretty_print',
     'bandsintown_export',
+    'songkick_export',
     'setmaxx_song_catalog',
     'setmaxx_song_enrichment',
     'setmaxx_song_export',

@@ -62,8 +62,8 @@ if (!$selectedCalendarId && $hasCalendars) {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Bands In Town Export | Nick Sanzeri</title>
-  <meta name="description" content="Generate a Bands In Town-formatted CSV from your calendar events.">
+  <title>Calendar Export | Nick Sanzeri</title>
+  <meta name="description" content="Generate Bandsintown or Songkick bulk-upload CSV files from your calendar events.">
   <link rel="stylesheet" href="<?= e(base_url('../assets/css/style.css')) ?>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -470,7 +470,7 @@ if (!$selectedCalendarId && $hasCalendars) {
 
     <div class="tools-topbar">
       <div>
-        <h1>Bands In Town</h1>
+        <h1>Export Events</h1>
       </div>
     </div>
 
@@ -486,6 +486,20 @@ if (!$selectedCalendarId && $hasCalendars) {
         <section class="tools-card">
           <form id="bitForm" method="get" action="<?= e(base_url('/tools/bandsintown.php')) ?>">
             <div class="tools-stack">
+              <fieldset style="border:0;padding:0;margin:0;min-width:0;">
+                <legend>Export to</legend>
+                <div class="tools-radio-list">
+                  <label class="tools-radio"><input type="radio" name="export_format" value="bandsintown" checked> Bands In Town</label>
+                  <label class="tools-radio"><input type="radio" name="export_format" value="songkick"> Songkick</label>
+                </div>
+              </fieldset>
+              <div id="songkickFields" hidden>
+                <div class="tools-field">
+                  <label for="songkickArtistId">Songkick Artist ID</label>
+                  <input class="tools-input" type="text" inputmode="numeric" pattern="[0-9]+" id="songkickArtistId" name="songkick_artist_id" disabled aria-describedby="songkickIdHelp">
+                  <p class="small-note" id="songkickIdHelp" style="margin:0;">Use the number from your Songkick artist page URL. It will be included in the download filename.</p>
+                </div>
+              </div>
               <div class="tools-field">
                 <label for="artistName">Artist</label>
                 <input
@@ -540,7 +554,7 @@ if (!$selectedCalendarId && $hasCalendars) {
                   <div class="demo-box">
                     <strong style="color:#fff;">No calendars connected yet</strong>
                     <p class="small-note" style="margin:.45rem 0 0;">
-                      Add one or more iCal feeds to generate a Bands In Town export.
+                      Add one or more iCal feeds to generate an export.
                     </p>
                   </div>
                 <?php endif; ?>
@@ -566,7 +580,7 @@ if (!$selectedCalendarId && $hasCalendars) {
         <div class="preview-header">
           <div>
             <p class="eyebrow" style="margin-bottom:.45rem;">Preview</p>
-            <h2 style="margin-bottom:.4rem;">Bands In Town CSV</h2>
+            <h2 id="previewTitle" style="margin-bottom:.4rem;">Bands In Town CSV</h2>
             <p class="tools-muted" style="margin:0;">
               Review the rows before downloading or copying the CSV.
             </p>
@@ -592,7 +606,7 @@ if (!$selectedCalendarId && $hasCalendars) {
             <div class="empty-hero">
               <h3 style="margin-top:0;">Start by connecting your calendars</h3>
               <p class="tools-muted" style="margin-bottom:0;">
-                Once your iCal feeds are connected, this page can turn calendar events into a Bands In Town-friendly CSV.
+                Once your iCal feeds are connected, this page can turn calendar events into a Bandsintown or Songkick CSV.
               </p>
             </div>
 
@@ -612,6 +626,7 @@ if (!$selectedCalendarId && $hasCalendars) {
           <p class="preview-note">
             This preview and export will exclude dates with the word "private" in the title or events without address information.
           </p>
+          <p id="songkickNote" class="preview-note" hidden>Songkick also requires a venue and city. Review venue names against Songkick before uploading. Optional ticket, lineup, duration, and publishing fields are left blank. <a href="https://support.songkick.com/hc/en-us/articles/360012427214" target="_blank" rel="noopener">Songkick upload instructions</a></p>
 
           <div class="preview-wrap">
             <table class="preview-table is-empty" id="previewTable">
@@ -636,7 +651,7 @@ if (!$selectedCalendarId && $hasCalendars) {
     </p>
     <ul style="margin:0 0 1.2rem 1.1rem; color:rgba(255,255,255,.82); line-height:1.8;">
       <li>Multiple calendars</li>
-      <li>Bands In Town export</li>
+      <li>Bands In Town and Songkick exports</li>
       <li>Pretty print views</li>
       <li>Full date range access</li>
       <li><strong>5% off all shop purchases</strong></li>
@@ -651,13 +666,37 @@ if (!$selectedCalendarId && $hasCalendars) {
 
 <?php include __DIR__ . '/../../includes/tools_footer.php'; ?>
 
-<?php if ($hasCalendars): ?>
 <script>
 const USER_TIMEZONE = <?= json_encode($userTimezone) ?>;
 const IS_PRO_USER = <?= $isProUser ? 'true' : 'false' ?>;
 const TOOL_USAGE_ENDPOINT = <?= json_encode(base_url('/api/log_tool_usage.php')) ?>;
 let FINAL_CSV = "";
 let LAST_BIT_RESULT_COUNT = 0;
+let FINAL_FILENAME = "";
+let generationVersion = 0;
+
+function selectedFormat() {
+  return document.querySelector("input[name='export_format']:checked")?.value === "songkick" ? "songkick" : "bandsintown";
+}
+
+function resetExport() {
+  generationVersion++;
+  FINAL_CSV = "";
+  FINAL_FILENAME = "";
+  LAST_BIT_RESULT_COUNT = 0;
+  const songkick = selectedFormat() === "songkick";
+  document.getElementById("songkickFields").hidden = !songkick;
+  const artistId = document.getElementById("songkickArtistId");
+  artistId.disabled = !songkick;
+  artistId.required = songkick;
+  document.getElementById("previewTitle").textContent = songkick ? "Songkick CSV" : "Bands In Town CSV";
+  const note = document.getElementById("songkickNote");
+  if (note) note.hidden = !songkick;
+  if (document.getElementById("previewTable")) {
+    renderPreview([], []);
+    hideError();
+  }
+}
 
 function trackToolUsage(payload) {
   try {
@@ -675,6 +714,7 @@ function trackToolUsage(payload) {
 function getBandsintownInputContext() {
   const selectedCalendar = document.querySelector("input[name='calendar_id']:checked");
   return {
+    export_format: selectedFormat(),
     artist_name: document.getElementById("artistName")?.value?.trim() || null,
     date_from: document.getElementById("startDate")?.value || null,
     date_to: document.getElementById("endDate")?.value || null,
@@ -685,7 +725,7 @@ function getBandsintownInputContext() {
 function trackBandsintownUsage(actionKey, status = "success", extra = {}) {
   const selectedCalendar = document.querySelector("input[name='calendar_id']:checked");
   trackToolUsage({
-    feature_key: "bandsintown_export",
+    feature_key: selectedFormat() + "_export",
     action_key: actionKey,
     status,
     calendar_count: selectedCalendar ? 1 : 0,
@@ -882,7 +922,7 @@ function hasAddressInformation(parts) {
 }
 
 function shouldSkipBandsintownEvent(summary, parts) {
-  if (/private/i.test(summary || "")) {
+  if (/\bprivate\b/i.test(summary || "")) {
     return true;
   }
 
@@ -915,7 +955,7 @@ function formatTime(d) {
 
 function csvEscape(value) {
   const str = String(value ?? "");
-  if (/[",\n]/.test(str)) {
+  if (/[",\r\n]/.test(str)) {
     return '"' + str.replace(/"/g, '""') + '"';
   }
   return str;
@@ -952,7 +992,7 @@ function renderPreview(headers, rows) {
   rows.forEach(row => {
     bodyHtml += "<tr>";
     row.forEach(cell => {
-      bodyHtml += `<td>${String(cell ?? "").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</td>`;
+      bodyHtml += `<td>${String(cell ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</td>`;
     });
     bodyHtml += "</tr>";
   });
@@ -964,12 +1004,25 @@ async function generateBIT(event) {
     event.preventDefault();
   }
 
-  hideError();
+  if (!document.getElementById("previewTable")) return;
+  resetExport();
+  const version = generationVersion;
+  const format = selectedFormat();
+  const songkickArtistId = document.getElementById("songkickArtistId").value.trim();
 
   const artist = document.getElementById("artistName").value.trim();
   const calendar = document.querySelector("input[name='calendar_id']:checked");
   const start = document.getElementById("startDate").value;
   const end   = document.getElementById("endDate").value;
+
+  if (format === "songkick" && !/^[0-9]+$/.test(songkickArtistId)) {
+    showError("Enter your numeric Songkick Artist ID.");
+    return;
+  }
+  if (start > end) {
+    showError("The end date must be on or after the start date.");
+    return;
+  }
 
   if (!artist || !calendar || !start || !end) {
     showError("Please complete all fields.");
@@ -981,9 +1034,15 @@ async function generateBIT(event) {
 
   try {
     const events = await fetchEvents(calendar.value, start, end);
+    if (version !== generationVersion) return;
     events.sort((a, b) => new Date(a.start) - new Date(b.start));
 
-    const headers = [
+    const headers = format === "songkick" ? [
+      "Venue*", "City*", "Country or State*", "Address", "Date*", "Time*",
+      "Duration", "Ticket Link", "Ticket Type", "Ticket Link 2", "Ticket Type 2",
+      "On-Sale Date", "On-Sale Time", "Lineup", "Event Name", "Description",
+      "Publish Date", "Publish Time", "Publish Timezone"
+    ] : [
       "Artist Name",
       "Venue*",
       "Country*",
@@ -1028,8 +1087,15 @@ async function generateBIT(event) {
       if (shouldSkipBandsintownEvent(summary, parts)) {
         continue;
       }
+      if (Number.isNaN(startObj.getTime())) continue;
+      if (format === "songkick" && (!parts.venue.trim() || !parts.city.trim())) continue;
 
-      const row = [
+      const row = format === "songkick" ? [
+        parts.venue, parts.city,
+        parts.country === "United States" ? (parts.region || parts.country) : parts.country,
+        parts.addr, formatDate(startObj), formatTime(startObj),
+        "", "", "", "", "", "", "", "", summary, description, "", "", ""
+      ] : [
         artist,
         parts.venue,
         parts.country || "United States",
@@ -1064,7 +1130,8 @@ async function generateBIT(event) {
       csvRows.push(row.map(csvEscape).join(","));
     }
 
-    FINAL_CSV = csvRows.join("\n");
+    FINAL_CSV = previewRows.length ? csvRows.join("\n") : "";
+    FINAL_FILENAME = format === "songkick" ? `songkick_${songkickArtistId}_export.csv` : "bandsintown_export.csv";
     LAST_BIT_RESULT_COUNT = previewRows.length;
     renderPreview(headers, previewRows);
     trackBandsintownUsage("run", "success", {
@@ -1075,6 +1142,7 @@ async function generateBIT(event) {
       showError("No exportable public events with address information were found for the selected range.");
     }
   } catch (err) {
+    if (version !== generationVersion) return;
     LAST_BIT_RESULT_COUNT = 0;
     showError("Error: " + err.message);
     trackBandsintownUsage("run", "error", {
@@ -1085,11 +1153,11 @@ async function generateBIT(event) {
 
 function downloadCSV() {
   if (!FINAL_CSV.trim()) return;
-  if (!requirePro("download_csv", "Free user attempted to download Bandsintown CSV")) return;
+  if (!requirePro("download_csv", "Free user attempted to download export CSV")) return;
   const blob = new Blob([FINAL_CSV], { type: "text/csv;charset=utf-8" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
-  a.download = "bandsintown_export.csv";
+  a.download = FINAL_FILENAME;
   a.click();
   URL.revokeObjectURL(a.href);
   trackBandsintownUsage("download_csv", "success");
@@ -1097,17 +1165,17 @@ function downloadCSV() {
 
 function copyCSV() {
   if (!FINAL_CSV.trim()) return;
-  if (!requirePro("copy_csv", "Free user attempted to copy Bandsintown CSV")) return;
+  if (!requirePro("copy_csv", "Free user attempted to copy export CSV")) return;
   navigator.clipboard.writeText(FINAL_CSV);
   trackBandsintownUsage("copy_csv", "success");
 }
 
 function openCSV() {
   if (!FINAL_CSV.trim()) return;
-  if (!requirePro("open_csv", "Free user attempted to open Bandsintown CSV")) return;
+  if (!requirePro("open_csv", "Free user attempted to open export CSV")) return;
   const w = window.open("", "_blank");
   if (!w) return;
-  w.document.write("<pre>" + FINAL_CSV.replace(/</g, "&lt;") + "</pre>");
+  w.document.write("<pre>" + FINAL_CSV.replace(/&/g, "&amp;").replace(/</g, "&lt;") + "</pre>");
   w.document.close();
   trackBandsintownUsage("open_csv", "success");
 }
@@ -1115,6 +1183,9 @@ function openCSV() {
 document.addEventListener("DOMContentLoaded", () => {
   const form = document.getElementById("bitForm");
   form.addEventListener("submit", generateBIT);
+  form.addEventListener("input", resetExport);
+  form.addEventListener("change", resetExport);
+  resetExport();
 
   installLockedDateRange(['startDate', 'endDate']);
   protectOutputElement(document.querySelector('.preview-wrap'));
@@ -1145,6 +1216,5 @@ function getMaxToDate() {
   return d.toISOString().split('T')[0];
 }
 </script>
-<?php endif; ?>
 </body>
 </html>

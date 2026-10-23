@@ -318,9 +318,9 @@ $showQuoteAction = $directoryViewerAccountType !== 'artist';
     .directory-actions .directory-bid-action { background:linear-gradient(135deg, #f4d57a, #d4af37); color:#111; border-color:rgba(212,175,55,.45); }
     .directory-actions .directory-bid-action:hover { color:#111; border-color:rgba(255,228,138,.72); }
     .directory-empty { padding:1.25rem; border-radius:8px; border:1px solid rgba(255,255,255,.08); background:rgba(255,255,255,.04); color:rgba(255,255,255,.76); }
-    .directory-photo-modal { position:fixed; inset:0; z-index:1000; display:grid; place-items:center; padding:1.25rem; background:rgba(2,4,14,.82); backdrop-filter:blur(8px); }
+    .directory-photo-modal { position:fixed; inset:0; z-index:1000; display:flex; flex-direction:column; align-items:center; overflow-y:auto; overscroll-behavior-y:contain; padding:1.25rem; background:rgba(2,4,14,.82); backdrop-filter:blur(8px); }
     .directory-photo-modal[hidden] { display:none; }
-    .directory-photo-dialog { position:relative; width:min(92vw, 760px); }
+    .directory-photo-dialog { position:relative; flex-shrink:0; width:min(100%, 760px); margin-block:auto; }
     .directory-photo-dialog img { width:100%; max-height:82vh; object-fit:contain; border-radius:8px; background:#050713; box-shadow:0 24px 80px rgba(0,0,0,.45); }
     .directory-photo-info { margin-top:.85rem; padding:1rem; border-radius:8px; background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.1); }
     .directory-photo-info h3 { margin:0 0 .25rem; }
@@ -446,6 +446,7 @@ window.openDirectoryPhoto = function (trigger) {
     });
   }
   modal.hidden = false;
+  modal.scrollTop = 0;
   closeButton.focus();
   return false;
 };

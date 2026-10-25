@@ -198,8 +198,8 @@ $modeSuffix = $lyricsMode ? '&mode=lyrics' : '';
       margin-top:1rem;
     }
     .hide-while-editing.is-editing { display:none; }
-    .lyrics-navigation { display:flex; align-items:center; gap:.45rem; flex-wrap:wrap; }
-    .lyrics-search-panel { position:absolute; top:100%; right:0; z-index:2; width:min(420px, 100%); margin-top:.5rem; padding:1rem; background:#111; border:1px solid #444; border-radius:10px; box-shadow:0 8px 24px #000; }
+    .lyrics-navigation { position:relative; display:flex; align-items:center; gap:.45rem; flex-wrap:wrap; margin-bottom:.75rem; }
+    .lyrics-search-panel { position:absolute; top:100%; left:0; z-index:2; width:min(420px, 100%); margin-top:.5rem; padding:1rem; background:#111; border:1px solid #444; border-radius:10px; box-shadow:0 8px 24px #000; }
     #lyricsOfflineStatus:empty { display:none; }
     #lyricsOfflineStatus { margin:0 0 .75rem; color:#cfcfcf; font-size:.9rem; }
     .stage-link:disabled { opacity:.45; cursor:default; }
@@ -238,6 +238,16 @@ $modeSuffix = $lyricsMode ? '&mode=lyrics' : '';
         <?php if ($artist !== ''): ?><p class="artist"><?= e($artist) ?></p><?php endif; ?>
       </div>
       <div class="stage-actions">
+        <?php if ($song): ?>
+          <button class="stage-link font-button" type="button" id="decreaseFontBtn" aria-label="Decrease note font size">A-</button>
+          <button class="stage-link font-button" type="button" id="increaseFontBtn" aria-label="Increase note font size">A+</button>
+        <?php endif; ?>
+        <?php if ($song): ?><button class="stage-link" type="button" id="editNotesBtn">Edit</button><?php endif; ?>
+        <?php if (!$lyricsMode): ?><a class="stage-link" href="<?= e(base_url('/setmaxx/song_notes.php?mode=lyrics' . ($notes !== '' ? '&id=' . $songId : ''))) ?>">Lyrics</a><?php endif; ?>
+        <a class="stage-link" href="<?= e(base_url('/setmaxx/songs.php')) ?>">Songs</a>
+      </div>
+    </div>
+
         <?php if ($lyricsMode): ?>
           <nav class="lyrics-navigation hide-while-editing" id="lyricsNavigation" aria-label="Lyrics navigation">
             <button class="stage-link" type="button" id="saveLyricsOffline" aria-label="Save lyrics for offline use" title="Save for offline">Save</button>
@@ -263,16 +273,6 @@ $modeSuffix = $lyricsMode ? '&mode=lyrics' : '';
             </details>
           </nav>
         <?php endif; ?>
-        <?php if ($song): ?>
-          <button class="stage-link font-button" type="button" id="decreaseFontBtn" aria-label="Decrease note font size">A-</button>
-          <button class="stage-link font-button" type="button" id="increaseFontBtn" aria-label="Increase note font size">A+</button>
-        <?php endif; ?>
-        <?php if ($song): ?><button class="stage-link" type="button" id="editNotesBtn">Edit</button><?php endif; ?>
-        <?php if (!$lyricsMode): ?><a class="stage-link" href="<?= e(base_url('/setmaxx/song_notes.php?mode=lyrics' . ($notes !== '' ? '&id=' . $songId : ''))) ?>">Lyrics</a><?php endif; ?>
-        <a class="stage-link" href="<?= e(base_url('/setmaxx/songs.php')) ?>">Songs</a>
-      </div>
-    </div>
-
     <?php if ($lyricsMode): ?>
       <p id="lyricsOfflineStatus" role="status"></p>
     <?php endif; ?>

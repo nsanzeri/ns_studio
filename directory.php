@@ -6,6 +6,13 @@ $selectedLocation = trim((string)($_GET['location'] ?? ($_GET['state'] ?? '')));
 if (mb_strlen($selectedLocation) > 96 || preg_match('/[^A-Za-z0-9| &.,\'’()+\/:-]/u', $selectedLocation)) {
     $selectedLocation = '';
 }
+$selectedCountry = strtoupper(trim((string)($_GET['country'] ?? '')));
+if (!array_key_exists($selectedCountry, directory_country_options())) $selectedCountry = '';
+if (str_contains($selectedLocation, '|')) {
+    [$locationCountry, $locationRegion] = explode('|', $selectedLocation, 2);
+    [$locationCountry, $locationRegion] = directory_normalize_location($locationCountry, $locationRegion);
+    $selectedLocation = directory_location_key($locationCountry, $locationRegion);
+}
 
 function directory_column_exists(PDO $pdo, string $tableName, string $columnName): bool {
     $stmt = $pdo->prepare("SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = ? AND column_name = ? LIMIT 1");
@@ -78,7 +85,35 @@ function directory_location_key(?string $country, ?string $region): string {
     $country = strtoupper(trim((string)$country));
     $region = trim((string)$region);
     if ($region === '') return '';
-    return ($country !== '' ? $country : 'OTHER') . '|' . $region;
+    return ($country !== '' ? $country : 'OTHER') . '|' . mb_strtolower($region);
+}
+
+function directory_normalize_location(?string $country, ?string $region): array {
+    $country = strtoupper(trim((string)$country));
+    $region = trim((string)$region);
+    $states = [
+        'AL' => 'Alabama', 'AK' => 'Alaska', 'AZ' => 'Arizona', 'AR' => 'Arkansas',
+        'CA' => 'California', 'CO' => 'Colorado', 'CT' => 'Connecticut', 'DE' => 'Delaware',
+        'FL' => 'Florida', 'GA' => 'Georgia', 'HI' => 'Hawaii', 'ID' => 'Idaho',
+        'IL' => 'Illinois', 'IN' => 'Indiana', 'IA' => 'Iowa', 'KS' => 'Kansas',
+        'KY' => 'Kentucky', 'LA' => 'Louisiana', 'ME' => 'Maine', 'MD' => 'Maryland',
+        'MA' => 'Massachusetts', 'MI' => 'Michigan', 'MN' => 'Minnesota', 'MS' => 'Mississippi',
+        'MO' => 'Missouri', 'MT' => 'Montana', 'NE' => 'Nebraska', 'NV' => 'Nevada',
+        'NH' => 'New Hampshire', 'NJ' => 'New Jersey', 'NM' => 'New Mexico', 'NY' => 'New York',
+        'NC' => 'North Carolina', 'ND' => 'North Dakota', 'OH' => 'Ohio', 'OK' => 'Oklahoma',
+        'OR' => 'Oregon', 'PA' => 'Pennsylvania', 'RI' => 'Rhode Island', 'SC' => 'South Carolina',
+        'SD' => 'South Dakota', 'TN' => 'Tennessee', 'TX' => 'Texas', 'UT' => 'Utah',
+        'VT' => 'Vermont', 'VA' => 'Virginia', 'WA' => 'Washington', 'WV' => 'West Virginia',
+        'WI' => 'Wisconsin', 'WY' => 'Wyoming', 'DC' => 'District of Columbia',
+    ];
+    if (in_array($country, ['', 'US', 'OTHER', 'OT'], true)) {
+        foreach ($states as $code => $name) {
+            if (strcasecmp($region, $code) === 0 || strcasecmp($region, $name) === 0) {
+                return ['US', $code];
+            }
+        }
+    }
+    return [$country === '' || $country === 'OT' ? 'OTHER' : $country, $region];
 }
 
 function directory_location_label(?string $country, ?string $region): string {
@@ -138,6 +173,8 @@ function directory_download_filename(string $artistName): string {
 
 $artists = [];
 $locations = [];
+$countries = [];
+$countryLabels = directory_country_options();
 $directoryReady = directory_public_profiles_ready($pdo);
 $visibilityReady = $directoryReady && directory_profile_visibility_columns_ready($pdo);
 $descriptionReady = $directoryReady && directory_profile_description_ready($pdo);
@@ -242,13 +279,15 @@ if ($directoryReady) {
     $artists = $stmt->fetchAll(PDO::FETCH_ASSOC);
     $artists = array_values(array_filter($artists, static function (array $artist): bool {
         $name = trim((string)($artist['artist_name'] ?: $artist['display_name']));
-        $region = trim((string)($artist['directory_region'] ?: ($artist['directory_state'] ?? '')));
+        $region = trim((string)($artist['directory_region'] ?? '')) ?: trim((string)($artist['directory_state'] ?? ''));
         return directory_artist_name_is_readable($name) && $region !== '';
     }));
     foreach ($artists as &$artist) {
         $name = trim((string)($artist['artist_name'] ?: $artist['display_name']));
-        $artist['directory_country'] = (string)($artist['directory_country'] ?: 'OTHER');
-        $artist['directory_region'] = trim((string)($artist['directory_region'] ?: ($artist['directory_state'] ?? '')));
+        [$artist['directory_country'], $artist['directory_region']] = directory_normalize_location(
+            $artist['directory_country'] ?? '',
+            trim((string)($artist['directory_region'] ?? '')) ?: ($artist['directory_state'] ?? '')
+        );
         $artist['location_key'] = directory_location_key((string)$artist['directory_country'], (string)$artist['directory_region']);
         $artist['location_label'] = directory_location_label((string)$artist['directory_country'], (string)$artist['directory_region']);
         $artist['is_subscriber'] = directory_user_has_request_page_access($pdo, (int)$artist['user_id']) ? 1 : 0;
@@ -257,13 +296,28 @@ if ($directoryReady) {
     unset($artist);
     foreach ($artists as $artist) {
         $locationKey = (string)($artist['location_key'] ?? '');
-        if ($locationKey !== '') $locations[$locationKey] = (string)($artist['location_label'] ?? $locationKey);
+        $countryCode = (string)$artist['directory_country'];
+        $countries[$countryCode] = $countryLabels[$countryCode] ?? 'International';
+        if ($locationKey !== '' && ($selectedCountry === '' || $selectedCountry === $countryCode)) {
+            $locations[$locationKey] = $selectedCountry === '' ? $artist['location_label'] : $artist['directory_region'];
+        }
     }
     natcasesort($locations);
-    if ($selectedLocation !== '') {
-        $artists = array_values(array_filter($artists, static function (array $artist) use ($selectedLocation): bool {
-            return (string)($artist['location_key'] ?? '') === $selectedLocation
-                || (!str_contains($selectedLocation, '|') && strcasecmp((string)($artist['directory_region'] ?? ''), $selectedLocation) === 0);
+    natcasesort($countries);
+    if ($selectedLocation !== '' && !str_contains($selectedLocation, '|')) {
+        foreach ($artists as $artist) {
+            [, $legacyRegion] = directory_normalize_location($selectedCountry, $selectedLocation);
+            if (($selectedCountry === '' || $selectedCountry === $artist['directory_country'])
+                && strcasecmp($artist['directory_region'], $legacyRegion) === 0) {
+                $selectedLocation = $artist['location_key'];
+                break;
+            }
+        }
+    }
+    if ($selectedCountry !== '' || $selectedLocation !== '') {
+        $artists = array_values(array_filter($artists, static function (array $artist) use ($selectedCountry, $selectedLocation): bool {
+            return ($selectedCountry === '' || $artist['directory_country'] === $selectedCountry)
+                && ($selectedLocation === '' || $artist['location_key'] === $selectedLocation);
         }));
     }
     usort($artists, static function (array $a, array $b): int {
@@ -303,8 +357,12 @@ $showQuoteAction = $directoryViewerAccountType !== 'artist';
     .directory-hero h1 { margin:.15rem 0 0; max-width:820px; }
     .directory-hero p { max-width:760px; color:rgba(255,255,255,.76); }
     .directory-filter { display:flex; gap:.75rem; flex-wrap:wrap; align-items:center; margin:1.5rem 0; }
-    .directory-filter a { display:inline-flex; align-items:center; min-height:38px; padding:.5rem .85rem; border-radius:999px; text-decoration:none; border:1px solid rgba(255,255,255,.12); color:rgba(255,255,255,.86); }
-    .directory-filter a.active, .directory-filter a:hover { background:rgba(212,175,55,.16); color:#f4d57a; border-color:rgba(212,175,55,.32); }
+    .directory-filter label { display:grid; gap:.35rem; flex:1 1 180px; max-width:300px; min-width:0; color:rgba(255,255,255,.76); font-size:.85rem; }
+    .directory-filter select, .directory-filter button { min-height:42px; padding:.55rem .75rem; border-radius:8px; border:1px solid rgba(255,255,255,.2); background:#10131f; color:#fff; font:inherit; }
+    .directory-filter select { width:100%; }
+    .directory-filter select:focus-visible, .directory-filter button:focus-visible { outline:2px solid #f4d57a; outline-offset:2px; }
+    .directory-filter button { align-self:flex-end; cursor:pointer; color:#f4d57a; }
+    .directory-filter a { align-self:flex-end; padding:.65rem 0; color:#f4d57a; }
     .directory-grid { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:1rem; }
     .directory-card { display:grid; grid-template-columns:76px 1fr; gap:1rem; align-items:center; width:100%; min-height:108px; padding:1rem; border-radius:8px; background:rgba(255,255,255,.045); border:1px solid rgba(255,255,255,.08); color:#fff; text-align:left; text-decoration:none; font:inherit; cursor:pointer; }
     .directory-card:hover, .directory-card:focus-visible { border-color:rgba(212,175,55,.36); background:rgba(255,255,255,.065); }
@@ -343,19 +401,33 @@ $showQuoteAction = $directoryViewerAccountType !== 'artist';
     <p>Ready Set Shows artists are already doing the extra work: organizing songs, managing requests, and making the night easier for hosts and audiences. Browse public profiles by location and connect with acts who show up prepared.</p>
   </section>
 
-  <?php if ($directoryReady && $locations): ?>
-    <nav class="directory-filter" aria-label="Filter artists by location">
-      <a href="<?= e($siteBase . '/directory.php') ?>" class="<?= $selectedLocation === '' ? 'active' : '' ?>">All</a>
-      <?php foreach ($locations as $locationKey => $locationLabel): ?>
-        <a href="<?= e($siteBase . '/directory.php?location=' . rawurlencode((string)$locationKey)) ?>" class="<?= $selectedLocation === (string)$locationKey ? 'active' : '' ?>"><?= e($locationLabel) ?></a>
-      <?php endforeach; ?>
-    </nav>
+  <?php if ($directoryReady && $countries): ?>
+    <form class="directory-filter" method="get" action="<?= e($siteBase . '/directory.php') ?>" aria-label="Filter artists by location">
+      <label for="directoryCountry">Country
+        <select id="directoryCountry" name="country" onchange="this.form.elements.location.value = ''; this.form.requestSubmit();">
+          <option value="">All countries</option>
+          <?php foreach ($countries as $countryCode => $countryLabel): ?>
+            <option value="<?= e($countryCode) ?>" <?= $selectedCountry === $countryCode ? 'selected' : '' ?>><?= e($countryLabel) ?></option>
+          <?php endforeach; ?>
+        </select>
+      </label>
+      <label for="directoryRegion">State / province / region
+        <select id="directoryRegion" name="location" onchange="this.form.requestSubmit();">
+          <option value="">All states / provinces / regions</option>
+          <?php foreach ($locations as $locationKey => $locationLabel): ?>
+            <option value="<?= e($locationKey) ?>" <?= $selectedLocation === (string)$locationKey ? 'selected' : '' ?>><?= e($locationLabel) ?></option>
+          <?php endforeach; ?>
+        </select>
+      </label>
+      <button type="submit">Filter</button>
+      <?php if ($selectedCountry !== '' || $selectedLocation !== ''): ?><a href="<?= e($siteBase . '/directory.php') ?>">Clear filters</a><?php endif; ?>
+    </form>
   <?php endif; ?>
 
   <?php if (!$directoryReady): ?>
     <div class="directory-empty">The artist directory needs the latest database update before listings can appear.</div>
   <?php elseif (!$artists): ?>
-    <div class="directory-empty">No artists are listed<?= $selectedLocation !== '' && isset($locations[$selectedLocation]) ? ' in ' . e($locations[$selectedLocation]) : '' ?> yet.</div>
+    <div class="directory-empty">No artists are listed<?= $selectedLocation !== '' && isset($locations[$selectedLocation]) ? ' in ' . e($locations[$selectedLocation]) : ($selectedCountry !== '' ? ' in ' . e($countryLabels[$selectedCountry]) : '') ?> yet.</div>
   <?php else: ?>
     <section class="directory-grid" aria-label="Artists">
       <?php foreach ($artists as $artist): ?>

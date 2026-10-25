@@ -90,6 +90,7 @@ $modeSuffix = $lyricsMode ? '&mode=lyrics' : '';
       padding:clamp(1rem, 3vw, 2.5rem);
     }
     .stage-top {
+      position:relative;
       display:flex;
       justify-content:space-between;
       align-items:flex-start;
@@ -112,7 +113,7 @@ $modeSuffix = $lyricsMode ? '&mode=lyrics' : '';
       cursor:pointer;
     }
     button.stage-link { font:inherit; }
-    .stage-actions { display:flex; gap:.45rem; flex-wrap:wrap; justify-content:flex-end; }
+    .stage-actions { display:flex; gap:.45rem; flex-wrap:wrap; justify-content:flex-end; align-items:center; }
     .font-button {
       min-width:46px;
       font-size:1.05rem;
@@ -197,8 +198,10 @@ $modeSuffix = $lyricsMode ? '&mode=lyrics' : '';
       margin-top:1rem;
     }
     .hide-while-editing.is-editing { display:none; }
-    .lyrics-navigation { margin:1rem 0; }
-    .lyrics-controls { display:flex; align-items:center; gap:.75rem; flex-wrap:wrap; }
+    .lyrics-navigation { display:flex; align-items:center; gap:.45rem; flex-wrap:wrap; }
+    .lyrics-search-panel { position:absolute; top:100%; right:0; z-index:2; width:min(420px, 100%); margin-top:.5rem; padding:1rem; background:#111; border:1px solid #444; border-radius:10px; box-shadow:0 8px 24px #000; }
+    #lyricsOfflineStatus:empty { display:none; }
+    #lyricsOfflineStatus { margin:0 0 .75rem; color:#cfcfcf; font-size:.9rem; }
     .stage-link:disabled { opacity:.45; cursor:default; }
     .lyrics-search { width:100%; margin:.75rem 0; padding:.75rem; background:#111; color:#fff; border:1px solid #666; border-radius:8px; font:inherit; }
     .lyrics-list { max-height:35vh; overflow:auto; display:grid; gap:.4rem; }
@@ -213,8 +216,8 @@ $modeSuffix = $lyricsMode ? '&mode=lyrics' : '';
       }
     }
     @media (max-width: 640px) {
-      .stage-top { gap:.7rem; }
-      .stage-actions { max-width:150px; }
+      .stage-top { gap:.7rem; flex-wrap:wrap; }
+      .stage-actions { justify-content:flex-start; }
       .stage-link { min-height:38px; padding:.55rem .7rem; font-size:.9rem; }
       .font-button { min-width:42px; }
     }
@@ -235,6 +238,31 @@ $modeSuffix = $lyricsMode ? '&mode=lyrics' : '';
         <?php if ($artist !== ''): ?><p class="artist"><?= e($artist) ?></p><?php endif; ?>
       </div>
       <div class="stage-actions">
+        <?php if ($lyricsMode): ?>
+          <nav class="lyrics-navigation hide-while-editing" id="lyricsNavigation" aria-label="Lyrics navigation">
+            <button class="stage-link" type="button" id="saveLyricsOffline" aria-label="Save lyrics for offline use" title="Save for offline">Save</button>
+            <?php foreach (['previous' => $previousId, 'next' => $nextId] as $direction => $targetId): ?>
+              <?php if ($targetId): ?>
+                <a class="stage-link" id="lyrics-<?= $direction ?>" href="<?= e(base_url('/setmaxx/song_notes.php?id=' . $targetId . '&mode=lyrics')) ?>"><?= ucfirst($direction) ?></a>
+              <?php else: ?>
+                <button class="stage-link" type="button" disabled><?= ucfirst($direction) ?></button>
+              <?php endif; ?>
+            <?php endforeach; ?>
+            <details id="lyricsSearchMenu">
+              <summary class="stage-link">Search</summary>
+              <div class="lyrics-search-panel">
+                <label for="lyricsSearch">Search title or artist</label>
+                <input class="lyrics-search" id="lyricsSearch" type="search" placeholder="Search songs…" autocomplete="off">
+                <div class="lyrics-list" id="lyricsList">
+                  <?php foreach ($library as $entry): ?>
+                    <a class="stage-link" href="<?= e(base_url('/setmaxx/song_notes.php?id=' . (int)$entry['id'] . '&mode=lyrics')) ?>" <?= (int)$entry['id'] === $songId ? 'aria-current="page"' : '' ?>><?= e($entry['title'] . (!empty($entry['artist']) ? ' — ' . $entry['artist'] : '')) ?></a>
+                  <?php endforeach; ?>
+                </div>
+                <p id="lyricsSearchEmpty" role="status" hidden>No matching songs.</p>
+              </div>
+            </details>
+          </nav>
+        <?php endif; ?>
         <?php if ($song): ?>
           <button class="stage-link font-button" type="button" id="decreaseFontBtn" aria-label="Decrease note font size">A-</button>
           <button class="stage-link font-button" type="button" id="increaseFontBtn" aria-label="Increase note font size">A+</button>
@@ -246,32 +274,7 @@ $modeSuffix = $lyricsMode ? '&mode=lyrics' : '';
     </div>
 
     <?php if ($lyricsMode): ?>
-      <nav class="lyrics-navigation hide-while-editing" id="lyricsNavigation" aria-label="Lyrics navigation">
-        <button class="stage-link" type="button" id="saveLyricsOffline">Save for offline</button>
-        <p id="lyricsOfflineStatus" role="status">Before your show, save here while online. Bookmark this Lyrics page and use the same browser and device offline. Save again after changing notes. Editing requires internet.</p>
-        <div class="lyrics-controls">
-          <?php foreach (['previous' => $previousId, 'next' => $nextId] as $direction => $targetId): ?>
-            <?php if ($targetId): ?>
-              <a class="stage-link" id="lyrics-<?= $direction ?>" href="<?= e(base_url('/setmaxx/song_notes.php?id=' . $targetId . '&mode=lyrics')) ?>"><?= ucfirst($direction) ?></a>
-            <?php else: ?>
-              <button class="stage-link" type="button" disabled><?= ucfirst($direction) ?></button>
-            <?php endif; ?>
-          <?php endforeach; ?>
-          <span><?= $lyricsIndex !== false ? ($lyricsIndex + 1) . ' / ' : '' ?><?= count($library) ?> songs with notes</span>
-        </div>
-        <p>Swipe left or right on the notes. Songs are ordered A–Z.</p>
-        <details>
-          <summary class="stage-link">Find a song</summary>
-          <label for="lyricsSearch">Search title or artist</label>
-          <input class="lyrics-search" id="lyricsSearch" type="search" placeholder="Search songs…" autocomplete="off">
-          <div class="lyrics-list" id="lyricsList">
-            <?php foreach ($library as $entry): ?>
-              <a class="stage-link" href="<?= e(base_url('/setmaxx/song_notes.php?id=' . (int)$entry['id'] . '&mode=lyrics')) ?>" <?= (int)$entry['id'] === $songId ? 'aria-current="page"' : '' ?>><?= e($entry['title'] . (!empty($entry['artist']) ? ' — ' . $entry['artist'] : '')) ?></a>
-            <?php endforeach; ?>
-          </div>
-          <p id="lyricsSearchEmpty" role="status" hidden>No matching songs.</p>
-        </details>
-      </nav>
+      <p id="lyricsOfflineStatus" role="status"></p>
     <?php endif; ?>
 
     <div class="hide-while-editing" id="notesDisplay">
@@ -317,15 +320,15 @@ $modeSuffix = $lyricsMode ? '&mode=lyrics' : '';
       if (offlineButton) {
         offlineButton.addEventListener('click', async function() {
           offlineButton.disabled = true;
-          offlineStatus.textContent = 'Saving notes and Lyrics browser. Keep this page open…';
+          offlineStatus.textContent = 'Saving for offline…';
           try {
             const urls = Array.from(document.querySelectorAll('#lyricsList a')).map(link => link.href);
             const result = await window.saveSetmaxxNotesOffline(urls, function(done, total) {
               offlineStatus.textContent = 'Saving for offline: ' + done + ' / ' + total + ' pages…';
             });
             offlineStatus.textContent = result.failed
-              ? result.cached + ' pages saved, ' + result.failed + ' missed. Reconnect and save again before your show.'
-              : 'Lyrics and notes saved on this device. Bookmark this page, then test it in airplane mode before your show.';
+              ? result.cached + ' saved, ' + result.failed + ' missed. Reconnect and try again.'
+              : 'Saved for offline.';
           } catch (error) {
             offlineStatus.textContent = error.message || 'Could not save for offline.';
           } finally {
@@ -334,6 +337,16 @@ $modeSuffix = $lyricsMode ? '&mode=lyrics' : '';
         });
       }
       if (lyricsSearch) {
+        const searchMenu = document.getElementById('lyricsSearchMenu');
+        searchMenu.addEventListener('toggle', function() {
+          if (searchMenu.open) lyricsSearch.focus();
+        });
+        document.addEventListener('keydown', function(event) {
+          if (event.key === 'Escape' && searchMenu.open) {
+            searchMenu.open = false;
+            searchMenu.querySelector('summary').focus();
+          }
+        });
         const links = Array.from(document.querySelectorAll('#lyricsList a'));
         lyricsSearch.addEventListener('input', function() {
           const query = lyricsSearch.value.trim().toLocaleLowerCase();

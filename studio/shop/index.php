@@ -30,6 +30,7 @@ $requestHost = strtolower((string)($_SERVER['HTTP_HOST'] ?? ''));
 $requestHost = preg_replace('/:\d+$/', '', $requestHost);
 $isReadySetShowsHost = in_array($requestHost, ['readysetshows.com', 'www.readysetshows.com'], true);
 $readySetShowsUrl = rss_tool_launch_url();
+$merchUrl = 'https://direct.distrokid.com/nicksanzeri2/';
 $screensBase = base_url('../assets/img/readysetshows');
 $blueprintTitle = $products['btb']['title'] ?? 'Backing Track Blueprint';
 $shopReturnUrl = rss_studio_root_url() . '/shop/';
@@ -105,6 +106,24 @@ $shopLoginUrl = rss_studio_root_url() . '/member/login.php?' . http_build_query(
       width: 100%;
       height: 100%;
       object-fit: cover;
+    }
+    /* Frame the shirt portion of the supplied storefront screenshot. */
+    .shop-thumb-merch {
+      position: relative;
+      display: block;
+      width: 176px;
+      max-width: 100%;
+      aspect-ratio: 1;
+      background: #fff;
+    }
+    .shop-thumb-merch img {
+      position: absolute;
+      width: 201.4%;
+      max-width: none;
+      height: 203.7%;
+      left: -12.3%;
+      top: -59.1%;
+      object-fit: fill;
     }
     .shop-copy h2 {
       margin: 0 0 .35rem;
@@ -191,11 +210,31 @@ if ($isReadySetShowsHost) {
   <div class="container">
     <div class="shop-heading">
       <p class="eyebrow">Shop</p>
-      <h1>Tools for working musicians.</h1>
-      <p>Digital products and apps from Nick Sanzeri for making the music side, the gig side, and the business side easier to manage.</p>
+      <h1><?= $isReadySetShowsHost ? 'Tools for working musicians.' : 'Merch, music, and tools for the gig.' ?></h1>
+      <p><?= $isReadySetShowsHost ? 'Digital products and apps from Nick Sanzeri for making the music side, the gig side, and the business side easier to manage.' : 'Rep the music with official Nick Sanzeri merch, or explore digital products and apps built for working musicians.' ?></p>
     </div>
 
     <div class="shop-list">
+      <?php if (!$isReadySetShowsHost): ?>
+      <article class="shop-row">
+        <a class="shop-thumb shop-thumb-merch" href="<?= e($merchUrl) ?>" aria-label="Shop Nick Sanzeri merch">
+          <img src="<?= e(base_url('../assets/img/nick-sanzeri-merch.png')) ?>" alt="Baby blue Nick Sanzeri Follow The Feeling T-shirt" width="1146" height="1165">
+        </a>
+        <div class="shop-copy">
+          <h2><a href="<?= e($merchUrl) ?>">Nick Sanzeri Merch</a></h2>
+          <p>Follow the feeling. Wear the music. Grab an official Nick Sanzeri tee and take a little of the show wherever you go. Let the fun begin!</p>
+          <div class="shop-meta">
+            <span><i class="fa-solid fa-check"></i> Follow The Feeling tees</span>
+            <span><i class="fa-solid fa-check"></i> Multiple colors and sizes</span>
+          </div>
+        </div>
+        <div class="shop-actions">
+          <span class="shop-chip">Official merch</span>
+          <a class="btn btn-primary" href="<?= e($merchUrl) ?>">Shop Merch</a>
+        </div>
+      </article>
+      <?php endif; ?>
+
       <article class="shop-row">
         <a class="shop-thumb" href="<?= e($readySetShowsUrl) ?>" aria-label="Open Ready Set Shows">
           <img src="<?= e($screensBase . '/setmaxx-public-requests.png') ?>" alt="Ready Set Shows request page preview">

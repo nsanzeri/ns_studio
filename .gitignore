@@ -6,6 +6,7 @@
 # Dependencies
 /vendor/
 /studio/vendor/
+/studio/_private/_storage/calendar-feeds/
 
 
 # Logs

@@ -88,34 +88,22 @@ if (!filter_var($icalUrl, FILTER_VALIDATE_URL) || !in_array(strtolower((string)p
     exit;
 }
 
-$ch = curl_init($icalUrl);
-curl_setopt_array($ch, [
-    CURLOPT_RETURNTRANSFER => true,
-    CURLOPT_FOLLOWLOCATION => true,
-    CURLOPT_TIMEOUT => 20,
-    CURLOPT_SSL_VERIFYPEER => true,
-    CURLOPT_SSL_VERIFYHOST => 2,
-]);
-
-$rawICS = curl_exec($ch);
-
-if ($rawICS === false) {
-    $error = curl_error($ch);
-    curl_close($ch);
-
-    echo json_encode([
-        'success' => false,
-        'error' => 'Error fetching iCal: ' . $error,
-    ]);
-    exit;
+// Release the session lock so slow providers do not block other requests.
+if (session_status() === PHP_SESSION_ACTIVE) {
+    session_write_close();
 }
+// Allow time for a cache-lock wait, the provider download, and local parsing.
+set_time_limit(150);
+require_once __DIR__ . '/../_private/_core/calendar_feed.php';
 
-curl_close($ch);
-
-if (!$rawICS) {
+$cacheKey = hash('sha256', (int)$user['id'] . '|' . $calendarId . '|' . $icalUrl);
+$cacheFile = __DIR__ . '/../_private/_storage/calendar-feeds/' . $cacheKey . '.ics';
+try {
+    $rawICS = calendar_feed_load($icalUrl, $cacheFile);
+} catch (Throwable $e) {
     echo json_encode([
         'success' => false,
-        'error' => 'Failed to fetch iCal data',
+        'error' => $e->getMessage(),
     ]);
     exit;
 }

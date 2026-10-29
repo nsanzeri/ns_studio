@@ -31,6 +31,7 @@ $requestHost = preg_replace('/:\d+$/', '', $requestHost);
 $isReadySetShowsHost = in_array($requestHost, ['readysetshows.com', 'www.readysetshows.com'], true);
 $readySetShowsUrl = rss_tool_launch_url();
 $merchUrl = 'https://direct.distrokid.com/nicksanzeri2/';
+$youtubeMembershipUrl = 'https://www.youtube.com/channel/UCnTEOsjjmdnM0jBZyJY6jfg/join';
 $screensBase = base_url('../assets/img/readysetshows');
 $blueprintTitle = $products['btb']['title'] ?? 'Backing Track Blueprint';
 $shopReturnUrl = rss_studio_root_url() . '/shop/';
@@ -125,6 +126,14 @@ $shopLoginUrl = rss_studio_root_url() . '/member/login.php?' . http_build_query(
       top: -59.1%;
       object-fit: fill;
     }
+    .shop-thumb-youtube {
+      display: grid;
+      place-items: center;
+      background: linear-gradient(135deg, #30131d, #141625);
+      color: #ff4545;
+      font-size: 3.5rem;
+      text-decoration: none;
+    }
     .shop-copy h2 {
       margin: 0 0 .35rem;
       font-size: 1.35rem;
@@ -211,7 +220,7 @@ if ($isReadySetShowsHost) {
     <div class="shop-heading">
       <p class="eyebrow">Shop</p>
       <h1><?= $isReadySetShowsHost ? 'Tools for working musicians.' : 'Merch, music, and tools for the gig.' ?></h1>
-      <p><?= $isReadySetShowsHost ? 'Digital products and apps from Nick Sanzeri for making the music side, the gig side, and the business side easier to manage.' : 'Rep the music with official Nick Sanzeri merch, or explore digital products and apps built for working musicians.' ?></p>
+      <p><?= $isReadySetShowsHost ? 'Digital products and apps from Nick Sanzeri for making the music side, the gig side, and the business side easier to manage.' : 'Rep the music with official Nick Sanzeri merch, become a YouTube channel member, or explore digital products and apps built for working musicians.' ?></p>
     </div>
 
     <div class="shop-list">
@@ -231,6 +240,20 @@ if ($isReadySetShowsHost) {
         <div class="shop-actions">
           <span class="shop-chip">Official merch</span>
           <a class="btn btn-primary" href="<?= e($merchUrl) ?>">Shop Merch</a>
+        </div>
+      </article>
+
+      <article class="shop-row">
+        <a class="shop-thumb shop-thumb-youtube" href="<?= e($youtubeMembershipUrl) ?>" aria-label="Join Nick Sanzeri on YouTube">
+          <i class="fa-brands fa-youtube" aria-hidden="true"></i>
+        </a>
+        <div class="shop-copy">
+          <h2><a href="<?= e($youtubeMembershipUrl) ?>">YouTube Channel Membership</a></h2>
+          <p>Help keep the music coming! Become a member of Nick Sanzeri's YouTube channel. Explore the membership options and perks, and join the fun right on YouTube.</p>
+        </div>
+        <div class="shop-actions">
+          <span class="shop-chip">Paid membership</span>
+          <a class="btn btn-primary" href="<?= e($youtubeMembershipUrl) ?>">Join on YouTube</a>
         </div>
       </article>
       <?php endif; ?>

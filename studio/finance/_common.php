@@ -4,6 +4,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/../_private/_core/bootstrap.php';
 require_once __DIR__ . '/../_private/_core/tool_access.php';
 require_once __DIR__ . '/../_private/_core/tool_usage.php';
+require_once __DIR__ . '/../_private/_core/google_calendar.php';
 
 if (!Auth::isLoggedIn()) {
     $_SESSION['login_next'] = base_url('/finance/index.php');
@@ -335,6 +336,7 @@ function finance_expand_rrule_event(array $event, DateTime $rangeStart, DateTime
 }
 
 function finance_fetch_calendar_events(array $calendar, string $startDate, string $endDate): array {
+    global $pdo, $userId;
     $tzName = (string)($calendar['timezone'] ?: 'America/Chicago');
     try {
         $tz = new DateTimeZone($tzName);
@@ -343,6 +345,12 @@ function finance_fetch_calendar_events(array $calendar, string $startDate, strin
     }
     $rangeStart = new DateTime($startDate, $tz);
     $rangeEnd = (new DateTime($endDate, $tz))->setTime(23, 59, 59);
+
+    $googleSource = rss_google_calendar_source($pdo, (int)$calendar['id'], (int)$userId);
+    if ($googleSource) {
+        set_time_limit(180);
+        return rss_google_calendar_events($pdo, (int)$userId, $googleSource, $rangeStart, $rangeEnd, $tz);
+    }
 
     $icalUrl = rss_normalize_ical_url((string)$calendar['ics_url']);
     if (!filter_var($icalUrl, FILTER_VALIDATE_URL) || !in_array(strtolower((string)parse_url($icalUrl, PHP_URL_SCHEME)), ['http', 'https'], true)) {

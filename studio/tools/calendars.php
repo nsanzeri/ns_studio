@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../_private/_core/bootstrap.php';
 require_once __DIR__ . '/../_private/_core/tool_access.php';
+require_once __DIR__ . '/../_private/_core/google_calendar.php';
 
 if (!Auth::isLoggedIn()) {
 	$_SESSION['login_next'] = base_url('/tools/calendars.php');
@@ -94,13 +95,77 @@ $formData = posted_calendar_defaults();
 $editingId = isset($_GET['edit']) ? (int)$_GET['edit'] : 0;
 $editingCalendar = null;
 
+$googleConnection = rss_google_calendar_connection($pdo, $userId);
+$googleChoices = [];
+$googleError = null;
+if ($googleConnection && !($_SERVER['REQUEST_METHOD'] === 'POST' && in_array($_POST['action'] ?? '', ['connect_google', 'disconnect_google'], true))) {
+    try {
+        $googleChoices = rss_google_calendar_list($pdo, $userId);
+    } catch (Throwable $e) {
+        $googleError = 'Could not load your Google calendars. Try reconnecting Google Calendar.';
+    }
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 	$action = (string)($_POST['action'] ?? '');
+	if (!csrf_verify($_POST['_csrf'] ?? null)) {
+		$errors[] = 'Your session has changed. Please reload the page and try again.';
+		$action = '';
+	}
+	if ($action === 'connect_google') {
+		try {
+			rss_google_calendar_client();
+			rss_google_calendar_ensure_tables($pdo);
+			$_SESSION['google_calendar_connect_intent'] = ['user_id' => $userId, 'expires' => time() + 120];
+			redirect(base_url('/member/google_start.php?calendar=1'));
+		} catch (Throwable $e) {
+			$errors[] = 'Google Calendar could not be started. Check the Google Calendar setup or use an iCal link.';
+		}
+	}
+	if ($action === 'disconnect_google') {
+		if ($googleConnection) {
+			$pdo->prepare('DELETE FROM google_calendar_connections WHERE user_id = ?')->execute([$userId]);
+		}
+		unset($_SESSION['google_calendar_oauth'], $_SESSION['google_calendar_connect_intent']);
+		$_SESSION['tools_flash'] = 'Google Calendar disconnected. Saved Google calendars need reconnection before they can be used.';
+		redirect_tools_calendars();
+	}
+	if ($action === 'create_google') {
+		$chosen = null;
+		foreach ($googleChoices as $choice) {
+			if ($choice['id'] === (string)($_POST['google_calendar_id'] ?? '')) $chosen = $choice;
+		}
+		if (!$chosen || !$googleConnection || strlen($chosen['id']) > 255) {
+			$errors[] = 'Please choose an available calendar from your connected Google account.';
+		} else {
+			$stmt = $pdo->prepare('SELECT c.id FROM calendars c JOIN google_calendar_sources s ON s.calendar_id = c.id WHERE c.user_id = ? AND s.google_sub = ? AND s.google_calendar_id = ?');
+			$stmt->execute([$userId, $googleConnection['google_sub'], $chosen['id']]);
+			if ($stmt->fetchColumn()) {
+				$errors[] = 'This Google calendar has already been added.';
+			} else {
+				$pdo->beginTransaction();
+				try {
+					$pdo->prepare("INSERT INTO calendars (user_id, name, color, ics_url, timezone, is_active, is_default, is_main_gig, sync_status) VALUES (?, ?, ?, '', ?, 1, 0, 0, 'never')")
+						->execute([$userId, mb_substr((string)$chosen['name'], 0, 255), normalize_hex_color($chosen['color']), normalize_timezone($chosen['timezone'])]);
+					$pdo->prepare('INSERT INTO google_calendar_sources (calendar_id, google_sub, google_calendar_id) VALUES (?, ?, ?)')
+						->execute([(int)$pdo->lastInsertId(), $googleConnection['google_sub'], $chosen['id']]);
+					$pdo->commit();
+				} catch (Throwable $e) {
+					$pdo->rollBack();
+					throw $e;
+				}
+				$_SESSION['tools_flash'] = 'Google calendar added. Only events in your selected date range will be loaded.';
+				redirect_tools_calendars();
+			}
+		}
+	}
 	
 	if ($action === 'create' || $action === 'update') {
 		$calendarId = (int)($_POST['calendar_id'] ?? 0);
 		$name = trim((string)($_POST['name'] ?? ''));
 		$icsUrl = rss_normalize_ical_url($_POST['ics_url'] ?? '');
+		$googleSource = $action === 'update' ? rss_google_calendar_source($pdo, $calendarId, $userId) : null;
+		if ($googleSource) $icsUrl = '';
 		$color = normalize_hex_color($_POST['color'] ?? '');
 		$timezone = normalize_timezone($_POST['timezone'] ?? '');
 		$isActive = isset($_POST['is_active']) ? 1 : 0;
@@ -110,9 +175,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 			$errors[] = 'Please give this calendar a name.';
 		}
 		
-		if ($icsUrl === '') {
+		if (!$googleSource && $icsUrl === '') {
 			$errors[] = 'Please enter an iCal URL.';
-		} elseif (!filter_var($icsUrl, FILTER_VALIDATE_URL) || !in_array(strtolower((string)parse_url($icsUrl, PHP_URL_SCHEME)), ['http', 'https'], true)) {
+		} elseif (!$googleSource && (!filter_var($icsUrl, FILTER_VALIDATE_URL) || !in_array(strtolower((string)parse_url($icsUrl, PHP_URL_SCHEME)), ['http', 'https'], true))) {
 			$errors[] = 'Please enter a valid iCal URL.';
 		}
 		
@@ -278,6 +343,12 @@ $calStmt = $pdo->prepare("
 ");
 $calStmt->execute([':user_id' => $userId]);
 $calendars = $calStmt->fetchAll(PDO::FETCH_ASSOC);
+$googleSources = [];
+if (rss_google_calendar_ready($pdo)) {
+	$stmt = $pdo->prepare('SELECT s.* FROM google_calendar_sources s JOIN calendars c ON c.id = s.calendar_id WHERE c.user_id = ?');
+	$stmt->execute([$userId]);
+	foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $source) $googleSources[(int)$source['calendar_id']] = $source;
+}
 
 if ($editingId > 0) {
 	foreach ($calendars as $calendar) {
@@ -314,7 +385,7 @@ $commonTimezones = [
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Manage Calendars | Nick Sanzeri</title>
-  <meta name="description" content="Manage your iCal calendar feeds for Ready Set Shows Calendar Tools.">
+  <meta name="description" content="Connect Google calendars or iCal links for Ready Set Shows Calendar Tools.">
   <link rel="stylesheet" href="<?= e(base_url('../assets/css/style.css')) ?>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -334,10 +405,13 @@ $commonTimezones = [
     .tools-card h2,.tools-card h3{margin-top:0;margin-bottom:.8rem;}
     .tools-muted{color:rgba(255,255,255,.72);}
     .tools-stack{display:grid;gap:1rem;}
+    .google-connection-actions{display:flex;gap:.6rem;flex-wrap:wrap;margin-top:.8rem;}
     .tools-field{display:grid;gap:.45rem;min-width:0;}
     .tools-field label{font-size:.95rem;font-weight:500;color:#fff;}
     .tools-label-row{display:flex;align-items:center;justify-content:space-between;gap:.75rem;}
     .tools-input,.tools-select,.tools-textarea{width:100%;min-width:0;padding:.85rem .95rem;border-radius:14px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);color:#fff;font:inherit;}
+    .tools-select{color-scheme:dark;}
+    .tools-select option{background:#151323;color:#fff;}
     .tools-input::placeholder,.tools-textarea::placeholder{color:rgba(255,255,255,.45);}
     .tools-check{display:flex;align-items:center;gap:.7rem;padding:.75rem .85rem;border-radius:14px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06);}
     .tools-check input{accent-color:#d4af37;}
@@ -485,7 +559,55 @@ $commonTimezones = [
 
     <div class="tools-layout">
       <section class="tools-card">
+        <?php if (!$editingCalendar): ?>
+          <h2>Google Calendar</h2>
+          <p class="tools-muted">Choose from your Google calendars, or add an iCal link below. Google events load only for the dates you select.</p>
+          <?php if ($googleConnection): ?>
+            <p class="small-note">Connected as <?= e($googleConnection['email']) ?></p>
+            <?php if ($googleError): ?>
+              <p role="alert" class="tools-muted"><?= e($googleError) ?></p>
+            <?php elseif ($googleChoices): ?>
+              <form method="post" action="<?= e(base_url('/tools/calendars.php')) ?>" class="tools-stack">
+                <input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>">
+          <input type="hidden" name="action" value="create_google">
+                <div class="tools-field">
+                  <label for="google_calendar_id">Your Google calendars</label>
+                  <select class="tools-select" id="google_calendar_id" name="google_calendar_id" required>
+                    <option value="">Choose a calendar</option>
+                    <?php foreach ($googleChoices as $choice): ?>
+                      <option value="<?= e($choice['id']) ?>"><?= e($choice['name']) ?><?= $choice['primary'] ? ' (Primary)' : '' ?></option>
+                    <?php endforeach; ?>
+                  </select>
+                </div>
+                <button class="btn btn-primary" type="submit">Add Google Calendar</button>
+              </form>
+            <?php else: ?>
+              <p class="tools-muted">No readable calendars were found in this Google account.</p>
+            <?php endif; ?>
+          <?php else: ?>
+            <p class="small-note">Connect once to allow read-only access to your calendar list and events.</p>
+          <?php endif; ?>
+          <div class="google-connection-actions">
+          <form method="post" action="<?= e(base_url('/tools/calendars.php')) ?>">
+            <input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>">
+          <input type="hidden" name="action" value="connect_google">
+            <button class="btn btn-secondary" type="submit" aria-label="<?= $googleConnection ? 'Reconnect Google Calendar' : 'Connect Google Calendar' ?>"><?= $googleConnection ? 'Reconnect' : 'Connect Google Calendar' ?></button>
+          </form>
+          <?php if ($googleConnection): ?>
+            <form method="post" action="<?= e(base_url('/tools/calendars.php')) ?>">
+              <input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>">
+          <input type="hidden" name="action" value="disconnect_google">
+              <button class="btn btn-secondary" type="submit" aria-label="Disconnect Google Calendar">Disconnect</button>
+            </form>
+          <?php endif; ?>
+          </div>
+          <hr style="border:0;border-top:1px solid rgba(255,255,255,.12);margin:1.5rem 0;">
+          <h2>iCal link</h2>
+        <?php else: ?>
+          <h2>Edit calendar</h2>
+        <?php endif; ?>
         <form id="calendarForm" method="post" action="<?= e(base_url('/tools/calendars.php' . ($editingCalendar ? '?edit=' . (int)$editingCalendar['id'] : ''))) ?>" onsubmit="return handleCalendarFormSubmit(event)">
+          <input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>">
           <input type="hidden" name="action" value="<?= $editingCalendar ? 'update' : 'create' ?>">
           <?php if ($editingCalendar): ?>
             <input type="hidden" name="calendar_id" value="<?= (int)$editingCalendar['id'] ?>">
@@ -506,6 +628,9 @@ $commonTimezones = [
               >
             </div>
 
+            <?php if ($editingCalendar && isset($googleSources[(int)$editingCalendar['id']])): ?>
+              <p class="tools-muted">Source: Google Calendar. You can change its name, color, timezone, and settings below.</p>
+            <?php else: ?>
             <div class="tools-field">
               <div class="tools-label-row">
                 <label for="ics_url">iCal URL</label>
@@ -524,6 +649,7 @@ $commonTimezones = [
                 required
               >
             </div>
+            <?php endif; ?>
 
 			<div class="tools-field">
 			  <label for="color">Color</label>
@@ -581,7 +707,7 @@ $commonTimezones = [
 
       <section class="tools-card">
         <p class="eyebrow">Your Calendars</p>
-        <h2>Connected calendar feeds</h2>
+        <h2>Connected calendars</h2>
         <p class="tools-muted" style="margin-top:-.25rem;margin-bottom:1rem;">
           These are the feeds your availability tools will read from.
         </p>
@@ -590,7 +716,7 @@ $commonTimezones = [
           <div class="empty-state">
             <h3 style="margin-top:0;">No calendars connected yet</h3>
             <p class="tools-muted" style="margin-bottom:0;">
-              Add your first iCal feed to get started.
+              Choose a Google calendar or add an iCal link to get started.
             </p>
           </div>
         <?php else: ?>
@@ -617,7 +743,16 @@ $commonTimezones = [
 
                   </div>
 
-                  <div class="calendar-url"><?= e($calendar['ics_url']) ?></div>
+                  <div class="calendar-url">
+                    <?php if (isset($googleSources[(int)$calendar['id']])): ?>
+                      Google Calendar
+                      <?php if (!$googleConnection || $googleConnection['google_sub'] !== $googleSources[(int)$calendar['id']]['google_sub']): ?>
+                        · Reconnect its Google account to load events
+                      <?php endif; ?>
+                    <?php else: ?>
+                      <?= e($calendar['ics_url']) ?>
+                    <?php endif; ?>
+                  </div>
 
                   <div class="calendar-extra">
                     <?php if (!empty($calendar['timezone'])): ?>
@@ -633,7 +768,8 @@ $commonTimezones = [
                   </a>
 
                   <form method="post" action="<?= e(base_url('/tools/calendars.php')) ?>">
-                    <input type="hidden" name="action" value="toggle">
+                    <input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>">
+          <input type="hidden" name="action" value="toggle">
                     <input type="hidden" name="calendar_id" value="<?= (int)$calendar['id'] ?>">
                     <button class="btn btn-secondary" type="submit">
                       <?= ((int)$calendar['is_active'] === 1) ? 'Deactivate' : 'Activate' ?>
@@ -642,7 +778,8 @@ $commonTimezones = [
 
                   <?php if (empty($calendar['is_main_gig'])): ?>
                     <form method="post" action="<?= e(base_url('/tools/calendars.php')) ?>">
-                      <input type="hidden" name="action" value="set_main_gig">
+                      <input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>">
+          <input type="hidden" name="action" value="set_main_gig">
                       <input type="hidden" name="calendar_id" value="<?= (int)$calendar['id'] ?>">
                       <button class="btn btn-secondary" type="submit">
                         Make Main Gig
@@ -651,7 +788,8 @@ $commonTimezones = [
                   <?php endif; ?>
 
                   <form method="post" action="<?= e(base_url('/tools/calendars.php')) ?>" onsubmit="return confirm('Delete this calendar?');">
-                    <input type="hidden" name="action" value="delete">
+                    <input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>">
+          <input type="hidden" name="action" value="delete">
                     <input type="hidden" name="calendar_id" value="<?= (int)$calendar['id'] ?>">
                     <button class="btn btn-secondary" type="submit">
                       Delete

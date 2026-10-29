@@ -855,7 +855,7 @@ $calendarMeta = array_map(static fn($calendar) => [
             <div class="empty-hero">
               <h3 style="margin-top:0;">Start by connecting your calendars</h3>
               <p class="tools-muted" style="margin-bottom:0;">
-                Once your iCal feeds are connected, this page becomes your command center for checking shared availability fast.
+                Once your Google calendars or iCal feeds are connected, you can check shared availability here.
               </p>
             </div>
 
@@ -863,7 +863,7 @@ $calendarMeta = array_map(static fn($calendar) => [
               <h3 style="margin-top:0;">How it works</h3>
               <ol class="empty-steps">
                 <li>
-				  Add one or more iCal links
+				  Choose Google calendars or add iCal links
 				  <a href="#" id="openIcalHelp" class="ical-help-link">(Where do I find this?)</a>
 				</li>
                 <li>Select a date range and calendars</li>

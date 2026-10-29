@@ -38,6 +38,32 @@ function google_login_default_post_login_url(PDO $pdo, int $userId, bool $isRead
 		: base_url('member/library.php');
 }
 
+$calendarOAuth = $_SESSION['google_calendar_oauth'] ?? null;
+if (is_array($calendarOAuth) && isset($_GET['state']) && hash_equals($calendarOAuth['state'], (string)$_GET['state'])) {
+    unset($_SESSION['google_calendar_oauth']);
+    require_once __DIR__ . '/../_private/_core/google_calendar.php';
+    $user = Auth::isLoggedIn() ? Auth::currentUser($pdo) : null;
+    if (!$user || (int)$user['id'] !== (int)$calendarOAuth['user_id'] || (int)$calendarOAuth['expires'] < time()) {
+        http_response_code(400);
+        exit('This calendar connection has expired. Please start again from Manage Calendars.');
+    }
+    try {
+        if (!empty($_GET['error'])) {
+            throw new RSSGoogleCalendarException('Google Calendar was not connected. You can try again or use an iCal link.');
+        }
+        $client = rss_google_calendar_client(rss_google_redirect_uri());
+        $token = $client->fetchAccessTokenWithAuthCode((string)($_GET['code'] ?? ''));
+        if (!empty($token['error'])) throw new RSSGoogleCalendarException('Google Calendar could not be connected. Please try again.');
+        rss_google_calendar_save_connection($pdo, (int)$user['id'], $client, $token);
+        $_SESSION['tools_flash'] = 'Google Calendar connected. Choose a calendar below to add it.';
+    } catch (Throwable $e) {
+        // Provider exceptions may contain tokens or private response bodies.
+        $_SESSION['tools_flash'] = $e instanceof RSSGoogleCalendarException
+            ? $e->getMessage() : 'Google Calendar could not be connected. Please try again.';
+    }
+    redirect(base_url('/tools/calendars.php'));
+}
+
 if (!isset($_GET['state']) || !hash_equals((string)($_SESSION['google_oauth_state'] ?? ''), (string)$_GET['state'])) {
 	http_response_code(400);
 	echo 'Invalid Google login state.';

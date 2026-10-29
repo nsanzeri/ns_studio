@@ -80,6 +80,24 @@ try {
     exit;
 }
 
+require_once __DIR__ . '/../_private/_core/google_calendar.php';
+$googleSource = rss_google_calendar_source($pdo, $calendarId, (int)$user['id']);
+if ($googleSource) {
+    if (session_status() === PHP_SESSION_ACTIVE) session_write_close();
+    set_time_limit(180);
+    try {
+        $events = rss_google_calendar_events($pdo, (int)$user['id'], $googleSource, $rangeStart, $rangeEnd, $tz);
+        foreach ($events as &$row) {
+            $row['event_key'] = hash('sha256', implode('|', [$calendarId, $row['uid'], $row['start'], $row['summary'], $row['location']]));
+        }
+        unset($row);
+        echo json_encode(['success' => true, 'events' => $events]);
+    } catch (Throwable $e) {
+        echo json_encode(['success' => false, 'error' => $e instanceof RSSGoogleCalendarException ? $e->getMessage() : 'Could not load Google Calendar. Please reconnect or try again shortly.']);
+    }
+    exit;
+}
+
 if (!filter_var($icalUrl, FILTER_VALIDATE_URL) || !in_array(strtolower((string)parse_url($icalUrl, PHP_URL_SCHEME)), ['http', 'https'], true)) {
     echo json_encode([
         'success' => false,

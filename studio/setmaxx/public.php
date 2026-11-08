@@ -33,6 +33,7 @@ function setmaxx_public_default_profile(): array {
     return [
         'artist_name' => '',
         'website_url' => '',
+        'merch_url' => '',
         'review_url' => '',
         'booking_url' => '',
         'logo_path' => '',
@@ -256,6 +257,9 @@ function setmaxx_public_ensure_profile_pricing_columns(PDO $pdo): void {
     if (!setmaxx_public_profile_column_exists($pdo, 'booking_url')) {
         $pdo->exec("ALTER TABLE setmaxx_public_profiles ADD COLUMN booking_url varchar(255) DEFAULT NULL AFTER review_url");
     }
+    if (!setmaxx_public_profile_column_exists($pdo, 'merch_url')) {
+        $pdo->exec("ALTER TABLE setmaxx_public_profiles ADD COLUMN merch_url varchar(255) DEFAULT NULL AFTER website_url");
+    }
     if (!setmaxx_public_profile_column_exists($pdo, 'minimum_tip_dollars')) {
         $pdo->exec("ALTER TABLE setmaxx_public_profiles ADD COLUMN minimum_tip_dollars tinyint(3) unsigned NOT NULL DEFAULT 10 AFTER logo_path");
     }
@@ -354,7 +358,7 @@ function setmaxx_public_ensure_general_tips_table(PDO $pdo): void {
 
 function setmaxx_public_profile(PDO $pdo, int $userId): array {
     setmaxx_public_ensure_profile_pricing_columns($pdo);
-    $stmt = $pdo->prepare("SELECT artist_name, website_url, review_url, booking_url, logo_path, venmo_handle, minimum_tip_dollars, suggested_request_dollars, price_step_dollars, free_request_limit, request_badge_1_dollars, request_badge_2_dollars, request_badge_3_dollars FROM setmaxx_public_profiles WHERE user_id = ? LIMIT 1");
+    $stmt = $pdo->prepare("SELECT artist_name, website_url, merch_url, review_url, booking_url, logo_path, venmo_handle, minimum_tip_dollars, suggested_request_dollars, price_step_dollars, free_request_limit, request_badge_1_dollars, request_badge_2_dollars, request_badge_3_dollars FROM setmaxx_public_profiles WHERE user_id = ? LIMIT 1");
     $stmt->execute([$userId]);
     return $stmt->fetch(PDO::FETCH_ASSOC) ?: setmaxx_public_default_profile();
 }
@@ -1120,7 +1124,7 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
     @media (max-width: 640px) {
       .public-shell { padding-bottom:7rem; }
       .public-grid { padding-bottom:5.5rem; }
-      .public-action-bar { display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); align-items:stretch; }
+      .public-action-bar { display:grid; grid-template-columns:repeat(var(--public-action-count, 4), minmax(0, 1fr)); align-items:stretch; }
       .public-action-bar .public-mini-button, .public-action-bar .action-summary { justify-content:center; width:100%; min-width:0; }
       .public-action-bar .public-mini-button, .public-action-bar .action-summary { font-size:.76rem; padding-left:.28rem; padding-right:.28rem; }
       .public-action-bar .action-chevron { display:none; }
@@ -1190,7 +1194,7 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
             <?php endif; ?>
         </div>
 
-        <div class="public-action-bar" aria-label="More ways to connect">
+        <div class="public-action-bar" aria-label="More ways to connect" style="--public-action-count: <?= 3 + (int)!empty($publicProfile['review_url']) + (int)!empty($publicProfile['merch_url']) ?>">
         <details class="action-card">
           <summary class="action-summary">
             <span class="action-summary-text">
@@ -1228,6 +1232,7 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
             </form>
           </div>
         </details>
+        <?php if (!empty($publicProfile['merch_url'])): ?><a class="public-mini-button" href="<?= e((string)$publicProfile['merch_url']) ?>" target="_blank" rel="noopener">Merch</a><?php endif; ?>
         <?php if (!empty($publicProfile['review_url'])): ?><a class="public-mini-button" href="<?= e((string)$publicProfile['review_url']) ?>" target="_blank" rel="noopener">Leave a review</a><?php endif; ?>
 
         <details class="action-card" id="join-list-action">
@@ -1303,7 +1308,7 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
           <?php endif; ?>
       </div>
 
-      <div class="public-action-bar" aria-label="More ways to connect">
+      <div class="public-action-bar" aria-label="More ways to connect" style="--public-action-count: <?= 3 + (int)!empty($publicProfile['review_url']) + (int)!empty($publicProfile['merch_url']) ?>">
       <details class="action-card">
         <summary class="action-summary">
           <span class="action-summary-text">
@@ -1341,6 +1346,7 @@ if (($session || ($stableLinkFound && $publicUserId > 0)) && $tablesReady && is_
           </form>
         </div>
       </details>
+      <?php if (!empty($publicProfile['merch_url'])): ?><a class="public-mini-button" href="<?= e((string)$publicProfile['merch_url']) ?>" target="_blank" rel="noopener">Merch</a><?php endif; ?>
       <?php if (!empty($publicProfile['review_url'])): ?><a class="public-mini-button" href="<?= e((string)$publicProfile['review_url']) ?>" target="_blank" rel="noopener">Leave a review</a><?php endif; ?>
 
       <details class="action-card" id="join-list-action">

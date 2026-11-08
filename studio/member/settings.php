@@ -149,6 +149,9 @@ function ns_ensure_public_artist_profile_table(PDO $pdo): void
     if (!ns_public_profile_column_exists($pdo, 'website_url')) {
         $pdo->exec("ALTER TABLE setmaxx_public_profiles ADD COLUMN website_url varchar(255) DEFAULT NULL AFTER artist_name");
     }
+    if (!ns_public_profile_column_exists($pdo, 'merch_url')) {
+        $pdo->exec("ALTER TABLE setmaxx_public_profiles ADD COLUMN merch_url varchar(255) DEFAULT NULL AFTER website_url");
+    }
     if (!ns_public_profile_column_exists($pdo, 'youtube_url')) {
         $pdo->exec("ALTER TABLE setmaxx_public_profiles ADD COLUMN youtube_url varchar(255) DEFAULT NULL AFTER website_url");
     }
@@ -329,7 +332,7 @@ function ns_clean_profile_region($value, string $country): ?string
 function ns_public_artist_profile(PDO $pdo, int $userId): array
 {
     ns_ensure_public_artist_profile_table($pdo);
-    $stmt = $pdo->prepare("SELECT directory_visible, directory_country, directory_region, directory_state, directory_show_song_count, directory_show_songlist, directory_genres, directory_description, artist_name, invoice_payable_to, invoice_address, invoice_accept_check, invoice_accept_cash, invoice_accept_zelle, invoice_zelle_details, website_url, youtube_url, contact_email, contact_phone, logo_path FROM setmaxx_public_profiles WHERE user_id = ? LIMIT 1");
+    $stmt = $pdo->prepare("SELECT directory_visible, directory_country, directory_region, directory_state, directory_show_song_count, directory_show_songlist, directory_genres, directory_description, artist_name, invoice_payable_to, invoice_address, invoice_accept_check, invoice_accept_cash, invoice_accept_zelle, invoice_zelle_details, website_url, merch_url, youtube_url, contact_email, contact_phone, logo_path FROM setmaxx_public_profiles WHERE user_id = ? LIMIT 1");
     $stmt->execute([$userId]);
     $profile = $stmt->fetch(PDO::FETCH_ASSOC) ?: [
         'directory_visible' => 1,
@@ -348,6 +351,7 @@ function ns_public_artist_profile(PDO $pdo, int $userId): array
         'invoice_accept_zelle' => 0,
         'invoice_zelle_details' => '',
         'website_url' => '',
+        'merch_url' => '',
         'youtube_url' => '',
         'contact_email' => '',
         'contact_phone' => '',
@@ -468,6 +472,9 @@ if (is_post()) {
                 ns_ensure_public_artist_profile_table($pdo);
                 $artistName = ns_clean_profile_text($_POST['artist_name'] ?? '', 190);
                 $websiteUrl = ns_clean_profile_url($_POST['website_url'] ?? '');
+                $merchUrlInput = trim((string)($_POST['merch_url'] ?? ''));
+                if ($merchUrlInput !== '' && !preg_match('#^https?://#i', $merchUrlInput)) $merchUrlInput = 'https://' . $merchUrlInput;
+                $merchUrl = ns_clean_profile_url($merchUrlInput);
                 $youtubeUrl = ns_clean_profile_url($_POST['youtube_url'] ?? '');
                 $contactEmail = ns_clean_profile_email($_POST['contact_email'] ?? '');
                 $contactPhone = ns_clean_profile_phone($_POST['contact_phone'] ?? '');
@@ -495,6 +502,9 @@ if (is_post()) {
                 }
                 if (trim((string)($_POST['youtube_url'] ?? '')) !== '' && $youtubeUrl === null) {
                     throw new RuntimeException('YouTube link is not valid.');
+                }
+                if ($merchUrlInput !== '' && ($merchUrl === null || strlen($merchUrlInput) > 255)) {
+                    throw new RuntimeException('Merch link must be a valid web address of 255 characters or fewer.');
                 }
                 if (!$artistName) {
                     throw new RuntimeException('Artist or band name is required.');
@@ -565,6 +575,7 @@ if (is_post()) {
                     $invoiceAcceptZelle,
                     $invoiceZelleDetails,
                     $websiteUrl,
+                    $merchUrl,
                     $youtubeUrl,
                     $contactEmail,
                     $contactPhone,
@@ -575,13 +586,13 @@ if (is_post()) {
                 if ($profileExistsStmt->fetchColumn()) {
                     $pdo->prepare(
                         "UPDATE setmaxx_public_profiles
-                         SET directory_visible = ?, directory_country = ?, directory_region = ?, directory_state = ?, directory_show_song_count = ?, directory_show_songlist = ?, directory_genres = ?, directory_description = ?, artist_name = ?, invoice_payable_to = ?, invoice_address = ?, invoice_accept_check = ?, invoice_accept_cash = ?, invoice_accept_zelle = ?, invoice_zelle_details = ?, website_url = ?, youtube_url = ?, contact_email = ?, contact_phone = ?, logo_path = ?
+                         SET directory_visible = ?, directory_country = ?, directory_region = ?, directory_state = ?, directory_show_song_count = ?, directory_show_songlist = ?, directory_genres = ?, directory_description = ?, artist_name = ?, invoice_payable_to = ?, invoice_address = ?, invoice_accept_check = ?, invoice_accept_cash = ?, invoice_accept_zelle = ?, invoice_zelle_details = ?, website_url = ?, merch_url = ?, youtube_url = ?, contact_email = ?, contact_phone = ?, logo_path = ?
                          WHERE user_id = ?"
                     )->execute(array_merge($profileValues, [$userId]));
                 } else {
                     $pdo->prepare(
-                        "INSERT INTO setmaxx_public_profiles (user_id, directory_visible, directory_country, directory_region, directory_state, directory_show_song_count, directory_show_songlist, directory_genres, directory_description, artist_name, invoice_payable_to, invoice_address, invoice_accept_check, invoice_accept_cash, invoice_accept_zelle, invoice_zelle_details, website_url, youtube_url, contact_email, contact_phone, logo_path)
-                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+                        "INSERT INTO setmaxx_public_profiles (user_id, directory_visible, directory_country, directory_region, directory_state, directory_show_song_count, directory_show_songlist, directory_genres, directory_description, artist_name, invoice_payable_to, invoice_address, invoice_accept_check, invoice_accept_cash, invoice_accept_zelle, invoice_zelle_details, website_url, merch_url, youtube_url, contact_email, contact_phone, logo_path)
+                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
                     )->execute(array_merge([$userId], $profileValues));
                 }
 
@@ -610,6 +621,7 @@ if (is_post()) {
                     'invoice_accept_zelle' => !empty($_POST['invoice_accept_zelle']) ? 1 : 0,
                     'invoice_zelle_details' => trim((string)($_POST['invoice_zelle_details'] ?? '')),
                     'website_url' => trim((string)($_POST['website_url'] ?? '')),
+                    'merch_url' => trim((string)($_POST['merch_url'] ?? '')),
                     'youtube_url' => trim((string)($_POST['youtube_url'] ?? '')),
                     'contact_email' => trim((string)($_POST['contact_email'] ?? '')),
                     'contact_phone' => trim((string)($_POST['contact_phone'] ?? '')),
@@ -732,6 +744,11 @@ if ($isReadySetShowsHost) {
       <div class="form-field">
         <label style="margin-top:1rem;">Website</label>
         <input type="text" name="website_url" placeholder="https://your-site.com" value="<?= e((string)($publicArtistProfile['website_url'] ?? '')) ?>">
+      </div>
+      <div class="form-field">
+        <label for="merch_url" style="margin-top:1rem;">Merch link (optional)</label>
+        <input type="text" id="merch_url" name="merch_url" maxlength="255" placeholder="https://your-store.com" value="<?= e((string)($publicArtistProfile['merch_url'] ?? '')) ?>" aria-describedby="merch_url_help">
+        <small id="merch_url_help">Shown on your directory profile and public song-selection page. Leave blank to hide it.</small>
       </div>
       <div class="form-field">
         <label style="margin-top:1rem;">YouTube</label>

@@ -187,6 +187,7 @@ if (rss_table_exists($pdo, 'setmaxx_public_profiles')) {
         && artist_column_exists($pdo, 'setmaxx_public_profiles', 'suggested_request_dollars')
         && artist_column_exists($pdo, 'setmaxx_public_profiles', 'price_step_dollars');
     $descriptionReady = artist_column_exists($pdo, 'setmaxx_public_profiles', 'directory_description');
+    $merchReady = artist_column_exists($pdo, 'setmaxx_public_profiles', 'merch_url');
     $genresReady = artist_column_exists($pdo, 'setmaxx_public_profiles', 'directory_genres');
     $visibilityReady = artist_column_exists($pdo, 'setmaxx_public_profiles', 'directory_show_song_count');
     $linksReady = rss_table_exists($pdo, 'setmaxx_public_links');
@@ -198,6 +199,7 @@ if (rss_table_exists($pdo, 'setmaxx_public_profiles')) {
           pp.directory_state,
           pp.artist_name,
           pp.website_url,
+          " . ($merchReady ? "pp.merch_url" : "NULL") . " AS merch_url,
           " . ($contactReady ? "pp.youtube_url, pp.contact_email, pp.contact_phone, pp.review_url, pp.booking_url, pp.venmo_handle, pp.minimum_tip_dollars, pp.suggested_request_dollars, pp.price_step_dollars" : "NULL AS youtube_url, NULL AS contact_email, NULL AS contact_phone, NULL AS review_url, NULL AS booking_url, NULL AS venmo_handle, NULL AS minimum_tip_dollars, NULL AS suggested_request_dollars, NULL AS price_step_dollars") . ",
           " . ($descriptionReady ? "pp.directory_description" : "NULL") . " AS directory_description,
           " . ($genresReady ? "pp.directory_genres" : "NULL") . " AS directory_genres,
@@ -316,6 +318,7 @@ if ($profile && !empty($profile['directory_genres'])) {
           <?php if (!empty($profile['youtube_url'])): ?><a href="<?= e((string)$profile['youtube_url']) ?>" target="_blank" rel="noopener">YouTube</a><?php endif; ?>
           <?php if (!empty($profile['booking_url'])): ?><a href="<?= e((string)$profile['booking_url']) ?>" target="_blank" rel="noopener">Book</a><?php endif; ?>
           <?php if (!empty($profile['review_url'])): ?><a href="<?= e((string)$profile['review_url']) ?>" target="_blank" rel="noopener">Read reviews</a><?php endif; ?>
+          <?php if (!empty($profile['merch_url'])): ?><a href="<?= e((string)$profile['merch_url']) ?>" target="_blank" rel="noopener">Merch</a><?php endif; ?>
           <?php if ($songlistUrl !== ''): ?><a href="<?= e($songlistUrl) ?>" download>Download setlist</a><?php endif; ?>
         </div>
         <?php if ($services): ?>

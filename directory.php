@@ -241,6 +241,7 @@ if ($directoryReady) {
     $params = [];
     $locationReady = directory_column_exists($pdo, 'setmaxx_public_profiles', 'directory_country')
         && directory_column_exists($pdo, 'setmaxx_public_profiles', 'directory_region');
+    $merchReady = directory_column_exists($pdo, 'setmaxx_public_profiles', 'merch_url');
 
     $sql = "
         SELECT
@@ -250,6 +251,7 @@ if ($directoryReady) {
             pp.directory_state,
             pp.artist_name,
             pp.website_url,
+            " . ($merchReady ? "pp.merch_url" : "NULL") . " AS merch_url,
             " . ($contactReady ? "pp.youtube_url" : "NULL") . " AS youtube_url,
             " . ($contactReady ? "pp.contact_email" : "NULL") . " AS contact_email,
             " . ($contactReady ? "pp.contact_phone" : "NULL") . " AS contact_phone,
@@ -267,7 +269,7 @@ if ($directoryReady) {
         " . ($songsReady ? "LEFT JOIN setmaxx_songs s ON s.user_id = pp.user_id AND s.is_active = 1" : "") . "
         " . ($linksReady ? "LEFT JOIN setmaxx_public_links spl ON spl.user_id = pp.user_id" : "") . "
         {$where}
-        GROUP BY pp.user_id" . ($locationReady ? ", pp.directory_country, pp.directory_region" : "") . ", pp.directory_state, pp.artist_name, pp.website_url" . ($contactReady ? ", pp.youtube_url, pp.contact_email, pp.contact_phone, pp.review_url, pp.booking_url" : "") . ", pp.logo_path" . ($descriptionReady ? ", pp.directory_description" : "") . ($visibilityReady ? ", pp.directory_show_song_count, pp.directory_show_songlist" : "") . ", u.display_name" . ($linksReady ? ", spl.public_token" : "") . "
+        GROUP BY pp.user_id" . ($locationReady ? ", pp.directory_country, pp.directory_region" : "") . ", pp.directory_state, pp.artist_name, pp.website_url" . ($contactReady ? ", pp.youtube_url, pp.contact_email, pp.contact_phone, pp.review_url, pp.booking_url" : "") . ($merchReady ? ", pp.merch_url" : "") . ", pp.logo_path" . ($descriptionReady ? ", pp.directory_description" : "") . ($visibilityReady ? ", pp.directory_show_song_count, pp.directory_show_songlist" : "") . ", u.display_name" . ($linksReady ? ", spl.public_token" : "") . "
         HAVING COALESCE(NULLIF(pp.artist_name, ''), NULLIF(u.display_name, '')) IS NOT NULL
         ORDER BY
             CASE WHEN pp.directory_state IS NULL OR pp.directory_state = '' THEN 1 ELSE 0 END,
@@ -441,7 +443,7 @@ $showQuoteAction = $directoryViewerAccountType !== 'artist';
           $songlistUrl = (!empty($artist['directory_show_songlist']) && (int)$artist['active_song_count'] > 0) ? $siteBase . '/directory.php?songlist=' . (int)$artist['user_id'] : '';
           $profileUrl = $siteBase . '/artist/' . rawurlencode((string)$artist['profile_slug']);
           $locationText = (string)($artist['location_label'] ?? 'Region not set');
-          $cardAttrs = 'data-name="' . e($name) . '" data-state="' . e($locationText) . '" data-photo="' . e($logoUrl) . '" data-description="' . e(trim((string)($artist['directory_description'] ?? ''))) . '" data-website="' . e((string)($artist['website_url'] ?? '')) . '" data-youtube="' . e((string)($artist['youtube_url'] ?? '')) . '" data-email="' . e((string)($artist['contact_email'] ?? '')) . '" data-phone="' . e((string)($artist['contact_phone'] ?? '')) . '" data-review="' . e((string)($artist['review_url'] ?? '')) . '" data-booking="' . e((string)($artist['booking_url'] ?? '')) . '" data-request="' . e($requestUrl) . '" data-songlist="' . e($songlistUrl) . '"';
+          $cardAttrs = 'data-name="' . e($name) . '" data-state="' . e($locationText) . '" data-photo="' . e($logoUrl) . '" data-description="' . e(trim((string)($artist['directory_description'] ?? ''))) . '" data-website="' . e((string)($artist['website_url'] ?? '')) . '" data-youtube="' . e((string)($artist['youtube_url'] ?? '')) . '" data-email="' . e((string)($artist['contact_email'] ?? '')) . '" data-phone="' . e((string)($artist['contact_phone'] ?? '')) . '" data-review="' . e((string)($artist['review_url'] ?? '')) . '" data-booking="' . e((string)($artist['booking_url'] ?? '')) . '" data-merch="' . e((string)($artist['merch_url'] ?? '')) . '" data-request="' . e($requestUrl) . '" data-songlist="' . e($songlistUrl) . '"';
         ?>
         <<?= $isSubscriber ? 'a' : 'button' ?> class="directory-card" <?= $isSubscriber ? 'href="' . e($profileUrl) . '"' : 'type="button" ' . $cardAttrs . ' onclick="return window.openDirectoryPhoto ? window.openDirectoryPhoto(this) : false;"' ?>>
           <?php if ($logoUrl !== ''): ?>
@@ -499,6 +501,7 @@ window.openDirectoryPhoto = function (trigger) {
     [
       ['Website', trigger.getAttribute('data-website')],
       ['YouTube', trigger.getAttribute('data-youtube')],
+      ['Merch', trigger.getAttribute('data-merch')],
       ['Email', trigger.getAttribute('data-email') ? 'mailto:' + trigger.getAttribute('data-email') : ''],
       [phoneLabel || 'Phone', trigger.getAttribute('data-phone') ? 'tel:' + trigger.getAttribute('data-phone').replace(/[^0-9+]/g, '') : ''],
       ['Book', trigger.getAttribute('data-booking')],

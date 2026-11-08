@@ -201,9 +201,10 @@ function rss_google_calendar_event_options(DateTimeInterface $start, DateTimeInt
     ];
 }
 
-function rss_google_calendar_normalize_event(Google_Service_Calendar_Event $event, DateTimeZone $tz): ?array
+function rss_google_calendar_normalize_event(Google_Service_Calendar_Event $event, DateTimeZone $tz, bool $publicOnly = false): ?array
 {
     if ($event->getStatus() === 'cancelled') return null;
+    if ($publicOnly && in_array($event->getVisibility(), ['private', 'confidential'], true)) return null;
     $start = $event->getStart();
     $end = $event->getEnd();
     if (!$start || !$end) return null;
@@ -226,7 +227,7 @@ function rss_google_calendar_normalize_event(Google_Service_Calendar_Event $even
     ];
 }
 
-function rss_google_calendar_events(PDO $pdo, int $userId, array $source, DateTimeInterface $start, DateTimeInterface $end, DateTimeZone $tz): array
+function rss_google_calendar_events(PDO $pdo, int $userId, array $source, DateTimeInterface $start, DateTimeInterface $end, DateTimeZone $tz, bool $publicOnly = false): array
 {
     $options = rss_google_calendar_event_options($start, $end, $tz);
     $service = rss_google_calendar_service($pdo, $userId, $source['google_sub']);
@@ -237,7 +238,7 @@ function rss_google_calendar_events(PDO $pdo, int $userId, array $source, DateTi
         });
         $result = [];
         foreach ($entries as $entry) {
-            $event = rss_google_calendar_normalize_event($entry, $tz);
+            $event = rss_google_calendar_normalize_event($entry, $tz, $publicOnly);
             if ($event !== null) $result[] = $event;
         }
         return $result;

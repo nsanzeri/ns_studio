@@ -72,6 +72,15 @@ $timed = new Google_Service_Calendar_Event([
 ]);
 $event = rss_google_calendar_normalize_event($timed, $tz);
 verify($event['start'] === '2026-11-09T19:30:00-06:00' && $event['uid'] === 'uid-1', 'Timed event and iCal UID preserved');
+foreach (['private', 'confidential'] as $visibility) {
+    $timed->setVisibility($visibility);
+    verify(rss_google_calendar_normalize_event($timed, $tz, true) === null, 'Exclude restricted events from public output');
+    verify(rss_google_calendar_normalize_event($timed, $tz) !== null, 'Retain restricted events for the owner’s availability checks');
+}
+foreach (['public', 'default', null] as $visibility) {
+    $timed->setVisibility($visibility);
+    verify(rss_google_calendar_normalize_event($timed, $tz, true) !== null, 'Accept ordinary main-gig events in public output');
+}
 $zoned = new Google_Service_Calendar_Event(['id' => 'zoned', 'start' => ['dateTime' => '2026-11-10T19:30:00', 'timeZone' => 'America/Los_Angeles'], 'end' => ['dateTime' => '2026-11-10T21:30:00', 'timeZone' => 'America/Los_Angeles']]);
 verify(rss_google_calendar_normalize_event($zoned, $tz)['start'] === '2026-11-10T21:30:00-06:00', 'Provider timezone used when no offset is supplied');
 $allDay = new Google_Service_Calendar_Event(['id' => 'all-day', 'start' => ['date' => '2026-11-10'], 'end' => ['date' => '2026-11-13']]);

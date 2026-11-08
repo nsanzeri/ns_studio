@@ -1,6 +1,7 @@
 <?php
 require __DIR__ . '/studio/_private/_core/bootstrap.php';
 require_once __DIR__ . '/studio/_private/_core/tool_access.php';
+require_once __DIR__ . '/studio/_private/_core/google_calendar.php';
 
 function artist_column_exists(PDO $pdo, string $tableName, string $columnName): bool {
     $stmt = $pdo->prepare("SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = ? AND column_name = ? LIMIT 1");
@@ -103,7 +104,7 @@ function artist_push_event(array &$events, array $event, DateTime $start, DateTi
     ];
 }
 
-function artist_fetch_calendar_events(array $calendar, string $startDate, string $endDate): array {
+function artist_fetch_calendar_events(PDO $pdo, array $calendar, string $startDate, string $endDate): array {
     $tzName = (string)($calendar['timezone'] ?: 'America/Chicago');
     try {
         $tz = new DateTimeZone($tzName);
@@ -112,6 +113,21 @@ function artist_fetch_calendar_events(array $calendar, string $startDate, string
     }
     $rangeStart = new DateTime($startDate, $tz);
     $rangeEnd = (new DateTime($endDate, $tz))->setTime(23, 59, 59);
+    // Public visitors use the selected artist's connection, never the viewer's.
+    $ownerId = (int)$calendar['user_id'];
+    $googleSource = rss_google_calendar_source($pdo, (int)$calendar['id'], $ownerId);
+    if ($googleSource) {
+        try {
+            set_time_limit(180);
+            $events = rss_google_calendar_events($pdo, $ownerId, $googleSource, $rangeStart, $rangeEnd, $tz, true);
+            usort($events, fn($a, $b) => (new DateTimeImmutable($a['start'])) <=> (new DateTimeImmutable($b['start'])));
+            return array_map(static fn($event) => array_intersect_key($event, array_flip(['start', 'end', 'summary', 'location'])), array_slice($events, 0, 10));
+        } catch (Throwable $e) {
+            // A provider outage or revoked grant must not break the public profile.
+            error_log('Artist calendar unavailable: calendar ' . (int)$calendar['id']);
+            return [];
+        }
+    }
     $icalUrl = rss_normalize_ical_url((string)$calendar['ics_url']);
     if (!filter_var($icalUrl, FILTER_VALIDATE_URL) || !in_array(strtolower((string)parse_url($icalUrl, PHP_URL_SCHEME)), ['http', 'https'], true)) return [];
 
@@ -207,11 +223,11 @@ if (rss_table_exists($pdo, 'setmaxx_public_profiles')) {
 }
 
 if ($profile && rss_table_exists($pdo, 'calendars') && artist_column_exists($pdo, 'calendars', 'is_main_gig')) {
-    $calStmt = $pdo->prepare("SELECT id, name, ics_url, timezone FROM calendars WHERE user_id = ? AND is_active = 1 AND is_main_gig = 1 LIMIT 1");
+    $calStmt = $pdo->prepare("SELECT id, user_id, name, ics_url, timezone FROM calendars WHERE user_id = ? AND is_active = 1 AND is_main_gig = 1 LIMIT 1");
     $calStmt->execute([(int)$profile['user_id']]);
     $calendar = $calStmt->fetch(PDO::FETCH_ASSOC) ?: null;
     if ($calendar) {
-        $events = artist_fetch_calendar_events($calendar, date('Y-m-d'), (new DateTimeImmutable('+18 months'))->format('Y-m-d'));
+        $events = artist_fetch_calendar_events($pdo, $calendar, date('Y-m-d'), (new DateTimeImmutable('+18 months'))->format('Y-m-d'));
     }
 }
 

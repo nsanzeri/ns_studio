@@ -638,6 +638,7 @@ $screens = [
     </style>
 </head>
 <body>
+<?php require_once __DIR__ . '/rss_meta_pixel.php'; rss_render_meta_pixel(); ?>
     <header class="rss-header">
         <div class="container rss-header-inner">
             <a class="rss-brand" href="<?= htmlspecialchars($siteBase . '/index.php', ENT_QUOTES, 'UTF-8') ?>">

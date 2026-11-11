@@ -50,6 +50,7 @@ $showCalendarSubnav = str_contains($currentPath, '/tools/');
 ?>
 
 <header class="site-header tools-site-header">
+    <?php require_once __DIR__ . '/rss_meta_pixel.php'; rss_render_meta_pixel(); ?>
     <div class="container header-inner tools-header-inner">
         <a href="<?= htmlspecialchars($studioBase . '/tools/index.php') ?>" class="brand brand-rss tools-brand">
             <span class="brand-mark" aria-hidden="true">

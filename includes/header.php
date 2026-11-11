@@ -27,6 +27,7 @@ if (!function_exists('nav_active')) {
 ?>
 
 <header class="site-header">
+    <?php require_once __DIR__ . '/rss_meta_pixel.php'; rss_render_meta_pixel(); ?>
     <div class="container header-inner">
         <a href="<?= htmlspecialchars($siteBase . '/index.php') ?>" class="brand">
             <span class="brand-mark">NS</span>

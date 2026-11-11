@@ -231,7 +231,8 @@ class Auth {
     return $user ?: null;
   }
 
-  public static function upsertGoogleUser(PDO $pdo, string $sub, string $email, ?string $displayName = null): int {
+  public static function upsertGoogleUser(PDO $pdo, string $sub, string $email, ?string $displayName = null, ?bool &$created = null): int {
+    $created = false;
     $email = strtolower(trim($email));
 
     $existingBySub = self::findUserByGoogleSub($pdo, $sub);
@@ -251,6 +252,7 @@ class Auth {
     $randomPassword = password_hash(bin2hex(random_bytes(24)), PASSWORD_DEFAULT);
     $stmt = $pdo->prepare('INSERT INTO users (email, google_sub, display_name, password_hash, last_login_at) VALUES (?, ?, ?, ?, NOW())');
     $stmt->execute([$email, $sub, $displayName, $randomPassword]);
+    $created = true;
     return (int)$pdo->lastInsertId();
   }
 

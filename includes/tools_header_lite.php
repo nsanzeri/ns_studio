@@ -14,6 +14,7 @@ if (isset($pdo) && function_exists('rss_get_current_user_trial_status')) {
 ?>
 
 <header class="site-header tools-site-header-lite">
+    <?php require_once __DIR__ . '/rss_meta_pixel.php'; rss_render_meta_pixel(); ?>
     <div class="container tools-header-inner-lite">
 
         <!-- Brand -->

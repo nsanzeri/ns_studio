@@ -1,5 +1,6 @@
 <?php
 require __DIR__ . '/../_private/_core/bootstrap.php';
+require_once __DIR__ . '/../../includes/rss_meta_pixel.php';
 
 function rss_google_redirect_uri(): string
 {
@@ -97,7 +98,8 @@ if (!$email || !$sub) {
 	exit;
 }
 
-$userId = Auth::upsertGoogleUser($pdo, $sub, $email, $name ?: null);
+$googleUserCreated = false;
+$userId = Auth::upsertGoogleUser($pdo, $sub, $email, $name ?: null, $googleUserCreated);
 $requestedAccountType = isset($_SESSION['registration_account_type']) ? Auth::normalizeAccountType((string)$_SESSION['registration_account_type']) : '';
 $requestHost = strtolower((string)($_SERVER['HTTP_HOST'] ?? ''));
 $requestHost = preg_replace('/:\d+$/', '', $requestHost);
@@ -111,6 +113,9 @@ if ($requestedAccountType === 'artist' && Auth::accountTypeColumnExists($pdo) &&
 }
 sync_user_entitlements($pdo, $userId);
 Auth::login($userId);
+if ($googleUserCreated) {
+	rss_meta_pixel_registration_created($userId);
+}
 
 $next = $nextPath ?: google_login_default_post_login_url($pdo, $userId, $isReadySetShowsContext);
 $accountType = Auth::accountTypeForUser($pdo, $userId);

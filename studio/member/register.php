@@ -1,5 +1,6 @@
 <?php
 require __DIR__ . '/../_private/_core/bootstrap.php';
+require_once __DIR__ . '/../../includes/rss_meta_pixel.php';
 
 $requestedAccountTypeRaw = strtolower(trim((string)($_GET['account_type'] ?? $_SESSION['registration_account_type'] ?? '')));
 if (($_GET['brand'] ?? '') === 'rss') {
@@ -78,6 +79,7 @@ if (is_post()) {
 				
 				sync_user_entitlements($pdo, $userId);
 				Auth::login($userId);
+				rss_meta_pixel_registration_created($userId);
 				
 				$next = $_SESSION['login_next'] ?? Auth::defaultPostLoginUrl($pdo, $userId);
 				if (empty($_SESSION['login_next']) && $accountType === 'artist') {

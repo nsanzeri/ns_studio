@@ -45,6 +45,7 @@ $suiteModules = $headerAccountType === 'customer'
     ];
 ?>
 <header class="site-header setmaxx-site-header">
+    <?php require_once __DIR__ . '/rss_meta_pixel.php'; rss_render_meta_pixel(); ?>
     <div class="container setmaxx-header-inner">
         <a href="<?= htmlspecialchars($studioBase . '/tools/index.php') ?>" class="brand brand-rss setmaxx-brand">
             <span class="brand-mark" aria-hidden="true">
